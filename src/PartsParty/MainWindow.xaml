@@ -1,0 +1,92 @@
+<Window x:Class="PartsParty.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Parts Party"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        RenderOptions.BitmapScalingMode="NearestNeighbor">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="Panel" Color="#E6101319" />
+    <SolidColorBrush x:Key="PanelEdge" Color="#4C5DD8BB" />
+    <SolidColorBrush x:Key="Text" Color="#DDE5F8" />
+    <SolidColorBrush x:Key="Sub" Color="#9AA7C4" />
+    <SolidColorBrush x:Key="Accent" Color="#5DD8BB" />
+
+    <!-- 小さな四角いボタン。枠の中に文字だけ。 -->
+    <Style x:Key="TinyButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="#9AA7C4" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="3">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#33FFFFFF" />
+                <Setter Property="Foreground" Value="#DDE5F8" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <StackPanel x:Name="Root">
+
+    <!-- 上: 物語。ここは文字なので拡大せず、常に読みやすい大きさで描く -->
+    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
+            BorderThickness="1" CornerRadius="6" Padding="9,6" x:Name="StoryPanel">
+      <StackPanel>
+        <DockPanel LastChildFill="False">
+          <TextBlock x:Name="ChapterText" Foreground="{StaticResource Accent}"
+                     FontSize="10" FontWeight="SemiBold" Text="序章  灯る" DockPanel.Dock="Left" />
+          <!-- 右上に小さな操作。常に前面 / 大きさ / 閉じる -->
+          <Button x:Name="CloseButton" Style="{StaticResource TinyButton}" Content="✕"
+                  DockPanel.Dock="Right" ToolTip="終了" />
+          <Button x:Name="SizeButton" Style="{StaticResource TinyButton}" Content="⤢"
+                  DockPanel.Dock="Right" ToolTip="大きさを変える (1x / 2x / 3x)" />
+          <Button x:Name="TopmostButton" Style="{StaticResource TinyButton}" Content="📌"
+                  DockPanel.Dock="Right" ToolTip="常に前面に表示" />
+        </DockPanel>
+        <TextBlock x:Name="StoryLine1" Foreground="{StaticResource Text}" FontSize="12"
+                   Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                   Text="灯がともった。一行はまだ、自分がどこに挿さっているのかを確かめている。" />
+        <TextBlock x:Name="StoryLine2" Foreground="{StaticResource Sub}" FontSize="12"
+                   TextTrimming="CharacterEllipsis" Text="" />
+      </StackPanel>
+    </Border>
+
+    <!-- 中: 基板。等倍で描いた絵を整数倍で拡大して置く -->
+    <Image x:Name="BoardImage" Stretch="None" SnapsToDevicePixels="True" />
+
+    <!-- 下: 開閉 -->
+    <Border Background="#BF101319" CornerRadius="0,0,6,6" x:Name="ArrowBar">
+      <Button x:Name="ExpandButton" Style="{StaticResource TinyButton}" Content="▼"
+              HorizontalAlignment="Stretch" FontSize="10" ToolTip="各パーツの稼働状況" />
+    </Border>
+
+    <!-- 展開: 数値。畳んでいる間は数字を見せない -->
+    <Border x:Name="DetailPanel" Background="{StaticResource Panel}"
+            BorderBrush="{StaticResource PanelEdge}" BorderThickness="1"
+            CornerRadius="6" Padding="9,7" Margin="0,3,0,0" Visibility="Collapsed">
+      <StackPanel x:Name="DetailStack" />
+    </Border>
+
+  </StackPanel>
+</Window>

@@ -1,0 +1,352 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Parts Party — 見た目の見本</title>
+<!--
+  C# を書く前に見た目を確定させるための見本。
+  実際のアトラス(assets/characters.png + atlas.json)を読んで、
+  アプリと同じ配置・同じ拡大率で描く。ここで決まった数値をそのまま C# に移す。
+-->
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 24px; background: #2b2f3a;
+    font: 13px/1.6 "Yu Gothic UI", "Meiryo", system-ui, sans-serif; color: #cfd6e4;
+  }
+  .stage { display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
+  .label { font-size: 12px; color: #8b93a7; }
+  /* 実際の窓は透明。背景に何が来ても読めるかを見るため、市松模様の上に置く */
+  .wrap {
+    background:
+      repeating-conic-gradient(#3a3f4d 0 25%, #333846 0 50%) 0 0 / 16px 16px;
+    padding: 12px; border-radius: 6px;
+  }
+  canvas { display: block; image-rendering: pixelated; }
+</style>
+
+<div class="stage">
+  <div>
+    <p class="label">畳んだ状態（既定・2倍）</p>
+    <div class="wrap"><canvas id="c1"></canvas></div>
+  </div>
+  <div>
+    <p class="label">開いた状態（下矢印を押したとき・2倍）</p>
+    <div class="wrap"><canvas id="c2"></canvas></div>
+  </div>
+  <div>
+    <p class="label">最小（1倍）</p>
+    <div class="wrap"><canvas id="c3"></canvas></div>
+  </div>
+</div>
+
+<script type="module">
+const atlas = await (await fetch("../../assets/atlas.json")).json();
+const sheet = await new Promise((res) => {
+  const im = new Image();
+  im.onload = () => res(im);
+  im.src = "../../assets/characters.png";
+});
+
+// ---------------------------------------------------------------------------
+// 配置の定義。**この数値がそのまま C# に移る。**
+// 単位はドット絵の1画素（拡大率をかける前）。
+// ---------------------------------------------------------------------------
+const L = {
+  cell: 32,          // キャラ1体の大きさ
+  gap: 9,            // キャラの間隔（スロットのツメぶん広げる）
+  padX: 8,           // 基板の左右の余白
+  boardTop: 5,       // 基板の上の余白
+  slotH: 8,          // スロットの高さ（キャラの足元に重ねる）
+  boardPadBottom: 5,
+  arrowH: 11,        // 下の矢印の帯
+};
+
+// 並び順。**実際の基板の並びに寄せる。** 左から CPU 周り → 拡張 → 電源。
+const SLOTS = [
+  { id: "cpu",         slot: "socket" },
+  { id: "cpu-cooler",  slot: "socket" },
+  { id: "memory",      slot: "dimm" },
+  { id: "gpu",         slot: "pcie" },
+  { id: "ssd",         slot: "m2" },
+  { id: "hdd",         slot: "sata" },
+  { id: "psu",         slot: "atx" },
+];
+
+const C = {
+  pcb:      "#22402f",
+  pcbLine:  "#2e5540",
+  pcbEdge:  "#182d22",
+  slot:     "#0f1720",
+  slotLip:  "#4d5a70",
+  gold:     "#d8b25c",
+  panel:    "rgba(16,19,26,0.90)",
+  panelEdge:"rgba(93,216,187,0.30)",
+  text:     "#dde5f8",
+  sub:      "#9aa7c4",
+  accent:   "#5dd8bb",
+  warn:     "#e7c84b",
+  danger:   "#f05070",
+};
+
+function boardWidth() {
+  return L.padX * 2 + SLOTS.length * L.cell + (SLOTS.length - 1) * L.gap;
+}
+
+/**
+ * スロットは**2回に分けて描く**。
+ *   back  … キャラより先（受け口の奥。暗い溝）
+ *   front … キャラの後（手前のツメ。足元の数pxに重なる）
+ *
+ * 大事なのは**溝を細くして、キャラの足を4pxだけ中に入れること**。
+ * 大きな箱を後ろに置くと「箱の前に立っている」に見えて逆効果だった。
+ */
+const SLOT_INSET = 4;   // 足がスロットに入る深さ
+
+function drawSlotBack(ctx, kind, x, y, w, h) {
+  // y はスロットの上端（＝キャラの足元より SLOT_INSET だけ上）
+  ctx.fillStyle = C.slot;
+  if (kind === "socket")      ctx.fillRect(x - 3, y, w + 6, h);
+  else if (kind === "pcie")   ctx.fillRect(x - 4, y, w + 8, h);
+  else if (kind === "atx")    ctx.fillRect(x + 1, y, w - 2, h);
+  else                         ctx.fillRect(x + 2, y, w - 4, h);
+}
+
+function drawSlotFront(ctx, kind, x, y, w, h) {
+  const bot = y + h;                 // スロットの下端
+  const gold = (gx, gw) => { ctx.fillStyle = C.gold; ctx.fillRect(gx, bot - 2, gw, 1); };
+
+  if (kind === "socket") {
+    // ソケット: 左右の留め金具と、下の接点
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x - 3, y, 3, h);
+    ctx.fillRect(x + w, y, 3, h);
+    ctx.fillRect(x - 3, y, w + 6, 1);
+    ctx.fillStyle = C.gold;
+    for (let i = 1; i < w - 1; i += 2) ctx.fillRect(x + i, bot - 2, 1, 1);
+  } else if (kind === "dimm") {
+    // DIMM: 両端の白いツメ。これがスロットの一番の目印
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x, y - 5, 3, h + 5);
+    ctx.fillRect(x + w - 3, y - 5, 3, h + 5);
+    ctx.fillStyle = C.pcbEdge;
+    ctx.fillRect(x, y - 5, 3, 2);
+    ctx.fillRect(x + w - 3, y - 5, 3, 2);
+    gold(x + 4, w - 8);
+  } else if (kind === "pcie") {
+    // PCIe: 右端のツメと長い接点
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x + w + 1, y - 4, 3, h + 4);
+    ctx.fillRect(x - 4, y, w + 8, 1);
+    gold(x - 2, w + 4);
+  } else if (kind === "m2") {
+    // M.2: 片側のネジ止め
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x + w - 4, bot - 4, 4, 4);
+    ctx.fillStyle = C.pcbEdge;
+    ctx.fillRect(x + w - 3, bot - 3, 2, 2);
+    gold(x + 3, w - 12);
+  } else if (kind === "sata") {
+    // SATA: L字の受け口
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x + 2, y, w - 4, 1);
+    ctx.fillRect(x + 2, y, 2, h);
+    gold(x + 6, w - 12);
+  } else if (kind === "atx") {
+    // ATX: ピン穴の並び
+    ctx.fillStyle = C.slotLip;
+    ctx.fillRect(x + 1, y, w - 2, 1);
+    ctx.fillStyle = C.gold;
+    for (let i = 0; i < 6; i++) ctx.fillRect(x + 3 + i * 4, bot - 3, 2, 2);
+  }
+}
+
+/**
+ * 基板。**部品を少し散らす**のが要点。
+ * 配線だけだと方眼紙に見え、部品を置くと一気に基板に見える。
+ */
+function drawBoard(ctx, x, y, w, h) {
+  ctx.fillStyle = C.pcb;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = C.pcbEdge;
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillRect(x, y + h - 1, w, 1);
+
+  let seed = 11;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+
+  // 配線（曲がる筋）
+  ctx.fillStyle = C.pcbLine;
+  for (let i = 0; i < 18; i++) {
+    let px = 3 + Math.floor(rnd() * (w - 10));
+    let py = 3 + Math.floor(rnd() * (h - 8));
+    const len = 5 + Math.floor(rnd() * 14);
+    if (rnd() > 0.5) {
+      ctx.fillRect(px, py, Math.min(len, w - 3 - px), 1);
+      ctx.fillRect(Math.min(px + len, w - 4), py, 1, Math.min(5, h - 3 - py));
+    } else {
+      ctx.fillRect(px, py, 1, Math.min(len, h - 3 - py));
+      ctx.fillRect(px, Math.min(py + len, h - 4), Math.min(6, w - 3 - px), 1);
+    }
+  }
+  // 小さな部品（チップ抵抗・コンデンサ）
+  for (let i = 0; i < 22; i++) {
+    const px = 4 + Math.floor(rnd() * (w - 10));
+    const py = 3 + Math.floor(rnd() * (h - 7));
+    if (rnd() > 0.55) {
+      ctx.fillStyle = "#1b2b22";            // チップ抵抗
+      ctx.fillRect(px, py, 3, 2);
+      ctx.fillStyle = C.gold;
+      ctx.fillRect(px, py, 1, 2);
+      ctx.fillRect(px + 2, py, 1, 2);
+    } else {
+      ctx.fillStyle = "#2a3550";            // コンデンサ
+      ctx.fillRect(px, py, 2, 3);
+      ctx.fillStyle = "#4d5a70";
+      ctx.fillRect(px, py, 2, 1);
+    }
+  }
+  // 四隅のネジ穴
+  ctx.fillStyle = C.slotLip;
+  for (const [dx, dy] of [[2, 2], [w - 4, 2], [2, h - 4], [w - 4, h - 4]]) {
+    ctx.fillRect(x + dx, y + dy, 2, 2);
+    ctx.fillStyle = C.pcbEdge;
+    ctx.fillRect(x + dx, y + dy, 1, 1);
+    ctx.fillStyle = C.slotLip;
+  }
+}
+
+function drawChar(ctx, id, motion, frame, x, y) {
+  const m = atlas.characters[id]?.motions?.[motion];
+  if (!m) return;
+  const [sx, sy] = m.frames[frame % m.frames.length];
+  ctx.drawImage(sheet, sx, sy, atlas.cell, atlas.cell, x, y, atlas.cell, atlas.cell);
+}
+
+/**
+ * 窓を1枚描く。
+ * s = 拡大率。ドット絵の部分だけ整数倍で拡大し、文字は等倍で描く
+ * （文字を拡大するとぼけるため）。
+ */
+function render(canvas, { scale, expanded }) {
+  const bw = boardWidth();
+  const boardH = L.boardTop + L.cell + L.slotH + L.boardPadBottom;
+
+  const spriteW = bw * scale;
+  const storyH = 46;                       // 文字の帯（等倍）
+  const arrowH = L.arrowH * scale;
+  const detailH = expanded ? 96 : 0;       // 数値の帯（等倍）
+
+  const W = spriteW;
+  const H = storyH + boardH * scale + arrowH + detailH;
+
+  const dpr = 2;                            // 見本を綺麗に撮るため
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+
+  // ---- 上: 物語 ----
+  roundRect(ctx, 0, 0, W, storyH, 6, C.panel, C.panelEdge);
+  ctx.fillStyle = C.accent;
+  ctx.font = "600 10px 'Yu Gothic UI', Meiryo, sans-serif";
+  ctx.fillText("第二章  灼熱の谷", 10, 15);
+  ctx.fillStyle = C.text;
+  ctx.font = "12px 'Yu Gothic UI', Meiryo, sans-serif";
+  ctx.fillText("谷は熱を持っていた。GPUくんが先に立った。", 10, 30);
+  ctx.fillStyle = C.sub;
+  ctx.fillText("後ろで CPUくんが数を数えている。", 10, 43);
+
+  // ---- 中: 基板とキャラ ----
+  ctx.save();
+  ctx.translate(0, storyH);
+  ctx.scale(scale, scale);
+  drawBoard(ctx, 0, 0, bw, boardH);
+
+  const charY = L.boardTop;
+  // スロットの上端＝足元より SLOT_INSET だけ上。足がスロットに入って見える
+  const slotY = charY + L.cell - SLOT_INSET;
+  // 奥→キャラ→手前 の順に描く。これで「挿さっている」ように見える
+  SLOTS.forEach((s, i) => {
+    const x = L.padX + i * (L.cell + L.gap);
+    drawSlotBack(ctx, s.slot, x, slotY, L.cell, L.slotH);
+  });
+  SLOTS.forEach((s, i) => {
+    const x = L.padX + i * (L.cell + L.gap);
+    // 稼働状況の例: GPU は高負荷なので peek、CPU は walk、他は idle
+    const motion = s.id === "gpu" ? "peek" : s.id === "cpu" ? "walk" : "idle";
+    drawChar(ctx, s.id, motion, 0, x, charY);
+  });
+  SLOTS.forEach((s, i) => {
+    const x = L.padX + i * (L.cell + L.gap);
+    drawSlotFront(ctx, s.slot, x, slotY, L.cell, L.slotH);
+  });
+  ctx.restore();
+
+  // ---- 下: 矢印 ----
+  const ay = storyH + boardH * scale;
+  roundRect(ctx, 0, ay, W, arrowH, 0, "rgba(16,19,26,0.75)", null);
+  ctx.fillStyle = C.sub;
+  ctx.font = "10px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(expanded ? "▲" : "▼", W / 2, ay + arrowH - 3);
+  ctx.textAlign = "left";
+
+  // ---- 展開: 数値 ----
+  if (expanded) {
+    const dy = ay + arrowH;
+    roundRect(ctx, 0, dy, W, detailH, 6, C.panel, C.panelEdge);
+    detailRow(ctx, dy + 16, "CPU", 0.62, "62%  4.1GHz", 16);
+    detailRow(ctx, dy + 38, "MEM", 0.75, "24.1 / 32 GB", 0);
+    detailRow(ctx, dy + 60, "GPU", 0.91, "91%  7.2 / 8 GB", 0);
+    detailRow(ctx, dy + 82, "SSD", 0.12, "▲12 ▼104 MB/s", 0);
+  }
+
+  function detailRow(ctx, y, label, ratio, text, cores) {
+    ctx.fillStyle = C.sub;
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.fillText(label, 10, y);
+    const bx = 44, bw2 = W - 44 - 120;
+    if (cores) {
+      // コアの粒。1粒=1論理コア
+      const cols = 16, cw = 5, ch = 5;
+      for (let i = 0; i < cores; i++) {
+        const cx = bx + (i % cols) * cw, cy = y - 8 + Math.floor(i / cols) * ch;
+        const load = (Math.sin(i * 1.7) + 1) / 2;
+        ctx.fillStyle = load > 0.8 ? C.danger : load > 0.5 ? C.warn : C.accent;
+        ctx.globalAlpha = 0.25 + load * 0.75;
+        ctx.fillRect(cx, cy, cw - 1, ch - 1);
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(bx, y - 7, bw2, 7);
+      ctx.fillStyle = ratio > 0.85 ? C.danger : ratio > 0.6 ? C.warn : C.accent;
+      ctx.fillRect(bx, y - 7, bw2 * ratio, 7);
+    }
+    ctx.fillStyle = C.text;
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(text, W - 10, y);
+    ctx.textAlign = "left";
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+render(document.getElementById("c1"), { scale: 2, expanded: false });
+render(document.getElementById("c2"), { scale: 2, expanded: true });
+render(document.getElementById("c3"), { scale: 1, expanded: false });
+document.body.dataset.ready = "1";
+</script>

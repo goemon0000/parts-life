@@ -1,0 +1,13 @@
+{
+  "name": "parts-party-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "export:atlas": "tsx tools/export-atlas.mts",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

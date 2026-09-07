@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET 8 のサポートは 2026-11 で切れる。新規配布物は 10(LTS) に合わせる。 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>PartsParty</AssemblyName>
+    <RootNamespace>PartsParty</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Linux 上でも WPF をビルドできるようにする（開発側が Linux のため） -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- 配布用: 何も入っていない Windows でも動く単一 exe -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 絵は exe に埋め込む。外部ファイルにすると配布で欠ける -->
+    <Resource Include="..\..\assets\characters.png" Link="Assets\characters.png" />
+    <Resource Include="..\..\assets\marks.png" Link="Assets\marks.png" />
+    <Resource Include="..\..\assets\atlas.json" Link="Assets\atlas.json" />
+  </ItemGroup>
+
+</Project>
