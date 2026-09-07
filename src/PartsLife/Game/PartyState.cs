@@ -2,7 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace PartsParty.Game;
+namespace PartsLife.Game;
 
 /// <summary>
 /// 保存される進行。**利用者は一切操作できない。**
@@ -73,6 +73,22 @@ public sealed class PartyState
         return hi <= lo ? 0 : Math.Clamp((exp - lo) / (hi - lo), 0, 1);
     }
 
+    /// <summary>
+    /// 経験値の鍵を、1台前提の名前から台数付きの名前へ移す。
+    /// **これをやらないと、更新した人の CPU くんと GPU くんだけレベル1に戻る。**
+    /// 育てた分が消えるのは、遊びの部分とはいえ一番やってはいけない。
+    /// </summary>
+    public void MigrateKeys()
+    {
+        foreach (var id in new[] { "cpu", "cpu-cooler", "gpu" })
+        {
+            if (!Experience.TryGetValue(id, out double exp)) continue;
+            string moved = id + "#0";
+            if (!Experience.ContainsKey(moved)) Experience[moved] = exp;
+            Experience.Remove(id);
+        }
+    }
+
     public void AddExp(string characterId, double amount)
     {
         if (amount <= 0) return;
@@ -82,9 +98,13 @@ public sealed class PartyState
     // ---------------------------------------------------------------------
     // 保存
     // ---------------------------------------------------------------------
-    private static string Dir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PartsParty");
+    private static string AppData =>
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+    private static string Dir => Path.Combine(AppData, "PartsLife");
     private static string FilePath => Path.Combine(Dir, "state.json");
+
+    /// <summary>改名前の保存先。**消さずに引き継ぐ。**育てた分が消えたら台無しなので。</summary>
+    private static string LegacyFilePath => Path.Combine(AppData, "PartsParty", "state.json");
 
     private static readonly JsonSerializerOptions Opts = new()
     {
@@ -96,8 +116,11 @@ public sealed class PartyState
     {
         try
         {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<PartyState>(File.ReadAllText(FilePath), Opts) ?? new PartyState();
+            string from = File.Exists(FilePath) ? FilePath
+                        : File.Exists(LegacyFilePath) ? LegacyFilePath   // 「パーツパーティ」時代の進行
+                        : "";
+            if (from.Length > 0)
+                return JsonSerializer.Deserialize<PartyState>(File.ReadAllText(from), Opts) ?? new PartyState();
         }
         catch { /* 壊れていたら作り直す。物語が消えるだけで害はない */ }
         return new PartyState();

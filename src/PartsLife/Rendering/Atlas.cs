@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
-namespace PartsParty.Rendering;
+namespace PartsLife.Rendering;
 
 /// <summary>
 /// ドット絵のアトラス（1枚のPNG＋座標表）を読む。

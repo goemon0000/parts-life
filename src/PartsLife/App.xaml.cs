@@ -1,9 +1,9 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using PartsParty.Rendering;
+using PartsLife.Rendering;
 
-namespace PartsParty;
+namespace PartsLife;
 
 public partial class App : System.Windows.Application
 {
@@ -35,7 +35,27 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        int shot = Array.FindIndex(args, a => a == "--shot");
+        if (shot >= 0 && shot + 1 < args.Length)
+        {
+            var w = new MainWindow();
+            var bmp = w.RenderShot(
+                expanded: !args.Contains("--collapsed"),
+                scale: shot + 2 < args.Length && double.TryParse(args[shot + 2], out var sc) ? sc : 2);
+            Save(bmp, args[shot + 1]);
+            Shutdown();
+            return;
+        }
+
         new MainWindow().Show();
+    }
+
+    private static void Save(BitmapSource bmp, string path)
+    {
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(bmp));
+        using var fs = File.Create(path);
+        enc.Save(fs);
     }
 
     /// <summary>
@@ -75,11 +95,23 @@ public partial class App : System.Windows.Application
     {
         var atlas = Atlas.Load();
         var board = new BoardRenderer(atlas);
-        var layout = new (string Id, SlotKind Kind)[]
+
+        // 実機を模した並び。**GPU 2枚（開発機と同じ）と、サーバ想定の折り返しの両方を見る。**
+        var desktop = new (string Id, SlotKind Kind)[]
         {
             ("cpu", SlotKind.Socket), ("cpu-cooler", SlotKind.Socket), ("memory", SlotKind.Dimm),
-            ("gpu", SlotKind.Pcie), ("ssd", SlotKind.M2), ("hdd", SlotKind.Sata), ("psu", SlotKind.Atx),
+            ("gpu", SlotKind.Pcie), ("gpu", SlotKind.Pcie),
+            ("ssd", SlotKind.M2), ("hdd", SlotKind.Sata), ("psu", SlotKind.Atx),
         };
+        var server = new (string Id, SlotKind Kind)[]
+        {
+            ("cpu", SlotKind.Socket), ("cpu-cooler", SlotKind.Socket),
+            ("cpu", SlotKind.Socket), ("cpu-cooler", SlotKind.Socket),
+            ("memory", SlotKind.Dimm),
+            ("gpu", SlotKind.Pcie), ("gpu", SlotKind.Pcie), ("gpu", SlotKind.Pcie), ("gpu", SlotKind.Pcie),
+            ("ssd", SlotKind.M2), ("hdd", SlotKind.Sata), ("psu", SlotKind.Atx),
+        };
+        var layout = path.Contains("server", StringComparison.OrdinalIgnoreCase) ? server : desktop;
 
         // 何コマか縦に並べる。**1コマだけ見ても、湯気が動いているかは判断できない。**
         var frames = new List<BitmapSource>();

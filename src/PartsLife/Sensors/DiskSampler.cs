@@ -1,7 +1,7 @@
 using System.IO;
 using System.Management;
 
-namespace PartsParty.Sensors;
+namespace PartsLife.Sensors;
 
 public sealed record DriveInfoLite(
     string Name,        // "C:"

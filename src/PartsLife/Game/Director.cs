@@ -1,6 +1,6 @@
-using PartsParty.Sensors;
+using PartsLife.Sensors;
 
-namespace PartsParty.Game;
+namespace PartsLife.Game;
 
 /// <summary>実測から作った、1秒ぶんの「働き」。</summary>
 public sealed record Work(
@@ -49,28 +49,8 @@ public sealed class Director
     // 経験値
     // ---------------------------------------------------------------------
 
-    /// <summary>
-    /// キャラごとの「いまの働き」。0..1。
-    /// レベル上げにも、立ち姿（モーション）にも同じ値を使う。
-    /// 表示と経験値がずれると、見ていて嘘くさくなる。
-    /// </summary>
-    public static double LoadOf(string id, Work w) => id switch
-    {
-        "cpu" => w.Cpu,
-        // クーラーが冷やす相手は CPU ただ一人。だから CPU と完全に連動する。
-        "cpu-cooler" => w.Cpu,
-        "memory" => w.Memory,
-        "gpu" => w.Gpu,
-        "ssd" => w.Disk,
-        "hdd" => w.Disk * 0.7,
-        // 電源は全員に配る側。誰かが働けば、その分だけ働いている。
-        "psu" => Math.Clamp((w.Cpu + w.Gpu) * 0.5 + w.Disk * 0.2, 0, 1),
-        "motherboard" => Math.Clamp(0.15 + (w.Cpu + w.Gpu + w.Disk) * 0.2, 0, 1),
-        _ => 0.1,
-    };
-
     /// <summary>1秒あたりの取得経験値。待機でも僅かに入る（点けているだけでも進む）。</summary>
-    private static double ExpRate(string id, Work w) => 0.6 + LoadOf(id, w) * 11.0;
+    private static double ExpRate(double load) => 0.6 + Math.Clamp(load, 0, 1) * 11.0;
 
     // ---------------------------------------------------------------------
     // 進行
@@ -80,22 +60,25 @@ public sealed class Director
     /// dt 秒ぶん進める。呼ぶのは1秒に1回で十分。
     /// 返り値は「今回新しく出た文章」（無ければ空）。
     /// </summary>
-    public IReadOnlyList<string> Tick(double dt, Work w, IReadOnlyCollection<string> characterIds, string lang)
+    public IReadOnlyList<string> Tick(double dt, Work w, IReadOnlyList<PartySlot> slots, string lang)
     {
         var produced = new List<string>();
         _state.UptimeSeconds += dt;
 
         // --- 経験値 ---
-        foreach (var id in characterIds)
+        // **その子自身の仕事でしか増えない。**
+        // GPU が2枚なら、回っている方だけが育つ。ここが崩れると、ただの時間経過になる。
+        foreach (var slot in slots)
         {
-            int before = _state.Level(id);
-            _state.AddExp(id, ExpRate(id, w) * dt);
-            int after = _state.Level(id);
+            int before = _state.Level(slot.Key);
+            _state.AddExp(slot.Key, ExpRate(slot.Load) * dt);
+            int after = _state.Level(slot.Key);
             if (after > before)
             {
                 var t = _story.EventById("level-up");
                 if (t is { Texts.Count: > 0 })
-                    produced.Add(Pick(t).For(lang).Replace("{name}", DisplayName(id, lang)) + $"  (Lv.{after})");
+                    produced.Add(Pick(t).For(lang)
+                        .Replace("{name}", DisplayName(slot.CharacterId, lang)) + $"  (Lv.{after})");
             }
         }
 

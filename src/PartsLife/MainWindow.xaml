@@ -1,4 +1,4 @@
-<Window x:Class="PartsParty.MainWindow"
+<Window x:Class="PartsLife.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Parts Party"
@@ -89,7 +89,7 @@
 
       <!-- 中: 基板。等倍で描いた絵を拡大して置く。レベルの字だけは絵の上に重ねる
            （絵と一緒に拡大すると、ドットの字が読めなくなるため） -->
-      <Grid x:Name="BoardHost" HorizontalAlignment="Left">
+      <Grid x:Name="BoardHost" HorizontalAlignment="Center">
         <Image x:Name="BoardImage" Stretch="Fill" SnapsToDevicePixels="True" />
         <Canvas x:Name="LevelLayer" IsHitTestVisible="False" />
       </Grid>

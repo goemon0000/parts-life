@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace PartsParty.Sensors;
+namespace PartsLife.Sensors;
 
 /// <summary>GPU の素性。LUID で引ける形にしたもの。</summary>
 public sealed record GpuIdentity(string LuidKey, string Name, ulong DedicatedBytes);

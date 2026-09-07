@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace PartsParty.Rendering;
+namespace PartsLife.Rendering;
 
 /// <summary>基板に挿さっている1体ぶんの情報。</summary>
 public sealed record BoardSlot(
@@ -43,11 +43,40 @@ public sealed class BoardRenderer
     /// <summary>足がスロットに入る深さ。これが無いと「乗っているだけ」に見える。</summary>
     public const int SlotInset = 4;
 
-    public static int BoardHeight => BoardTop + Cell + SlotH + LabelH + BoardPadBottom;
+    /// <summary>1段ぶんの高さ。**GPU が何枚もある機械では段を折り返す。**</summary>
+    public static int RowHeight => BoardTop + Cell + SlotH + LabelH;
+    public static int BoardHeight(int rows) => Math.Max(1, rows) * RowHeight + BoardPadBottom;
+    public static int RowTop(int row) => row * RowHeight;
     /// <summary>レベルの帯の上端（ドット絵の座標）。</summary>
-    public static int LabelBandTop => BoardTop + Cell - SlotInset + SlotH;
-    /// <summary>i 番目のスロットの左端（ドット絵の座標）。文字を重ねる側もこれを使う。</summary>
+    public static int LabelBandTop(int row) => RowTop(row) + BoardTop + Cell - SlotInset + SlotH;
+    /// <summary>段の中で i 番目のスロットの左端。文字を重ねる側もこれを使う。</summary>
     public static int SlotLeft(int index) => PadX + index * (Cell + Gap);
+
+    /// <summary>その段を中央に寄せるための左の余白。描画側と文字側で必ず同じ値を使うこと。</summary>
+    public static int RowInset(int count, int row, int boardWidth)
+    {
+        int perRow = PerRow(count);
+        int inRow = Math.Min(count - row * perRow, perRow);
+        int inset = (boardWidth - BoardWidth(perRow)) / 2;
+        return inset + (inRow < perRow ? (perRow - inRow) * (Cell + Gap) / 2 : 0);
+    }
+
+    /// <summary>1段に並べる上限。これを超えたら折り返す（窓が画面幅を超えないように）。</summary>
+    public const int MaxPerRow = 8;
+
+    public static int RowsFor(int count) => Math.Max(1, (Math.Max(count, 1) + MaxPerRow - 1) / MaxPerRow);
+
+    /// <summary>
+    /// 1段に何体置くか。**段の数で割り切って均す。**
+    /// 上限で切ると 9体が 8+1 になり、2段目に1体だけ立った間抜けな絵になる。
+    /// 均せば 5+4 になり、盤として収まる。
+    /// </summary>
+    public static int PerRow(int count)
+    {
+        int n = Math.Max(count, 1);
+        int rows = RowsFor(n);
+        return (n + rows - 1) / rows;
+    }
     public static int BoardWidth(int slotCount) =>
         PadX * 2 + slotCount * Cell + Math.Max(0, slotCount - 1) * Gap;
 
@@ -68,37 +97,54 @@ public sealed class BoardRenderer
     private readonly Atlas _atlas;
     public BoardRenderer(Atlas atlas) => _atlas = atlas;
 
-    /// <summary>基板1枚を描く。返るのは等倍（拡大していない）の絵。</summary>
-    public BitmapSource Render(IReadOnlyList<BoardSlot> slots)
+    /// <summary>
+    /// 基板1枚を描く。返るのは等倍（拡大していない）の絵。
+    /// <paramref name="minWidth"/> を渡すと、足りない分は基板を広げて中央に寄せる。
+    /// 段を折り返すと盤が枠より細くなり、両脇に隙間が空いて浮いて見えるため。
+    /// </summary>
+    public BitmapSource Render(IReadOnlyList<BoardSlot> slots, int minWidth = 0)
     {
-        int w = BoardWidth(slots.Count);
-        int h = BoardHeight;
+        int perRow = PerRow(slots.Count);
+        int rows = RowsFor(slots.Count);
+        int natural = BoardWidth(perRow);
+        int w = Math.Max(natural, minWidth);
+        int h = BoardHeight(rows);
+        int inset = (w - natural) / 2;
 
         var dv = new DrawingVisual();
         using (var dc = dv.RenderOpen())
         {
             DrawBoard(dc, w, h);
 
-            int charY = BoardTop;
-            int slotY = charY + Cell - SlotInset;
+            for (int row = 0; row < rows; row++)
+            {
+                int from = row * perRow;
+                int to = Math.Min(from + perRow, slots.Count);
+                int charY = RowTop(row) + BoardTop;
+                int slotY = charY + Cell - SlotInset;
 
-            // 奥 → キャラ → 手前 の順。これで「挿さっている」ように見える。
-            for (int i = 0; i < slots.Count; i++)
-                DrawSlotBack(dc, slots[i].Kind, SlotX(i), slotY, Cell, SlotH);
+                // 奥 → キャラ → 手前 の順。これで「挿さっている」ように見える。
+                // 最後の段が埋まらないときは、その段だけ中央に寄せる
+                int rowInset = inset + (to - from < perRow ? (perRow - (to - from)) * (Cell + Gap) / 2 : 0);
 
-            for (int i = 0; i < slots.Count; i++)
-                DrawCharacter(dc, slots[i], SlotX(i), charY);
+                for (int i = from; i < to; i++)
+                    DrawSlotBack(dc, slots[i].Kind, rowInset + SlotX(i - from), slotY, Cell, SlotH);
 
-            for (int i = 0; i < slots.Count; i++)
-                DrawSlotFront(dc, slots[i].Kind, SlotX(i), slotY, Cell, SlotH);
+                for (int i = from; i < to; i++)
+                    DrawCharacter(dc, slots[i], rowInset + SlotX(i - from), charY);
 
-            // 経験値の進み具合。数字は上に重ねる文字で出すので、ここは線だけ。
-            for (int i = 0; i < slots.Count; i++)
-                DrawExpBar(dc, SlotX(i), LabelBandTop + LabelH - 3, Cell, slots[i].LevelProgress);
+                for (int i = from; i < to; i++)
+                    DrawSlotFront(dc, slots[i].Kind, rowInset + SlotX(i - from), slotY, Cell, SlotH);
 
-            // 湯気は最後。スロットの手前より更に上に出す
-            for (int i = 0; i < slots.Count; i++)
-                DrawSteam(dc, SlotX(i), charY, slots[i].Load, slots[i].Frame);
+                // 経験値の進み具合。数字は上に重ねる文字で出すので、ここは線だけ。
+                for (int i = from; i < to; i++)
+                    DrawExpBar(dc, rowInset + SlotX(i - from), LabelBandTop(row) + LabelH - 3, Cell,
+                               slots[i].LevelProgress);
+
+                // 湯気は最後。スロットの手前より更に上に出す
+                for (int i = from; i < to; i++)
+                    DrawSteam(dc, rowInset + SlotX(i - from), charY, slots[i].Load, slots[i].Frame);
+            }
         }
 
         var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);

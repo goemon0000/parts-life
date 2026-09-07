@@ -3,12 +3,12 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using PartsParty.Game;
-using PartsParty.I18n;
-using PartsParty.Rendering;
-using PartsParty.Sensors;
+using PartsLife.Game;
+using PartsLife.I18n;
+using PartsLife.Rendering;
+using PartsLife.Sensors;
 
-namespace PartsParty;
+namespace PartsLife;
 
 public partial class MainWindow : Window
 {
@@ -27,7 +27,11 @@ public partial class MainWindow : Window
     /// </summary>
     private double _scale = 2.0;
 
+    /// <summary>数値欄がこれより狭くなると、GPU の型番が入らない。</summary>
+    private const double MinPanelWidth = 520;
+
     private bool _expanded;
+    private int _boardPixelWidth;
     private Snapshot _snapshot = new();
     private IReadOnlyList<GpuInfo> _gpus = Array.Empty<GpuInfo>();
     private DiskThroughput _throughput = new(0, 0);
@@ -41,46 +45,28 @@ public partial class MainWindow : Window
     private DateTime _lastSave = DateTime.UtcNow;
     private int _frame;
 
-    private readonly TextBlock[] _levelLabels;
+    private readonly List<TextBlock> _levelLabels = new();
 
     /// <summary>
-    /// 画面に並べる顔ぶれ。
-    /// **v1 は固定の並び。** 実機の構成を見て組み立てるのは次の段でやる
-    /// （2ソケットや GPU 無しの機械でも崩れないことを、先に見た目で確かめたいため）。
+    /// いま盤に立っている顔ぶれ。**実機の構成から毎秒組み立て直す。**
+    /// 固定の並びにしていたため、GPU が2枚の機械でも GPU くんが1体しか立たなかった。
     /// </summary>
-    private static readonly (string Id, SlotKind Kind)[] Layout =
-    {
-        ("cpu",        SlotKind.Socket),
-        ("cpu-cooler", SlotKind.Socket),
-        ("memory",     SlotKind.Dimm),
-        ("gpu",        SlotKind.Pcie),
-        ("ssd",        SlotKind.M2),
-        ("hdd",        SlotKind.Sata),
-        ("psu",        SlotKind.Atx),
-    };
+    private List<PartySlot> _slots = new();
+
+    /// <summary>CPU ごとの担当コア。起動時に1回だけ数える。</summary>
+    private readonly IReadOnlyList<int[]> _packages;
 
     public MainWindow()
     {
         InitializeComponent();
         _board = new BoardRenderer(_atlas);
         _director = new Director(Story.Load(), _state);
+        _packages = TopologySampler.CpuPackages(_sampler.LogicalProcessorCount);
+        _state.MigrateKeys();
 
         Strings.Lang = _state.Lang.Length > 0 ? _state.Lang : Strings.DetectDefault();
         _scale = _state.Zoom > 0 ? Math.Clamp(_state.Zoom, 0.8, 6.0) : 2.0;
         Topmost = _state.Topmost;
-
-        _levelLabels = new TextBlock[Layout.Length];
-        for (int i = 0; i < Layout.Length; i++)
-        {
-            var t = new TextBlock
-            {
-                TextAlignment = TextAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xE8, 0xDD)),
-                FontWeight = FontWeights.SemiBold,
-            };
-            _levelLabels[i] = t;
-            LevelLayer.Children.Add(t);
-        }
 
         Loaded += OnLoaded;
         Closing += (_, _) => SaveState();
@@ -106,6 +92,33 @@ public partial class MainWindow : Window
 
         _frameTimer.Tick += (_, _) => { _frame++; Redraw(); };
         _sensorTimer.Tick += (_, _) => OnSensorTick();
+    }
+
+    /// <summary>
+    /// 窓を出さずに、いまの見た目そのままを1枚の絵にする。配布ページに載せる画像用。
+    /// **作り物のモックではなく、本物の描画をそのまま使う**ため、
+    /// 画面と宣材が食い違うことがない。
+    /// </summary>
+    internal System.Windows.Media.Imaging.BitmapSource RenderShot(bool expanded, double scale)
+    {
+        _scale = scale;
+        ApplyLanguage();
+        OnSensorTick();
+        System.Threading.Thread.Sleep(1100);   // PDH は2回目の収集で初めて値が出る
+        OnSensorTick();
+        SetExpanded(expanded);
+        Grip.Visibility = Visibility.Collapsed;   // 宣材に掴みは要らない
+        Redraw();
+
+        Shell.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        Shell.Arrange(new Rect(Shell.DesiredSize));
+        Shell.UpdateLayout();
+
+        var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
+            (int)Math.Ceiling(Shell.DesiredSize.Width), (int)Math.Ceiling(Shell.DesiredSize.Height),
+            96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        rtb.Render(Shell);
+        return rtb;
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -158,7 +171,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnGripDrag(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
-        double baseWidth = BoardRenderer.BoardWidth(Layout.Length);
+        double baseWidth = BoardRenderer.BoardWidth(BoardRenderer.PerRow(_slots.Count));
         _scale = Math.Clamp(_scale + e.HorizontalChange / baseWidth, 0.8, 6.0);
         Redraw();
         KeepOnScreen();
@@ -192,13 +205,14 @@ public partial class MainWindow : Window
     // -----------------------------------------------------------------------
     private void Redraw()
     {
-        var slots = new List<BoardSlot>(Layout.Length);
-        foreach (var (id, kind) in Layout)
-            slots.Add(new BoardSlot(id, kind, MotionFor(id), _frame,
-                                    _state.Level(id), _state.LevelProgress(id),
-                                    Director.LoadOf(id, _work)));
+        if (_slots.Count == 0) return;
 
-        var bmp = _board.Render(slots);
+        var slots = new List<BoardSlot>(_slots.Count);
+        foreach (var s in _slots)
+            slots.Add(new BoardSlot(s.CharacterId, s.Kind, MotionFor(s.Load), _frame,
+                                    _state.Level(s.Key), _state.LevelProgress(s.Key), s.Load));
+
+        var bmp = _board.Render(slots, (int)Math.Ceiling(MinPanelWidth / Math.Max(_scale, 0.1)));
         BoardImage.Source = bmp;
         double w = Math.Round(bmp.PixelWidth * _scale);
         double h = Math.Round(bmp.PixelHeight * _scale);
@@ -206,9 +220,14 @@ public partial class MainWindow : Window
         BoardImage.Height = h;
         BoardHost.Width = w;
         BoardHost.Height = h;
-        StoryPanel.Width = w;
-        ArrowBar.Width = w;
-        DetailPanel.Width = w;
+        // **枠の幅は盤の幅と切り離す。**
+        // 段を折り返すと盤は細くなるが、数値欄まで一緒に細くすると
+        // GPU の型番が入らなくなる。狭いときは枠だけ広げて、盤を中央に置く。
+        double panel = Math.Max(w, MinPanelWidth);
+        _boardPixelWidth = bmp.PixelWidth;
+        StoryPanel.Width = panel;
+        ArrowBar.Width = panel;
+        DetailPanel.Width = panel;
 
         PlaceLevelLabels();
     }
@@ -216,18 +235,34 @@ public partial class MainWindow : Window
     /// <summary>レベルの字を、基板の帯の上に置く。字は絵と違って拡大せず、常に読める大きさで。</summary>
     private void PlaceLevelLabels()
     {
-        double font = Math.Clamp(6 + 3 * _scale, 9, 15);
-        double top = BoardRenderer.LabelBandTop * _scale;
-        double cell = BoardRenderer.Cell * _scale;
+        while (_levelLabels.Count < _slots.Count)
+        {
+            var t = new TextBlock
+            {
+                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(Color.FromRgb(0xC9, 0xE8, 0xDD)),
+                FontWeight = FontWeights.SemiBold,
+            };
+            _levelLabels.Add(t);
+            LevelLayer.Children.Add(t);
+        }
+        for (int i = _slots.Count; i < _levelLabels.Count; i++) _levelLabels[i].Text = "";
 
-        for (int i = 0; i < Layout.Length; i++)
+        double font = Math.Clamp(6 + 3 * _scale, 9, 15);
+        double cell = BoardRenderer.Cell * _scale;
+        int perRow = BoardRenderer.PerRow(_slots.Count);
+
+        for (int i = 0; i < _slots.Count; i++)
         {
             var t = _levelLabels[i];
             t.FontSize = font;
             t.Width = cell;
-            t.Text = Strings.Level + _state.Level(Layout[i].Id);
-            Canvas.SetLeft(t, BoardRenderer.SlotLeft(i) * _scale);
-            Canvas.SetTop(t, top);
+            t.Text = Strings.Level + _state.Level(_slots[i].Key);
+            int row = i / perRow;
+            Canvas.SetLeft(t,
+                (BoardRenderer.RowInset(_slots.Count, row, _boardPixelWidth)
+                 + BoardRenderer.SlotLeft(i % perRow)) * _scale);
+            Canvas.SetTop(t, BoardRenderer.LabelBandTop(row) * _scale);
         }
     }
 
@@ -235,9 +270,8 @@ public partial class MainWindow : Window
     /// 稼働状況を動きで表す。**数字は出さない。**
     /// 判定に使う値は経験値と同じものを使う。表示と中身がずれると嘘くさくなる。
     /// </summary>
-    private string MotionFor(string id)
+    private static string MotionFor(double load)
     {
-        double load = Director.LoadOf(id, _work);
         if (load >= 0.85) return "peek";   // 必死の顔
         if (load >= 0.45) return "walk";   // 動きが速い
         if (load <= 0.03) return "sleep";  // ほぼ何もしていない
@@ -270,7 +304,9 @@ public partial class MainWindow : Window
         double dt = Math.Clamp((now - _lastTick).TotalSeconds, 0, 10);
         _lastTick = now;
 
-        _director.Tick(dt, _work, Layout.Select(l => l.Id).ToArray(), Strings.Lang);
+        _slots = Composition.Build(_snapshot, _packages, _gpus, _throughput, _drives, _work.Disk, Strings.Lang);
+
+        _director.Tick(dt, _work, _slots, Strings.Lang);
         UpdateStoryText();
 
         if ((now - _lastSave).TotalSeconds >= 60) SaveState();
@@ -318,8 +354,15 @@ public partial class MainWindow : Window
         if (!_expanded) return;
         DetailStack.Children.Clear();
 
-        DetailStack.Children.Add(CoreRow("CPU", _snapshot.CpuCores,
-            $"{_snapshot.CpuTotal * 100:0}%  {Strings.CoresSuffix(_snapshot.CpuCores.Count)}"));
+        // CPU は載っている数だけ。2ソケットなら2行出る
+        for (int p = 0; p < _packages.Count; p++)
+        {
+            var mine = _packages[p].Where(i => i < _snapshot.CpuCores.Count)
+                                   .Select(i => _snapshot.CpuCores[i]).ToList();
+            double load = mine.Count == 0 ? _snapshot.CpuTotal : mine.Average();
+            DetailStack.Children.Add(CoreRow(_packages.Count > 1 ? $"CPU{p}" : "CPU", mine,
+                $"{load * 100:0}%  {Strings.CoresSuffix(mine.Count)}"));
+        }
 
         DetailStack.Children.Add(BarRow("MEM", _snapshot.MemoryRatio,
             $"{Gb(_snapshot.MemoryUsedBytes):0.0} / {Gb(_snapshot.MemoryTotalBytes):0.0} GB"));

@@ -1,4 +1,4 @@
-# パーツ一行（Parts Party）— 企画書
+# パーツ一行（Parts Life）— 企画書
 
 PCパーツのキャラクターが、実機の稼働状況をそのまま姿で表し、
 その働きぶりが勝手に物語になっていく常駐アプリ。
@@ -266,7 +266,7 @@ PCパーツのサイトが配るものとして、これ以上ない筋だと思
 | 描画 | `WriteableBitmap` + `NearestNeighbor` | ドット絵を等倍で置くだけ |
 | 絵 | **TypeScriptから書き出したスプライトアトラス** | 後述 |
 | センサー | P/Invoke（NtQuery・PDH・WMI） | 権限不要の範囲で完結 |
-| 保存 | `%APPDATA%/PartsParty/state.json` | 物語の進行と設定 |
+| 保存 | `%APPDATA%/PartsLife/state.json` | 物語の進行と設定 |
 | 配布 | GitHub Releases → サイトからリンク | |
 
 ### 絵をどう共有するか（重要）
@@ -277,7 +277,7 @@ PCパーツのサイトが配るものとして、これ以上ない筋だと思
 indie-pc-portal/src/lib/mascot/*.ts      ← 絵の正（サイトと共通）
         │  npx tsx scripts/export-atlas.ts
         ▼
-parts-party/assets/atlas.png + atlas.json  ← 470枚ぶんの切り出し表
+parts-life/assets/atlas.png + atlas.json  ← 470枚ぶんの切り出し表
         │
         ▼
 C#アプリは切り出して置くだけ
@@ -338,7 +338,7 @@ C#アプリは切り出して置くだけ
 
 ## 9. 未決事項
 
-- リポジトリ名とアプリ名（案: `parts-party` / 「パーツ一行」）
+- リポジトリ名とアプリ名（案: `parts-life` / 「パーツ一行」）
 - 窓の既定サイズと既定位置（右下？ 右上？）
 - 物語の言語（日本語のみで始めるか、最初から英語も持つか）
 - 第一部10章の本文（章題は上記の案。本文はこれから書く）

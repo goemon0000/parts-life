@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace PartsParty.I18n;
+namespace PartsLife.I18n;
 
 /// <summary>
 /// 画面の文言。物語の本文は含まない（あれは story.json 側）。

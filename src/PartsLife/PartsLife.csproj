@@ -8,8 +8,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>PartsParty</AssemblyName>
-    <RootNamespace>PartsParty</RootNamespace>
+    <AssemblyName>PartsLife</AssemblyName>
+    <RootNamespace>PartsLife</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Linux 上でも WPF をビルドできるようにする（開発側が Linux のため） -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>

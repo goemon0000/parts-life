@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace PartsParty.Sensors;
+namespace PartsLife.Sensors;
 
 /// <summary>ある瞬間の機械の様子。表示側はこれだけを見る。</summary>
 public sealed class Snapshot

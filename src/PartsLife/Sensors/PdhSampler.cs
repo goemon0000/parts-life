@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
-namespace PartsParty.Sensors;
+namespace PartsLife.Sensors;
 
 public sealed record GpuInfo(string Key, string Name, double Utilization, ulong VramUsedBytes, ulong VramTotalBytes);
 

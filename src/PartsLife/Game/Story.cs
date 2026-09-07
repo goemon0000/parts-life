@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
 
-namespace PartsParty.Game;
+namespace PartsLife.Game;
 
 /// <summary>
 /// 物語の本文。**中身は assets/story.json にあり、ここには一文も書かない。**
