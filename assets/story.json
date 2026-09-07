@@ -1,94 +1,274 @@
 {
   "version": 1,
   "_note": "物語の本文。ここを書き足すのに C# の再ビルドは要らない。文体は三人称の地の文だけ。セリフを書かないこと。",
-
   "chapters": [
     {
       "id": "prologue",
-      "title": { "ja": "序章  灯る", "en": "Prologue — The Light" },
+      "title": {
+        "ja": "序章  灯る",
+        "en": "Prologue — The Light"
+      },
       "require": 0,
       "scenePer": 14,
       "scenes": [
-        { "ja": "灯がともった。盤の上に、めいめいの受け口がある。",
-          "en": "The light came on. On the board, each of them has a socket of their own." },
-        { "ja": "CPUくんが最初に目を覚ました。数を数えるのが、この子の起き方らしい。",
-          "en": "The CPU woke first. Counting, it seems, is how it wakes." },
-        { "ja": "クーラーくんが羽根を回した。まだ冷やすものが無いのに、律儀に回している。",
-          "en": "The cooler spun up. There is nothing to cool yet, but it spins all the same." },
-        { "ja": "メモリくんは何かを抱えていたが、抱えていたことをもう忘れている。",
-          "en": "The memory module was holding something. It has already forgotten that it was." },
-        { "ja": "一行は、自分たちが盤の上にいることを確かめ終えた。外へ出る道がある。",
-          "en": "They have finished confirming that they are on the board. There is a way out." }
+        {
+          "ja": "灯がともった。盤の上に、めいめいの受け口がある。",
+          "en": "The light came on. On the board, each of them has a socket of their own."
+        },
+        {
+          "ja": "CPUくんが最初に目を覚ました。数を数えるのが、この子の起き方らしい。",
+          "en": "The CPU woke first. Counting, it seems, is how it wakes."
+        },
+        {
+          "ja": "クーラーくんが羽根を回した。まだ冷やすものが無いのに、律儀に回している。",
+          "en": "The cooler spun up. There is nothing to cool yet, but it spins all the same."
+        },
+        {
+          "ja": "メモリくんは何かを抱えていたが、抱えていたことをもう忘れている。",
+          "en": "The memory module was holding something. It has already forgotten that it was."
+        },
+        {
+          "ja": "一行は、自分たちが盤の上にいることを確かめ終えた。外へ出る道がある。",
+          "en": "They have finished confirming that they are on the board. There is a way out."
+        }
       ]
     },
     {
       "id": "on-the-board",
-      "title": { "ja": "第一章  盤の上", "en": "Chapter One — On the Board" },
+      "title": {
+        "ja": "第一章  盤の上",
+        "en": "Chapter One — On the Board"
+      },
       "require": 70,
       "scenePer": 26,
       "scenes": [
-        { "ja": "配線に沿って歩いた。細い道だが、どこへも繋がっている。",
-          "en": "They walked along the traces. Thin paths, but they go everywhere." },
-        { "ja": "マザーボードくんが順路を決めた。誰も異を唱えなかった。決める役がいるのは楽だ。",
-          "en": "The motherboard set the order of march. No one objected. It is easy when someone decides." },
-        { "ja": "電源くんは一番後ろを歩いている。前に出ないが、離れもしない。",
-          "en": "The PSU walks at the rear. It never takes the lead, and it never falls behind." },
-        { "ja": "盤の縁に着いた。ここから先は外だ。外からは、絶えず何かが来る。",
-          "en": "They reached the edge of the board. Beyond is the outside. Things arrive from it, without pause." },
-        { "ja": "HDDくんが「前にも来た」と言った。誰も覚えていなかった。",
-          "en": "The HDD said it had been here before. No one else remembered." },
-        { "ja": "遠くに、熱を持った谷が見えた。誰も行きたがらなかった。",
-          "en": "Far off, a valley holding heat. No one wanted to go." }
+        {
+          "ja": "配線に沿って歩いた。細い道だが、どこへも繋がっている。",
+          "en": "They walked along the traces. Thin paths, but they go everywhere."
+        },
+        {
+          "ja": "マザーボードくんが順路を決めた。誰も異を唱えなかった。決める役がいるのは楽だ。",
+          "en": "The motherboard set the order of march. No one objected. It is easy when someone decides."
+        },
+        {
+          "ja": "電源くんは一番後ろを歩いている。前に出ないが、離れもしない。",
+          "en": "The PSU walks at the rear. It never takes the lead, and it never falls behind."
+        },
+        {
+          "ja": "盤の縁に着いた。ここから先は外だ。外からは、絶えず何かが来る。",
+          "en": "They reached the edge of the board. Beyond is the outside. Things arrive from it, without pause."
+        },
+        {
+          "ja": "HDDくんが「前にも来た」と言った。誰も覚えていなかった。",
+          "en": "The HDD said it had been here before. No one else remembered."
+        },
+        {
+          "ja": "遠くに、熱を持った谷が見えた。誰も行きたがらなかった。",
+          "en": "Far off, a valley holding heat. No one wanted to go."
+        }
       ]
     },
     {
       "id": "scorching-valley",
-      "title": { "ja": "第二章  灼熱の谷", "en": "Chapter Two — The Scorching Valley" },
+      "title": {
+        "ja": "第二章  灼熱の谷",
+        "en": "Chapter Two — The Scorching Valley"
+      },
       "require": 226,
       "scenePer": 48,
       "scenes": [
-        { "ja": "谷は熱を持っていた。GPUくんが先に立った。止める者はいなかった。",
-          "en": "The valley held heat. The GPU took the lead. No one stopped it." },
-        { "ja": "クーラーくんが張り付いている。守る相手はCPUくんただ一人のはずだが、今日は谷ごと冷やそうとしている。",
-          "en": "The cooler stayed close. It guards exactly one part — but today it is trying to cool the whole valley." },
-        { "ja": "熱は、働いた証でもある。誰もそれを口には出さない。",
-          "en": "Heat is also proof of work. No one says so out loud." },
-        { "ja": "谷の底で、GPUくんが一度だけ振り返った。全員いた。",
-          "en": "At the bottom, the GPU looked back once. Everyone was there." },
-        { "ja": "越えた。誰も欠けていない。それだけのことが、しばらく誰の口も重くした。",
-          "en": "They crossed. No one was missing. That alone kept them quiet for a while." }
+        {
+          "ja": "谷は熱を持っていた。GPUくんが先に立った。止める者はいなかった。",
+          "en": "The valley held heat. The GPU took the lead. No one stopped it."
+        },
+        {
+          "ja": "クーラーくんが張り付いている。守る相手はCPUくんただ一人のはずだが、今日は谷ごと冷やそうとしている。",
+          "en": "The cooler stayed close. It guards exactly one part — but today it is trying to cool the whole valley."
+        },
+        {
+          "ja": "熱は、働いた証でもある。誰もそれを口には出さない。",
+          "en": "Heat is also proof of work. No one says so out loud."
+        },
+        {
+          "ja": "谷の底で、GPUくんが一度だけ振り返った。全員いた。",
+          "en": "At the bottom, the GPU looked back once. Everyone was there."
+        },
+        {
+          "ja": "越えた。誰も欠けていない。それだけのことが、しばらく誰の口も重くした。",
+          "en": "They crossed. No one was missing. That alone kept them quiet for a while."
+        }
       ]
     },
     {
       "id": "too-much-baggage",
-      "title": { "ja": "第三章  積みすぎた荷", "en": "Chapter Three — Too Much Baggage" },
+      "title": {
+        "ja": "第三章  積みすぎた荷",
+        "en": "Chapter Three — Too Much Baggage"
+      },
       "require": 466,
       "scenePer": 70,
       "scenes": [
-        { "ja": "荷が増えた。誰の荷かも、もう分からない。",
-          "en": "The load grew. Whose load it is, no one can say any more." },
-        { "ja": "メモリくんが座り込んだ。持てないのではなく、持っていたことを忘れるのだ。",
-          "en": "The memory sat down. It is not that it cannot carry — it forgets that it was carrying." },
-        { "ja": "SSDくんが背袋を開けた。要らないものが、要るものの下に埋まっていた。",
-          "en": "The SSD opened its pack. What was needed lay beneath what was not." },
-        { "ja": "捨てるものを選ぶ役は、結局いつもHDDくんが引き受ける。古いものほど、手放し方を知っている。",
-          "en": "Choosing what to discard always falls to the HDD. The old ones know best how to let go." },
-        { "ja": "身軽になった。少しだけ、何かを失った気もした。",
-          "en": "They travelled lighter. And felt, faintly, that something had been lost." }
+        {
+          "ja": "荷が増えた。誰の荷かも、もう分からない。",
+          "en": "The load grew. Whose load it is, no one can say any more."
+        },
+        {
+          "ja": "メモリくんが座り込んだ。持てないのではなく、持っていたことを忘れるのだ。",
+          "en": "The memory sat down. It is not that it cannot carry — it forgets that it was carrying."
+        },
+        {
+          "ja": "SSDくんが背袋を開けた。要らないものが、要るものの下に埋まっていた。",
+          "en": "The SSD opened its pack. What was needed lay beneath what was not."
+        },
+        {
+          "ja": "捨てるものを選ぶ役は、結局いつもHDDくんが引き受ける。古いものほど、手放し方を知っている。",
+          "en": "Choosing what to discard always falls to the HDD. The old ones know best how to let go."
+        },
+        {
+          "ja": "身軽になった。少しだけ、何かを失った気もした。",
+          "en": "They travelled lighter. And felt, faintly, that something had been lost."
+        }
+      ]
+    },
+    {
+      "id": "long-night",
+      "title": {
+        "ja": "第四章  長い夜",
+        "en": "Chapter Four — The Long Night"
+      },
+      "require": 816,
+      "scenePer": 96,
+      "scenes": [
+        {
+          "ja": "日が落ちても止まらなかった。止めていいと言う者がいない。",
+          "en": "The sun went down and they did not stop. No one was there to say they could."
+        },
+        {
+          "ja": "CPUくんは数を数え続けている。数えるのをやめる方法を、この子は知らない。",
+          "en": "The CPU kept counting. It does not know how to stop counting."
+        },
+        {
+          "ja": "クーラーくんが一晩じゅう回っていた。朝には羽根の縁が薄く欠けていた。",
+          "en": "The cooler spun the whole night through. By morning the edges of its blades had worn thin."
+        },
+        {
+          "ja": "電源くんだけが眠らずにいた。眠る役ではないので、はじめから起きている。",
+          "en": "Only the PSU stayed awake. It is not the one who sleeps; it was never asleep to begin with."
+        },
+        {
+          "ja": "夜が明けた。誰も何も言わなかったが、全員がまだそこにいた。",
+          "en": "Morning came. No one said anything, but everyone was still there."
+        }
+      ]
+    },
+    {
+      "id": "the-gate",
+      "title": {
+        "ja": "第五章  門",
+        "en": "Chapter Five — The Gate"
+      },
+      "require": 1296,
+      "scenePer": 120,
+      "scenes": [
+        {
+          "ja": "門があった。押しても引いても動かない。",
+          "en": "There was a gate. It would not move, pushed or pulled."
+        },
+        {
+          "ja": "一人ずつ試した。誰の力でも足りなかった。",
+          "en": "They tried one at a time. No one was strong enough."
+        },
+        {
+          "ja": "CPUくんが全ての腕を開いた。持っている腕の数だけ、同時に押した。",
+          "en": "The CPU opened every one of its arms, and pushed with all of them at once."
+        },
+        {
+          "ja": "門は軋みながら開いた。開いた先には、また道が続いていた。",
+          "en": "The gate gave way, groaning. Beyond it, the road simply continued."
+        },
+        {
+          "ja": "越えた門のことを、しばらく誰も話題にしなかった。",
+          "en": "For a while, no one mentioned the gate they had passed."
+        }
+      ]
+    },
+    {
+      "id": "the-guest",
+      "title": {
+        "ja": "第六章  客人",
+        "en": "Chapter Six — The Guest"
+      },
+      "require": 1896,
+      "scenePer": 150,
+      "scenes": [
+        {
+          "ja": "見慣れない者が盤の端に立っていた。挿さる場所を探している。",
+          "en": "A stranger stood at the edge of the board, looking for a socket to sit in."
+        },
+        {
+          "ja": "マザーボードくんが受け口を数えた。空きはあった。合うかどうかは別の話だった。",
+          "en": "The motherboard counted its sockets. There was a free one. Whether it fit was another matter."
+        },
+        {
+          "ja": "規格が違った。惜しいところまでは合っていた。",
+          "en": "The standards did not match. They came close enough to be a shame."
+        },
+        {
+          "ja": "客人は少し留まって、去っていった。誰も引き止めなかったし、誰も追い出さなかった。",
+          "en": "The guest stayed a while, then left. No one held it back, and no one drove it out."
+        },
+        {
+          "ja": "空いたままの受け口が、一つ残った。",
+          "en": "One socket was left, still empty."
+        }
+      ]
+    },
+    {
+      "id": "old-map",
+      "title": {
+        "ja": "第七章  古い地図",
+        "en": "Chapter Seven — The Old Map"
+      },
+      "require": 2646,
+      "scenePer": 190,
+      "scenes": [
+        {
+          "ja": "HDDくんが地図を持っていた。いつからかは、本人にも分からない。",
+          "en": "The HDD had a map. Even it cannot say since when."
+        },
+        {
+          "ja": "描かれている道の半分は、もう無い道だった。",
+          "en": "Half the roads drawn on it no longer exist."
+        },
+        {
+          "ja": "SSDくんは新しい道を知っていたが、古い道の名前は知らなかった。",
+          "en": "The SSD knew the new roads, but not the names of the old ones."
+        },
+        {
+          "ja": "二人で一枚の地図を見た。どちらの言い分も、半分ずつ正しかった。",
+          "en": "The two of them read one map together. Each of them was half right."
+        },
+        {
+          "ja": "古い道を一本だけ選んで進んだ。遠回りだったが、着いた。",
+          "en": "They took one of the old roads. It was the long way, and it got them there."
+        }
       ]
     }
   ],
-
   "events": [
     {
       "id": "all-cores",
       "when": "cpu-very-high",
       "cooldown": 900,
       "texts": [
-        { "ja": "CPUくんが全ての腕を開いた。門は軋みながら開いた。",
-          "en": "The CPU opened every one of its arms. The gate gave way, groaning." },
-        { "ja": "CPUくんが数を数え始めた。速すぎて、誰も付いていけない。",
-          "en": "The CPU began to count. Too fast for anyone to follow." }
+        {
+          "ja": "CPUくんが全ての腕を開いた。門は軋みながら開いた。",
+          "en": "The CPU opened every one of its arms. The gate gave way, groaning."
+        },
+        {
+          "ja": "CPUくんが数を数え始めた。速すぎて、誰も付いていけない。",
+          "en": "The CPU began to count. Too fast for anyone to follow."
+        }
       ]
     },
     {
@@ -96,10 +276,14 @@
       "when": "gpu-very-high",
       "cooldown": 900,
       "texts": [
-        { "ja": "GPUくんが光り始めた。派手だが、この子は本当に強い。",
-          "en": "The GPU began to glow. Showy — but this one is genuinely strong." },
-        { "ja": "谷の熱が上がった。GPUくんは退がらない。",
-          "en": "The valley's heat rose. The GPU did not step back." }
+        {
+          "ja": "GPUくんが光り始めた。派手だが、この子は本当に強い。",
+          "en": "The GPU began to glow. Showy — but this one is genuinely strong."
+        },
+        {
+          "ja": "谷の熱が上がった。GPUくんは退がらない。",
+          "en": "The valley's heat rose. The GPU did not step back."
+        }
       ]
     },
     {
@@ -107,8 +291,10 @@
       "when": "memory-tight",
       "cooldown": 1200,
       "texts": [
-        { "ja": "メモリくんが荷を落とした。何を持っていたか、本人も思い出せない。",
-          "en": "The memory dropped its load. Even it cannot recall what it held." }
+        {
+          "ja": "メモリくんが荷を落とした。何を持っていたか、本人も思い出せない。",
+          "en": "The memory dropped its load. Even it cannot recall what it held."
+        }
       ]
     },
     {
@@ -116,10 +302,14 @@
       "when": "disk-busy",
       "cooldown": 900,
       "texts": [
-        { "ja": "SSDくんが走り回っている。速いが、すぐ息が上がる。",
-          "en": "The SSD is dashing about. Fast, and quickly out of breath." },
-        { "ja": "何かが書き留められている。後で読む者がいるかは、誰も知らない。",
-          "en": "Something is being written down. Whether anyone will read it, no one knows." }
+        {
+          "ja": "SSDくんが走り回っている。速いが、すぐ息が上がる。",
+          "en": "The SSD is dashing about. Fast, and quickly out of breath."
+        },
+        {
+          "ja": "何かが書き留められている。後で読む者がいるかは、誰も知らない。",
+          "en": "Something is being written down. Whether anyone will read it, no one knows."
+        }
       ]
     },
     {
@@ -127,8 +317,10 @@
       "when": "disk-full",
       "cooldown": 21600,
       "texts": [
-        { "ja": "SSDくんの背袋が膨れている。そろそろ捨てる物を選ぶ頃だ。",
-          "en": "The SSD's pack is bulging. It is nearly time to choose what to leave behind." }
+        {
+          "ja": "SSDくんの背袋が膨れている。そろそろ捨てる物を選ぶ頃だ。",
+          "en": "The SSD's pack is bulging. It is nearly time to choose what to leave behind."
+        }
       ]
     },
     {
@@ -136,12 +328,18 @@
       "when": "idle-long",
       "cooldown": 1800,
       "texts": [
-        { "ja": "焚き火。HDDくんが昔の話を始めた。誰も遮らなかった。",
-          "en": "A campfire. The HDD began an old story. No one interrupted." },
-        { "ja": "何も起きない時間が続いている。悪いことではない。",
-          "en": "Nothing has happened for some time. That is not a bad thing." },
-        { "ja": "クーラーくんが羽根を止めた。止めても大丈夫だと、ようやく思えたらしい。",
-          "en": "The cooler stopped its blades. It seems it has finally decided that is allowed." }
+        {
+          "ja": "焚き火。HDDくんが昔の話を始めた。誰も遮らなかった。",
+          "en": "A campfire. The HDD began an old story. No one interrupted."
+        },
+        {
+          "ja": "何も起きない時間が続いている。悪いことではない。",
+          "en": "Nothing has happened for some time. That is not a bad thing."
+        },
+        {
+          "ja": "クーラーくんが羽根を止めた。止めても大丈夫だと、ようやく思えたらしい。",
+          "en": "The cooler stopped its blades. It seems it has finally decided that is allowed."
+        }
       ]
     },
     {
@@ -149,8 +347,10 @@
       "when": "boot",
       "cooldown": 0,
       "texts": [
-        { "ja": "夜が明けた。一行は歩き出した。",
-          "en": "Morning came. They set out." }
+        {
+          "ja": "夜が明けた。一行は歩き出した。",
+          "en": "Morning came. They set out."
+        }
       ]
     },
     {
@@ -158,8 +358,10 @@
       "when": "long-absence",
       "cooldown": 0,
       "texts": [
-        { "ja": "長く留守にしていた。埃が積もっている。",
-          "en": "They had been away a long while. Dust has settled." }
+        {
+          "ja": "長く留守にしていた。埃が積もっている。",
+          "en": "They had been away a long while. Dust has settled."
+        }
       ]
     },
     {
@@ -167,8 +369,10 @@
       "when": "level-up",
       "cooldown": 0,
       "texts": [
-        { "ja": "{name} が一段、板についてきた。",
-          "en": "{name} has grown into the work a little more." }
+        {
+          "ja": "{name} が一段、板についてきた。",
+          "en": "{name} has grown into the work a little more."
+        }
       ]
     }
   ]

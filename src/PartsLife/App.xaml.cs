@@ -41,13 +41,21 @@ public partial class App : System.Windows.Application
             var w = new MainWindow();
             var bmp = w.RenderShot(
                 expanded: !args.Contains("--collapsed"),
-                scale: shot + 2 < args.Length && double.TryParse(args[shot + 2], out var sc) ? sc : 2);
+                scale: shot + 2 < args.Length && double.TryParse(args[shot + 2], out var sc) ? sc : 2,
+                lang: LangArg(args));
             Save(bmp, args[shot + 1]);
             Shutdown();
             return;
         }
 
         new MainWindow().Show();
+    }
+
+    /// <summary>`--lang en` で書き出す言語を指定する。宣材を日英ぶん作るため。</summary>
+    private static string? LangArg(string[] args)
+    {
+        int at = Array.IndexOf(args, "--lang");
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
     }
 
     private static void Save(BitmapSource bmp, string path)

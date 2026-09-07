@@ -23,6 +23,7 @@ public static class Strings
     public static string ExpandTip    => T("各パーツの稼働状況", "Per-part status");
     public static string CollapseTip  => T("閉じる", "Collapse");
     public static string ResizeTip    => T("ドラッグで大きさを変える", "Drag to resize");
+    public static string RunAtLogin   => T("Windows起動時に開く", "Start with Windows");
 
     public static string CoresSuffix(int n) => T($"{n} 論理コア", $"{n} logical cores");
     public static string NoGpu    => T("GPUが見つかりません", "No GPU detected");

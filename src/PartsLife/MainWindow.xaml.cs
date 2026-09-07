@@ -89,6 +89,7 @@ public partial class MainWindow : Window
         CloseButton.Click += (_, _) => Close();
 
         Grip.DragDelta += OnGripDrag;
+        MouseRightButtonUp += (_, e) => { ShowMenu(); e.Handled = true; };
 
         _frameTimer.Tick += (_, _) => { _frame++; Redraw(); };
         _sensorTimer.Tick += (_, _) => OnSensorTick();
@@ -99,9 +100,15 @@ public partial class MainWindow : Window
     /// **作り物のモックではなく、本物の描画をそのまま使う**ため、
     /// 画面と宣材が食い違うことがない。
     /// </summary>
-    internal System.Windows.Media.Imaging.BitmapSource RenderShot(bool expanded, double scale)
+    internal System.Windows.Media.Imaging.BitmapSource RenderShot(bool expanded, double scale, string? lang = null)
     {
         _scale = scale;
+        if (lang is "ja" or "en")
+        {
+            Strings.Lang = lang;
+            // 過去の行は書いた時の言語のまま残っている。宣材に混ざると見苦しいので流す
+            _state.Log.Clear();
+        }
         ApplyLanguage();
         OnSensorTick();
         System.Threading.Thread.Sleep(1100);   // PDH は2回目の収集で初めて値が出る
@@ -330,6 +337,46 @@ public partial class MainWindow : Window
         _state.LastSeenUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _state.Save();
         _lastSave = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// 右クリックの献立。**設定画面は作らない。**
+    /// 常駐の玩具に画面をもう一枚足すと、それだけで「アプリ」になってしまう。
+    /// 触る項目はこの4つで足りる。
+    /// </summary>
+    private void ShowMenu()
+    {
+        var menu = new ContextMenu();
+
+        var top = new MenuItem { Header = Strings.TopmostTip, IsCheckable = true, IsChecked = Topmost };
+        top.Click += (_, _) =>
+        {
+            Topmost = !Topmost;
+            _state.Topmost = Topmost;
+            TopmostButton.Opacity = Topmost ? 1.0 : 0.45;
+        };
+        menu.Items.Add(top);
+
+        var auto = new MenuItem { Header = Strings.RunAtLogin, IsCheckable = true, IsChecked = Startup.IsEnabled };
+        auto.Click += (_, _) => Startup.Set(!Startup.IsEnabled);
+        menu.Items.Add(auto);
+
+        var lang = new MenuItem { Header = Strings.Lang == "ja" ? "English" : "日本語" };
+        lang.Click += (_, _) =>
+        {
+            Strings.Lang = Strings.Lang == "ja" ? "en" : "ja";
+            _state.Lang = Strings.Lang;
+            ApplyLanguage();
+        };
+        menu.Items.Add(lang);
+
+        menu.Items.Add(new Separator());
+        var quit = new MenuItem { Header = Strings.Close };
+        quit.Click += (_, _) => Close();
+        menu.Items.Add(quit);
+
+        menu.PlacementTarget = this;
+        menu.IsOpen = true;
     }
 
     private void ApplyLanguage()
