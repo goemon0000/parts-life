@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "_note": "物語の本文。ここを書き足すのに C# の再ビルドは要らない。文体は三人称の地の文だけ。セリフを書かないこと。",
+
+  "chapters": [
+    {
+      "id": "prologue",
+      "title": { "ja": "序章  灯る", "en": "Prologue — The Light" },
+      "require": 0,
+      "scenePer": 14,
+      "scenes": [
+        { "ja": "灯がともった。盤の上に、めいめいの受け口がある。",
+          "en": "The light came on. On the board, each of them has a socket of their own." },
+        { "ja": "CPUくんが最初に目を覚ました。数を数えるのが、この子の起き方らしい。",
+          "en": "The CPU woke first. Counting, it seems, is how it wakes." },
+        { "ja": "クーラーくんが羽根を回した。まだ冷やすものが無いのに、律儀に回している。",
+          "en": "The cooler spun up. There is nothing to cool yet, but it spins all the same." },
+        { "ja": "メモリくんは何かを抱えていたが、抱えていたことをもう忘れている。",
+          "en": "The memory module was holding something. It has already forgotten that it was." },
+        { "ja": "一行は、自分たちが盤の上にいることを確かめ終えた。外へ出る道がある。",
+          "en": "They have finished confirming that they are on the board. There is a way out." }
+      ]
+    },
+    {
+      "id": "on-the-board",
+      "title": { "ja": "第一章  盤の上", "en": "Chapter One — On the Board" },
+      "require": 70,
+      "scenePer": 26,
+      "scenes": [
+        { "ja": "配線に沿って歩いた。細い道だが、どこへも繋がっている。",
+          "en": "They walked along the traces. Thin paths, but they go everywhere." },
+        { "ja": "マザーボードくんが順路を決めた。誰も異を唱えなかった。決める役がいるのは楽だ。",
+          "en": "The motherboard set the order of march. No one objected. It is easy when someone decides." },
+        { "ja": "電源くんは一番後ろを歩いている。前に出ないが、離れもしない。",
+          "en": "The PSU walks at the rear. It never takes the lead, and it never falls behind." },
+        { "ja": "盤の縁に着いた。ここから先は外だ。外からは、絶えず何かが来る。",
+          "en": "They reached the edge of the board. Beyond is the outside. Things arrive from it, without pause." },
+        { "ja": "HDDくんが「前にも来た」と言った。誰も覚えていなかった。",
+          "en": "The HDD said it had been here before. No one else remembered." },
+        { "ja": "遠くに、熱を持った谷が見えた。誰も行きたがらなかった。",
+          "en": "Far off, a valley holding heat. No one wanted to go." }
+      ]
+    },
+    {
+      "id": "scorching-valley",
+      "title": { "ja": "第二章  灼熱の谷", "en": "Chapter Two — The Scorching Valley" },
+      "require": 226,
+      "scenePer": 48,
+      "scenes": [
+        { "ja": "谷は熱を持っていた。GPUくんが先に立った。止める者はいなかった。",
+          "en": "The valley held heat. The GPU took the lead. No one stopped it." },
+        { "ja": "クーラーくんが張り付いている。守る相手はCPUくんただ一人のはずだが、今日は谷ごと冷やそうとしている。",
+          "en": "The cooler stayed close. It guards exactly one part — but today it is trying to cool the whole valley." },
+        { "ja": "熱は、働いた証でもある。誰もそれを口には出さない。",
+          "en": "Heat is also proof of work. No one says so out loud." },
+        { "ja": "谷の底で、GPUくんが一度だけ振り返った。全員いた。",
+          "en": "At the bottom, the GPU looked back once. Everyone was there." },
+        { "ja": "越えた。誰も欠けていない。それだけのことが、しばらく誰の口も重くした。",
+          "en": "They crossed. No one was missing. That alone kept them quiet for a while." }
+      ]
+    },
+    {
+      "id": "too-much-baggage",
+      "title": { "ja": "第三章  積みすぎた荷", "en": "Chapter Three — Too Much Baggage" },
+      "require": 466,
+      "scenePer": 70,
+      "scenes": [
+        { "ja": "荷が増えた。誰の荷かも、もう分からない。",
+          "en": "The load grew. Whose load it is, no one can say any more." },
+        { "ja": "メモリくんが座り込んだ。持てないのではなく、持っていたことを忘れるのだ。",
+          "en": "The memory sat down. It is not that it cannot carry — it forgets that it was carrying." },
+        { "ja": "SSDくんが背袋を開けた。要らないものが、要るものの下に埋まっていた。",
+          "en": "The SSD opened its pack. What was needed lay beneath what was not." },
+        { "ja": "捨てるものを選ぶ役は、結局いつもHDDくんが引き受ける。古いものほど、手放し方を知っている。",
+          "en": "Choosing what to discard always falls to the HDD. The old ones know best how to let go." },
+        { "ja": "身軽になった。少しだけ、何かを失った気もした。",
+          "en": "They travelled lighter. And felt, faintly, that something had been lost." }
+      ]
+    }
+  ],
+
+  "events": [
+    {
+      "id": "all-cores",
+      "when": "cpu-very-high",
+      "cooldown": 900,
+      "texts": [
+        { "ja": "CPUくんが全ての腕を開いた。門は軋みながら開いた。",
+          "en": "The CPU opened every one of its arms. The gate gave way, groaning." },
+        { "ja": "CPUくんが数を数え始めた。速すぎて、誰も付いていけない。",
+          "en": "The CPU began to count. Too fast for anyone to follow." }
+      ]
+    },
+    {
+      "id": "gpu-hot",
+      "when": "gpu-very-high",
+      "cooldown": 900,
+      "texts": [
+        { "ja": "GPUくんが光り始めた。派手だが、この子は本当に強い。",
+          "en": "The GPU began to glow. Showy — but this one is genuinely strong." },
+        { "ja": "谷の熱が上がった。GPUくんは退がらない。",
+          "en": "The valley's heat rose. The GPU did not step back." }
+      ]
+    },
+    {
+      "id": "mem-tight",
+      "when": "memory-tight",
+      "cooldown": 1200,
+      "texts": [
+        { "ja": "メモリくんが荷を落とした。何を持っていたか、本人も思い出せない。",
+          "en": "The memory dropped its load. Even it cannot recall what it held." }
+      ]
+    },
+    {
+      "id": "disk-write",
+      "when": "disk-busy",
+      "cooldown": 900,
+      "texts": [
+        { "ja": "SSDくんが走り回っている。速いが、すぐ息が上がる。",
+          "en": "The SSD is dashing about. Fast, and quickly out of breath." },
+        { "ja": "何かが書き留められている。後で読む者がいるかは、誰も知らない。",
+          "en": "Something is being written down. Whether anyone will read it, no one knows." }
+      ]
+    },
+    {
+      "id": "disk-full",
+      "when": "disk-full",
+      "cooldown": 21600,
+      "texts": [
+        { "ja": "SSDくんの背袋が膨れている。そろそろ捨てる物を選ぶ頃だ。",
+          "en": "The SSD's pack is bulging. It is nearly time to choose what to leave behind." }
+      ]
+    },
+    {
+      "id": "quiet",
+      "when": "idle-long",
+      "cooldown": 1800,
+      "texts": [
+        { "ja": "焚き火。HDDくんが昔の話を始めた。誰も遮らなかった。",
+          "en": "A campfire. The HDD began an old story. No one interrupted." },
+        { "ja": "何も起きない時間が続いている。悪いことではない。",
+          "en": "Nothing has happened for some time. That is not a bad thing." },
+        { "ja": "クーラーくんが羽根を止めた。止めても大丈夫だと、ようやく思えたらしい。",
+          "en": "The cooler stopped its blades. It seems it has finally decided that is allowed." }
+      ]
+    },
+    {
+      "id": "boot",
+      "when": "boot",
+      "cooldown": 0,
+      "texts": [
+        { "ja": "夜が明けた。一行は歩き出した。",
+          "en": "Morning came. They set out." }
+      ]
+    },
+    {
+      "id": "long-absence",
+      "when": "long-absence",
+      "cooldown": 0,
+      "texts": [
+        { "ja": "長く留守にしていた。埃が積もっている。",
+          "en": "They had been away a long while. Dust has settled." }
+      ]
+    },
+    {
+      "id": "level-up",
+      "when": "level-up",
+      "cooldown": 0,
+      "texts": [
+        { "ja": "{name} が一段、板についてきた。",
+          "en": "{name} has grown into the work a little more." }
+      ]
+    }
+  ]
+}

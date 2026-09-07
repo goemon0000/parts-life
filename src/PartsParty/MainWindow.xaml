@@ -45,48 +45,71 @@
         </Setter.Value>
       </Setter>
     </Style>
+
+    <!-- 右下の掴み。窓に枠が無いので、掴める場所を自前で置く。 -->
+    <Style x:Key="GripStyle" TargetType="Thumb">
+      <Setter Property="Cursor" Value="SizeNWSE" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Thumb">
+            <Grid Background="Transparent">
+              <Path Data="M 11,1 L 11,11 L 1,11 Z" Fill="#8C5DD8BB" />
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
-  <StackPanel x:Name="Root">
+  <Grid x:Name="Shell">
+    <StackPanel x:Name="Root">
 
-    <!-- 上: 物語。ここは文字なので拡大せず、常に読みやすい大きさで描く -->
-    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
-            BorderThickness="1" CornerRadius="6" Padding="9,6" x:Name="StoryPanel">
-      <StackPanel>
-        <DockPanel LastChildFill="False">
-          <TextBlock x:Name="ChapterText" Foreground="{StaticResource Accent}"
-                     FontSize="10" FontWeight="SemiBold" Text="序章  灯る" DockPanel.Dock="Left" />
-          <!-- 右上に小さな操作。常に前面 / 大きさ / 閉じる -->
-          <Button x:Name="CloseButton" Style="{StaticResource TinyButton}" Content="✕"
-                  DockPanel.Dock="Right" ToolTip="終了" />
-          <Button x:Name="SizeButton" Style="{StaticResource TinyButton}" Content="⤢"
-                  DockPanel.Dock="Right" ToolTip="大きさを変える (1x / 2x / 3x)" />
-          <Button x:Name="TopmostButton" Style="{StaticResource TinyButton}" Content="📌"
-                  DockPanel.Dock="Right" ToolTip="常に前面に表示" />
-        </DockPanel>
-        <TextBlock x:Name="StoryLine1" Foreground="{StaticResource Text}" FontSize="12"
-                   Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
-                   Text="灯がともった。一行はまだ、自分がどこに挿さっているのかを確かめている。" />
-        <TextBlock x:Name="StoryLine2" Foreground="{StaticResource Sub}" FontSize="12"
-                   TextTrimming="CharacterEllipsis" Text="" />
-      </StackPanel>
-    </Border>
+      <!-- 上: 物語。文字は拡大しない。常に読みやすい大きさで置く -->
+      <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
+              BorderThickness="1" CornerRadius="6" Padding="9,6" x:Name="StoryPanel">
+        <StackPanel>
+          <DockPanel LastChildFill="False">
+            <TextBlock x:Name="ChapterText" Foreground="{StaticResource Accent}"
+                       FontSize="10" FontWeight="SemiBold" Text="" DockPanel.Dock="Left" />
+            <Button x:Name="CloseButton" Style="{StaticResource TinyButton}" Content="✕"
+                    DockPanel.Dock="Right" />
+            <Button x:Name="SizeButton" Style="{StaticResource TinyButton}" Content="⤢"
+                    DockPanel.Dock="Right" />
+            <Button x:Name="TopmostButton" Style="{StaticResource TinyButton}" Content="📌"
+                    DockPanel.Dock="Right" />
+            <Button x:Name="LangButton" Style="{StaticResource TinyButton}" Content="EN"
+                    DockPanel.Dock="Right" />
+          </DockPanel>
+          <TextBlock x:Name="StoryLine1" Foreground="{StaticResource Text}" FontSize="12"
+                     Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Text="" />
+          <TextBlock x:Name="StoryLine2" Foreground="{StaticResource Sub}" FontSize="12"
+                     TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Text="" />
+        </StackPanel>
+      </Border>
 
-    <!-- 中: 基板。等倍で描いた絵を整数倍で拡大して置く -->
-    <Image x:Name="BoardImage" Stretch="None" SnapsToDevicePixels="True" />
+      <!-- 中: 基板。等倍で描いた絵を拡大して置く。レベルの字だけは絵の上に重ねる
+           （絵と一緒に拡大すると、ドットの字が読めなくなるため） -->
+      <Grid x:Name="BoardHost" HorizontalAlignment="Left">
+        <Image x:Name="BoardImage" Stretch="Fill" SnapsToDevicePixels="True" />
+        <Canvas x:Name="LevelLayer" IsHitTestVisible="False" />
+      </Grid>
 
-    <!-- 下: 開閉 -->
-    <Border Background="#BF101319" CornerRadius="0,0,6,6" x:Name="ArrowBar">
-      <Button x:Name="ExpandButton" Style="{StaticResource TinyButton}" Content="▼"
-              HorizontalAlignment="Stretch" FontSize="10" ToolTip="各パーツの稼働状況" />
-    </Border>
+      <!-- 下: 開閉 -->
+      <Border Background="#BF101319" CornerRadius="0,0,6,6" x:Name="ArrowBar">
+        <Button x:Name="ExpandButton" Style="{StaticResource TinyButton}" Content="▼"
+                HorizontalAlignment="Stretch" FontSize="10" />
+      </Border>
 
-    <!-- 展開: 数値。畳んでいる間は数字を見せない -->
-    <Border x:Name="DetailPanel" Background="{StaticResource Panel}"
-            BorderBrush="{StaticResource PanelEdge}" BorderThickness="1"
-            CornerRadius="6" Padding="9,7" Margin="0,3,0,0" Visibility="Collapsed">
-      <StackPanel x:Name="DetailStack" />
-    </Border>
+      <!-- 展開: 数値。畳んでいる間は数字を見せない -->
+      <Border x:Name="DetailPanel" Background="{StaticResource Panel}"
+              BorderBrush="{StaticResource PanelEdge}" BorderThickness="1"
+              CornerRadius="6" Padding="9,7" Margin="0,3,0,0" Visibility="Collapsed">
+        <StackPanel x:Name="DetailStack" />
+      </Border>
 
-  </StackPanel>
+    </StackPanel>
+
+    <Thumb x:Name="Grip" Style="{StaticResource GripStyle}" Width="14" Height="14"
+           HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+  </Grid>
 </Window>

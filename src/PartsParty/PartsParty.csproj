@@ -31,6 +31,13 @@
     <Resource Include="..\..\assets\characters.png" Link="Assets\characters.png" />
     <Resource Include="..\..\assets\marks.png" Link="Assets\marks.png" />
     <Resource Include="..\..\assets\atlas.json" Link="Assets\atlas.json" />
+    <!-- 物語の本文。ここを書き換えるだけで場面を足せる（C# は触らない） -->
+    <Resource Include="..\..\assets\story.json" Link="Assets\story.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SSD/HDD の判別に MSFT_PhysicalDisk を引くため -->
+    <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

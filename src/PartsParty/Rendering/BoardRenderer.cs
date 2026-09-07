@@ -5,7 +5,13 @@ using System.Windows.Media.Imaging;
 namespace PartsParty.Rendering;
 
 /// <summary>基板に挿さっている1体ぶんの情報。</summary>
-public sealed record BoardSlot(string CharacterId, SlotKind Kind, string Motion, int Frame);
+public sealed record BoardSlot(
+    string CharacterId,
+    SlotKind Kind,
+    string Motion,
+    int Frame,
+    int Level = 1,
+    double LevelProgress = 0);
 
 public enum SlotKind { Socket, Dimm, Pcie, M2, Sata, Atx }
 
@@ -22,15 +28,23 @@ public sealed class BoardRenderer
 {
     // --- 配置（単位はドット絵の1画素）---
     public const int Cell = 32;
-    public const int Gap = 9;
-    public const int PadX = 8;
+    /// <summary>スロット同士の間。**広めに取る。**
+    /// 詰めると基板というより一列のアイコンに見え、レベルの字も入らない。</summary>
+    public const int Gap = 15;
+    public const int PadX = 10;
     public const int BoardTop = 5;
     public const int SlotH = 8;
-    public const int BoardPadBottom = 5;
+    public const int BoardPadBottom = 3;
+    /// <summary>スロットの下に取る、レベルを書くための帯。</summary>
+    public const int LabelH = 11;
     /// <summary>足がスロットに入る深さ。これが無いと「乗っているだけ」に見える。</summary>
     public const int SlotInset = 4;
 
-    public static int BoardHeight => BoardTop + Cell + SlotH + BoardPadBottom;
+    public static int BoardHeight => BoardTop + Cell + SlotH + LabelH + BoardPadBottom;
+    /// <summary>レベルの帯の上端（ドット絵の座標）。</summary>
+    public static int LabelBandTop => BoardTop + Cell - SlotInset + SlotH;
+    /// <summary>i 番目のスロットの左端（ドット絵の座標）。文字を重ねる側もこれを使う。</summary>
+    public static int SlotLeft(int index) => PadX + index * (Cell + Gap);
     public static int BoardWidth(int slotCount) =>
         PadX * 2 + slotCount * Cell + Math.Max(0, slotCount - 1) * Gap;
 
@@ -43,6 +57,8 @@ public sealed class BoardRenderer
     private static readonly Color Gold     = C(0xd8, 0xb2, 0x5c);
     private static readonly Color ChipRes  = C(0x1b, 0x2b, 0x22);
     private static readonly Color ChipCap  = C(0x2a, 0x35, 0x50);
+    private static readonly Color ExpTrack = C(0x1b, 0x33, 0x27);
+    private static readonly Color ExpFill  = C(0x5d, 0xd8, 0xbb);
 
     private static Color C(byte r, byte g, byte b) => Color.FromArgb(255, r, g, b);
 
@@ -72,6 +88,10 @@ public sealed class BoardRenderer
 
             for (int i = 0; i < slots.Count; i++)
                 DrawSlotFront(dc, slots[i].Kind, SlotX(i), slotY, Cell, SlotH);
+
+            // 経験値の進み具合。数字は上に重ねる文字で出すので、ここは線だけ。
+            for (int i = 0; i < slots.Count; i++)
+                DrawExpBar(dc, SlotX(i), LabelBandTop + LabelH - 3, Cell, slots[i].LevelProgress);
         }
 
         var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
@@ -80,7 +100,14 @@ public sealed class BoardRenderer
         return rtb;
     }
 
-    private static int SlotX(int index) => PadX + index * (Cell + Gap);
+    private static int SlotX(int index) => SlotLeft(index);
+
+    private static void DrawExpBar(DrawingContext dc, int x, int y, int w, double progress)
+    {
+        Fill(dc, ExpTrack, x + 2, y, w - 4, 1);
+        int filled = (int)Math.Round((w - 4) * Math.Clamp(progress, 0, 1));
+        if (filled > 0) Fill(dc, ExpFill, x + 2, y, filled, 1);
+    }
 
     private void DrawCharacter(DrawingContext dc, BoardSlot slot, int x, int y)
     {
