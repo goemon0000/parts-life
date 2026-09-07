@@ -11,9 +11,20 @@
     <AssemblyName>PartsLife</AssemblyName>
     <RootNamespace>PartsLife</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- exe のアイコン。tools/make-icon.py でアトラスから焼き直せる -->
+    <ApplicationIcon>..\..\assets\PartsLife.ico</ApplicationIcon>
     <!-- Linux 上でも WPF をビルドできるようにする（開発側が Linux のため） -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- exe の属性。**署名を受けるには中身の名乗りが要る**（SignPath の条件）。
+         署名の有無に関わらず、右クリック→プロパティで何のファイルか分かる方が良い。 -->
+    <Version>0.3.1</Version>
+    <Product>パーツぐらし / Parts Life</Product>
+    <AssemblyTitle>パーツぐらし</AssemblyTitle>
+    <Description>PCパーツのキャラクターが実機の稼働状況を姿で表す常駐アプリ</Description>
+    <Company>web-autoai.com</Company>
+    <Copyright>Copyright (c) 2026 web-autoai.com</Copyright>
   </PropertyGroup>
 
   <!-- 配布用: 何も入っていない Windows でも動く単一 exe -->

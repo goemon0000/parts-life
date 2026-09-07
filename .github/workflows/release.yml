@@ -1,0 +1,87 @@
+name: release
+
+# タグ v* を押したら、Windows 上でビルドして Release に添える。
+#
+# **なぜ CI でビルドするのか。**
+# ここまでは開発機で publish した exe を手で上げていた。それでも動くが、
+# 署名を受けるには「公開された手順で、ソースから作られた物である」ことを
+# 示せる必要がある（SignPath Foundation の条件）。手元の機械で作った物は、
+# 中身が本当にこのソースと一致しているか誰にも確かめられない。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: 版数をタグから取る
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $v = $tag -replace '^v',''
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { $v = '0.0.0' }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: ビルド
+        run: >
+          dotnet publish src/PartsLife/PartsLife.csproj -c Release -o dist
+          -p:Version=${{ steps.ver.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        id: artifact
+        with:
+          name: PartsLife-unsigned
+          path: dist/PartsLife.exe
+          if-no-files-found: error
+
+      # --- 署名 -------------------------------------------------------------
+      # SignPath の設定が入るまでは丸ごと飛ばす。設定が済めば自動で効き始める。
+      # 署名は SignPath 側で**人の承認**を経てから返ってくる（条件のひとつ）。
+      - name: 署名を依頼する
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        id: sign
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: parts-life
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: 署名済みに差し替える
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        shell: pwsh
+        run: Copy-Item signed/PartsLife.exe dist/PartsLife.exe -Force
+
+      # --- 公開 -------------------------------------------------------------
+      - name: 中身の指紋を出す
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist/PartsLife.exe -Algorithm SHA256).Hash.ToLower()
+          "SHA-256: $h" | Tee-Object -FilePath dist/SHA256.txt
+          $sig = Get-AuthenticodeSignature dist/PartsLife.exe
+          "署名: $($sig.Status)  $($sig.SignerCertificate.Subject)"
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/PartsLife.exe
+            dist/SHA256.txt
+          fail_on_unmatched_files: true
