@@ -5,8 +5,13 @@ SignPath Foundation の[条件](https://signpath.org/terms.html)が求める公�
 
 ## 何を配っているか
 
-- `PartsLife.exe` … Windows 用の常駐アプリ。自己完結の単一ファイル
+- `PartsLife.zip` … 中身は `PartsLife.exe` 1つ。**こちらを推奨**
+- `PartsLife.exe` … 展開せずそのまま実行できる版
 - 配布場所は **GitHub Releases のみ**です。ほかの配布元は当方と無関係です
+
+2つの違いは**単一ファイルの自己圧縮の有無だけ**で、中身は同じソースから作った
+同じアプリです。圧縮版は起動時に中身をまるごとメモリへ展開するため、
+常駐中の占有が倍近くになります（実機で 222MB / 130MB）。
 
 ## どう作っているか
 
@@ -26,7 +31,7 @@ Get-FileHash PartsLife.exe -Algorithm SHA256
 |---|---|
 | 証明書 | SignPath Foundation（申請中） |
 | 種別 | OV |
-| 署名する物 | `PartsLife.exe` のみ |
+| 署名する物 | 2つの `PartsLife.exe`（ZIP の中身と、直接実行できる版） |
 | 承認 | Release ごとに維持者が手動で承認します |
 
 ### 署名しても最初は警告が出ます

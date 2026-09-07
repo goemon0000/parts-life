@@ -42,9 +42,15 @@ public sealed class PartyState
     /// <summary>窓の大きさ。整数倍でない値も許す（利用者が自由に引っ張れるため）。</summary>
     public double Zoom { get; set; } = 2.0;
 
-    /// <summary>窓の位置。負なら「右上に置く」。</summary>
-    public double WindowLeft { get; set; } = -1;
-    public double WindowTop { get; set; } = -1;
+    /// <summary>
+    /// 窓の位置。**未設定は NaN。**
+    /// 「負なら未設定」にしていたため、主モニタより左にある副モニタへ置いた窓が
+    /// 起動のたび主モニタへ飛んでいた（左側のモニタは座標が負になる）。
+    /// </summary>
+    /// (NaN にはしないこと。System.Text.Json は NaN を書けず例外になり、
+    ///  Save は例外を握り潰す作りなので**保存が丸ごと止まったまま気づけない**。)
+    public double? WindowLeft { get; set; }
+    public double? WindowTop { get; set; }
 
     public bool Topmost { get; set; } = true;
     public bool Expanded { get; set; }

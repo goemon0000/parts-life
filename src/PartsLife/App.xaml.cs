@@ -48,7 +48,10 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        new MainWindow().Show();
+        var main = new MainWindow();
+        int bench = Array.IndexOf(args, "--bench");
+        if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];
+        main.Show();
     }
 
     /// <summary>`--lang en` で書き出す言語を指定する。宣材を日英ぶん作るため。</summary>

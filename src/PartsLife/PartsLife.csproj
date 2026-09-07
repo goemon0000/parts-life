@@ -17,6 +17,13 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <InvariantGlobalization>false</InvariantGlobalization>
 
+    <!-- 常駐物なので、速さより占有の小ささを取る。
+         同時GCは待ち時間を減らす代わりに余分に確保するが、
+         毎秒数回しか描かないこのアプリには要らない。 -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+
     <!-- exe の属性。**署名を受けるには中身の名乗りが要る**（SignPath の条件）。
          署名の有無に関わらず、右クリック→プロパティで何のファイルか分かる方が良い。 -->
     <Version>0.3.1</Version>

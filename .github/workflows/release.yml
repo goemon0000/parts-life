@@ -36,16 +36,34 @@ jobs:
           if ($v -notmatch '^\d+\.\d+\.\d+$') { $v = '0.0.0' }
           "version=$v" >> $env:GITHUB_OUTPUT
 
-      - name: ビルド
+      # 2通り作る。**違いは単一ファイルの自己圧縮の有無だけ。**
+      # 圧縮版は落としてすぐ実行できるが、起動時に中身をまるごとメモリへ展開する。
+      # 実機で測ると 222MB / 117MB(専有) 使い、非圧縮版は 130MB / 60MB だった。
+      # 資源の使用量を眺めるためのアプリが、その倍を自分で使っていては話にならない。
+      # 非圧縮版は ZIP にすると 56MB で、圧縮版の exe(62MB) より小さい。
+      - name: ビルド（直接実行できる単一exe）
         run: >
           dotnet publish src/PartsLife/PartsLife.csproj -c Release -o dist
           -p:Version=${{ steps.ver.outputs.version }}
+
+      - name: ビルド（占有の小さい版）
+        run: >
+          dotnet publish src/PartsLife/PartsLife.csproj -c Release -o slim
+          -p:Version=${{ steps.ver.outputs.version }}
+          -p:EnableCompressionInSingleFile=false
+
+      - name: 署名に出す分をまとめる
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path sign | Out-Null
+          Copy-Item dist/PartsLife.exe sign/PartsLife.exe
+          Copy-Item slim/PartsLife.exe sign/PartsLife-slim.exe
 
       - uses: actions/upload-artifact@v4
         id: artifact
         with:
           name: PartsLife-unsigned
-          path: dist/PartsLife.exe
+          path: sign/*.exe
           if-no-files-found: error
 
       # --- 署名 -------------------------------------------------------------
@@ -67,14 +85,24 @@ jobs:
       - name: 署名済みに差し替える
         if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
         shell: pwsh
-        run: Copy-Item signed/PartsLife.exe dist/PartsLife.exe -Force
+        run: |
+          Copy-Item signed/PartsLife.exe dist/PartsLife.exe -Force
+          Copy-Item signed/PartsLife-slim.exe slim/PartsLife.exe -Force
 
       # --- 公開 -------------------------------------------------------------
+      - name: ZIP に詰める
+        shell: pwsh
+        run: Compress-Archive -Path slim/PartsLife.exe -DestinationPath dist/PartsLife.zip -Force
+
       - name: 中身の指紋を出す
         shell: pwsh
         run: |
-          $h = (Get-FileHash dist/PartsLife.exe -Algorithm SHA256).Hash.ToLower()
-          "SHA-256: $h" | Tee-Object -FilePath dist/SHA256.txt
+          $lines = @()
+          foreach ($f in @("dist/PartsLife.zip", "dist/PartsLife.exe")) {
+            $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+            $lines += "{0}  {1}" -f $h, (Split-Path $f -Leaf)
+          }
+          $lines | Tee-Object -FilePath dist/SHA256.txt
           $sig = Get-AuthenticodeSignature dist/PartsLife.exe
           "署名: $($sig.Status)  $($sig.SignerCertificate.Subject)"
 
@@ -82,6 +110,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
+            dist/PartsLife.zip
             dist/PartsLife.exe
             dist/SHA256.txt
           fail_on_unmatched_files: true

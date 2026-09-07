@@ -97,7 +97,7 @@ public static class Composition
             double load = Math.Clamp(io.For(mine) / (kind.FullScaleMbps * 1024.0 * 1024.0), 0, 1);
 
             slots.Add(new PartySlot(kind.Key, kind.CharacterId, kind.Slot, kind.Title,
-                Capacity(vols, mine.Count), load));
+                Capacity(vols, mine.Count, lang), load));
         }
 
         // 一台も種別を判別できなかったとき（WMIが引けない等）は、まとめて1体だけ出す
@@ -105,7 +105,7 @@ public static class Composition
         {
             double total = io.ReadBytesPerSec + io.WriteBytesPerSec;
             slots.Add(new PartySlot("ssd", "ssd", SlotKind.M2, "DISK",
-                Capacity(drives, drives.Count),
+                Capacity(drives, drives.Count, lang),
                 Math.Clamp(total / (500.0 * 1024 * 1024), 0, 1)));
         }
 
@@ -126,10 +126,10 @@ public static class Composition
         return mine.Count == 0 ? s.CpuTotal : mine.Average();
     }
 
-    private static string Capacity(IEnumerable<DriveInfoLite> drives, int diskCount)
+    private static string Capacity(IEnumerable<DriveInfoLite> drives, int diskCount, string lang)
     {
         var list = drives.ToList();
-        if (list.Count == 0) return diskCount > 1 ? $"{diskCount} 台" : "";
+        if (list.Count == 0) return diskCount > 1 ? Units(diskCount, lang) : "";
         ulong used = 0, total = 0;
         foreach (var d in list) { used += d.UsedBytes; total += d.TotalBytes; }
         string count = diskCount > 1 ? $"  ×{diskCount}" : "";
@@ -137,6 +137,7 @@ public static class Composition
     }
 
     private static string Cores(int n, string lang) => lang == "en" ? $"{n} cores" : $"{n} コア";
+    private static string Units(int n, string lang) => lang == "en" ? $"{n} drives" : $"{n} 台";
     private static double Gb(ulong b) => b / 1024.0 / 1024.0 / 1024.0;
     private static double Mb(double b) => b / 1024.0 / 1024.0;
 }

@@ -13,7 +13,9 @@ public sealed record BoardSlot(
     int Level = 1,
     double LevelProgress = 0,
     /// <summary>いまの働き 0..1。赤みと湯気の量を決める。</summary>
-    double Load = 0);
+    double Load = 0,
+    /// <summary>湯気の位相。姿のコマ送りとは別の時計で動かす。</summary>
+    int SteamTick = 0);
 
 public enum SlotKind { Socket, Dimm, Pcie, M2, Sata, Atx }
 
@@ -95,6 +97,19 @@ public sealed class BoardRenderer
     private static Color C(byte r, byte g, byte b) => Color.FromArgb(255, r, g, b);
 
     private readonly Atlas _atlas;
+
+    /// <summary>描画先。大きさが変わらない限り作り直さない。</summary>
+    private RenderTargetBitmap? _canvas;
+
+    /// <summary>基板の下地。大きさが変わらない限り焼き直さない。</summary>
+    private RenderTargetBitmap? _background;
+
+    /// <summary>切り出したコマ。**同じコマを毎回切り出し直さない。**</summary>
+    private readonly Dictionary<(string, string, int), CroppedBitmap> _frames = new();
+
+    /// <summary>熱を滲ませるときの型抜き。コマと1対1なので同じ鍵で持てる。</summary>
+    private readonly Dictionary<(string, string, int), ImageBrush> _masks = new();
+
     public BoardRenderer(Atlas atlas) => _atlas = atlas;
 
     /// <summary>
@@ -102,7 +117,30 @@ public sealed class BoardRenderer
     /// <paramref name="minWidth"/> を渡すと、足りない分は基板を広げて中央に寄せる。
     /// 段を折り返すと盤が枠より細くなり、両脇に隙間が空いて浮いて見えるため。
     /// </summary>
+    /// <summary>絵を1枚のビットマップに焼く。**書き出し（--render）専用。**</summary>
     public BitmapSource Render(IReadOnlyList<BoardSlot> slots, int minWidth = 0)
+    {
+        var dv = new DrawingVisual();
+        Size size;
+        using (var dc = dv.RenderOpen()) size = Draw(dc, slots, minWidth);
+
+        if (_canvas is null || _canvas.PixelWidth != (int)size.Width || _canvas.PixelHeight != (int)size.Height)
+            _canvas = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);
+        else
+            _canvas.Clear();
+        _canvas.Render(dv);
+        return _canvas;
+    }
+
+    /// <summary>
+    /// 与えられた描画面に盤を描き、その大きさ（ドット絵の画素）を返す。
+    ///
+    /// **常用の経路はこちら。** 毎コマ RenderTargetBitmap に焼いていたが、
+    /// あれは WPF の外で1枚ずつラスタライズする処理で、実機で測ると
+    /// 描画だけで CPU の 2% を使っていた。描画内容を WPF に預ければ、
+    /// 合成は WPF 側（多くの環境で GPU）が受け持つ。
+    /// </summary>
+    public Size Draw(DrawingContext dc, IReadOnlyList<BoardSlot> slots, int minWidth = 0)
     {
         int perRow = PerRow(slots.Count);
         int rows = RowsFor(slots.Count);
@@ -111,10 +149,11 @@ public sealed class BoardRenderer
         int h = BoardHeight(rows);
         int inset = (w - natural) / 2;
 
-        var dv = new DrawingVisual();
-        using (var dc = dv.RenderOpen())
         {
-            DrawBoard(dc, w, h);
+            // 基板の模様は固定の種で描いていて毎回同じ絵になる。
+            // **1回だけ焼いて、以後は貼るだけにする。**
+            // 配線とチップを毎コマ描き直すのは、常駐しているだけの時間の無駄。
+            dc.DrawImage(Background(w, h), new Rect(0, 0, w, h));
 
             for (int row = 0; row < rows; row++)
             {
@@ -143,14 +182,11 @@ public sealed class BoardRenderer
 
                 // 湯気は最後。スロットの手前より更に上に出す
                 for (int i = from; i < to; i++)
-                    DrawSteam(dc, rowInset + SlotX(i - from), charY, slots[i].Load, slots[i].Frame);
+                    DrawSteam(dc, rowInset + SlotX(i - from), charY, slots[i].Load, slots[i].SteamTick);
             }
         }
 
-        var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
-        rtb.Render(dv);
-        rtb.Freeze();
-        return rtb;
+        return new Size(w, h);
     }
 
     private static int SlotX(int index) => SlotLeft(index);
@@ -164,9 +200,15 @@ public sealed class BoardRenderer
 
     private void DrawCharacter(DrawingContext dc, BoardSlot slot, int x, int y)
     {
-        var src = _atlas.Frame(slot.CharacterId, slot.Motion, slot.Frame);
-        if (src is null) return;
-        var cropped = new CroppedBitmap(_atlas.Characters, src.Value);
+        var key = (slot.CharacterId, slot.Motion, slot.Frame);
+        if (!_frames.TryGetValue(key, out var cropped))
+        {
+            var src = _atlas.Frame(slot.CharacterId, slot.Motion, slot.Frame);
+            if (src is null) return;
+            cropped = new CroppedBitmap(_atlas.Characters, src.Value);
+            cropped.Freeze();
+            _frames[key] = cropped;
+        }
         var rect = new Rect(x, y, Cell, Cell);
 
         // **働くほど熱くなる。**
@@ -185,15 +227,14 @@ public sealed class BoardRenderer
             var far = new SolidColorBrush(Color.FromArgb((byte)(heat * 80), 0xFF, 0x7A, 0x2E));
             near.Freeze();
             far.Freeze();
+            var mask0 = MaskFor(key, cropped);
             foreach (var (dx, dy, brush) in new[]
                      {
                          (-1, 0, near), (1, 0, near), (0, -1, near), (0, 1, near),
                          (-1, -1, far), (1, -1, far), (-1, 1, far), (1, 1, far),
                      })
             {
-                var m = new ImageBrush(cropped) { Stretch = Stretch.Fill };
-                m.Freeze();
-                dc.PushOpacityMask(m);
+                dc.PushOpacityMask(mask0);
                 dc.DrawRectangle(brush, null, new Rect(x + dx, y + dy, Cell, Cell));
                 dc.Pop();
             }
@@ -204,9 +245,7 @@ public sealed class BoardRenderer
         if (heat <= 0.01) return;
 
         // 体の側はごく薄く暖めるだけ。色を奪わない程度に留める
-        var mask = new ImageBrush(cropped) { Stretch = Stretch.Fill };
-        mask.Freeze();
-        dc.PushOpacityMask(mask);
+        dc.PushOpacityMask(MaskFor(key, cropped));
         dc.DrawRectangle(new SolidColorBrush(Color.FromArgb((byte)(heat * 38), 0xFF, 0x76, 0x30)), null, rect);
         dc.Pop();
     }
@@ -234,6 +273,27 @@ public sealed class BoardRenderer
             byte a = (byte)Math.Clamp(215 - phase * 17, 0, 255);
             Fill(dc, Color.FromArgb(a, 0xEE, 0xF6, 0xFF), cx - w / 2 + drift, py, w, 2);
         }
+    }
+
+    private RenderTargetBitmap Background(int w, int h)
+    {
+        if (_background is { } b && b.PixelWidth == w && b.PixelHeight == h) return b;
+        var dv = new DrawingVisual();
+        using (var dc = dv.RenderOpen()) DrawBoard(dc, w, h);
+        var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(dv);
+        rtb.Freeze();
+        _background = rtb;
+        return rtb;
+    }
+
+    private ImageBrush MaskFor((string, string, int) key, CroppedBitmap cropped)
+    {
+        if (_masks.TryGetValue(key, out var m)) return m;
+        m = new ImageBrush(cropped) { Stretch = Stretch.Fill };
+        m.Freeze();
+        _masks[key] = m;
+        return m;
     }
 
     private static void Fill(DrawingContext dc, Color c, double x, double y, double w, double h)

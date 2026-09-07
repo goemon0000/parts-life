@@ -47,7 +47,17 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _sensorTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private DateTime _lastTick = DateTime.UtcNow;
     private DateTime _lastSave = DateTime.UtcNow;
-    private int _frame;
+    private DateTime _lastDriveScan = DateTime.MinValue;
+
+    /// <summary>コマ送りの時計。**モーションごとの速さは絵の側が決めている。**</summary>
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>前回描いた絵の指紋。同じなら描き直さない。</summary>
+    private int _lastSignature;
+
+    /// <summary>--shot / --render のとき真。進行を書き戻さない。</summary>
+    private bool _readOnly;
+    private int _failures;
 
     private readonly List<TextBlock> _levelLabels = new();
 
@@ -102,6 +112,17 @@ public partial class MainWindow : Window
 
         Loaded += OnLoaded;
         Closing += (_, _) => SaveState();
+        Closed += (_, _) =>
+        {
+            _frameTimer.Stop();
+            _sensorTimer.Stop();
+            _hoverTip.IsOpen = false;
+            _pdh.Dispose();          // PDH の照会を閉じる
+        };
+        // 窓を動かしたり後ろに回ったりしたら、吹き出しは畳む。
+        // Popup は常に最前面に出るので、置き去りにすると独りで浮いて残る
+        LocationChanged += (_, _) => _hoverTip.IsOpen = false;
+        Deactivated += (_, _) => _hoverTip.IsOpen = false;
         MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
 
         ExpandButton.Click += (_, _) => SetExpanded(!_expanded);
@@ -125,8 +146,23 @@ public partial class MainWindow : Window
         BoardHost.MouseLeave += (_, _) => _hoverTip.IsOpen = false;
         MouseRightButtonUp += (_, e) => { ShowMenu(); e.Handled = true; };
 
-        _frameTimer.Tick += (_, _) => { _frame++; Redraw(); };
-        _sensorTimer.Tick += (_, _) => OnSensorTick();
+        // **飾りのために巻き添えで落ちない。**
+        // 計測は OS の API に触るので、環境によっては想定外の例外が出る。
+        // 常駐物が「動作を停止しました」を出すのは、それ自体が害になる。
+        _frameTimer.Tick += (_, _) => Guarded(() => Redraw());
+        _sensorTimer.Tick += (_, _) => Guarded(OnSensorTick);
+    }
+
+    private void Guarded(Action work)
+    {
+        try { work(); }
+        catch (Exception ex)
+        {
+            _failures++;
+            if (_failures <= 3) System.Diagnostics.Debug.WriteLine(ex);
+            // 続けて失敗するなら、無言で回り続けるより静かに止まる方がまし
+            if (_failures > 60) { _frameTimer.Stop(); _sensorTimer.Stop(); }
+        }
     }
 
     /// <summary>
@@ -137,6 +173,10 @@ public partial class MainWindow : Window
     internal System.Windows.Media.Imaging.BitmapSource RenderShot(bool expanded, double scale, string? lang = null)
     {
         _scale = scale;
+        // **書き出しの間は保存しない。**
+        // 宣材を作るために log を消したり言語を変えたりするので、
+        // それが本物の進行に書き戻ると、利用者の物語が消える。
+        _readOnly = true;
         if (lang is "ja" or "en")
         {
             Strings.Lang = lang;
@@ -149,7 +189,7 @@ public partial class MainWindow : Window
         OnSensorTick();
         SetExpanded(expanded);
         Grip.Visibility = Visibility.Collapsed;   // 宣材に掴みは要らない
-        Redraw();
+        Redraw(force: true);
 
         Shell.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         Shell.Arrange(new Rect(Shell.DesiredSize));
@@ -162,32 +202,52 @@ public partial class MainWindow : Window
         return rtb;
     }
 
+    /// <summary>
+    /// 負荷の切り分け用。"draw" なら描画だけ、"sense" なら計測だけを回す。
+    /// **どちらが重いのかは、推測ではなく止めてみないと分からない。**
+    /// </summary>
+    internal string? BenchMode { get; set; }
+
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         ApplyLanguage();
         TopmostButton.Opacity = Topmost ? 1.0 : 0.45;
         OnSensorTick();
-        Redraw();
+        Redraw(force: true);
         SetExpanded(_state.Expanded);
         PlaceWindow();
-        _frameTimer.Start();
-        _sensorTimer.Start();
+        if (BenchMode != "sense") _frameTimer.Start();
+        if (BenchMode != "draw") _sensorTimer.Start();
     }
 
-    /// <summary>前回の位置を覚えていればそこへ。無ければ右上。</summary>
+    /// <summary>
+    /// 前回の位置を覚えていればそこへ。無ければ主モニタの右上。
+    ///
+    /// **画面全体（仮想デスクトップ）で判定する。**
+    /// 主モニタの作業領域だけで見ていたため、副モニタに置いていた窓が
+    /// 起動のたび主モニタへ飛んでいた。左側の副モニタは座標が負になるので、
+    /// 「0未満なら未設定」という判定も間違いだった。
+    /// </summary>
     private void PlaceWindow()
     {
+        if (_state.WindowLeft is { } sl && _state.WindowTop is { } st && IsOnScreen(sl, st))
+        {
+            Left = sl;
+            Top = st;
+            return;
+        }
         var area = SystemParameters.WorkArea;
-        if (_state.WindowLeft >= 0 && _state.WindowTop >= 0)
-        {
-            Left = Math.Min(_state.WindowLeft, area.Right - 80);
-            Top = Math.Min(_state.WindowTop, area.Bottom - 60);
-        }
-        else
-        {
-            Left = area.Right - ActualWidth - 16;
-            Top = area.Top + 16;
-        }
+        Left = area.Right - ActualWidth - 16;
+        Top = area.Top + 16;
+    }
+
+    /// <summary>その位置に窓の頭が見えているか。モニタを外したあとに行方不明にならないよう確かめる。</summary>
+    private static bool IsOnScreen(double left, double top)
+    {
+        double vl = SystemParameters.VirtualScreenLeft, vt = SystemParameters.VirtualScreenTop;
+        double vr = vl + SystemParameters.VirtualScreenWidth, vb = vt + SystemParameters.VirtualScreenHeight;
+        // 掴める分（頭 80x40）が画面内に残っていれば良しとする
+        return left + 80 > vl && left < vr - 20 && top + 40 > vt && top < vb - 20;
     }
 
     private void SetExpanded(bool value)
@@ -197,8 +257,12 @@ public partial class MainWindow : Window
         DetailPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         ExpandButton.Content = value ? "▲" : "▼";
         ExpandButton.ToolTip = value ? Strings.CollapseTip : Strings.ExpandTip;
-        // 展開中は数値をよく見るので、測る間隔を詰める
-        _sensorTimer.Interval = TimeSpan.FromSeconds(value ? 0.5 : 1.0);
+        // **畳んでいる間は測る回数を減らす。**
+        // 姿が変わるのは 0.03 / 0.45 / 0.85 の3段階だけなので、
+        // 毎秒測っても見た目はほぼ変わらない。実機で測ると計測側だけで
+        // CPU の 3% を使っていた（GPU Engine の全インスタンス走査が重い）。
+        // 展開して数値を見ている間だけ細かくする。
+        _sensorTimer.Interval = TimeSpan.FromSeconds(value ? 0.5 : 2.0);
         UpdateDetail();
     }
 
@@ -214,7 +278,7 @@ public partial class MainWindow : Window
     {
         double baseWidth = BoardRenderer.BoardWidth(BoardRenderer.PerRow(_slots.Count));
         _scale = Math.Clamp(_scale + e.HorizontalChange / baseWidth, 0.8, 6.0);
-        Redraw();
+        Redraw(force: true);
         KeepOnScreen();
     }
 
@@ -230,42 +294,74 @@ public partial class MainWindow : Window
         int n = (int)Math.Round(_scale * dpi);
         n = n % 3 + 1;                       // 1 → 2 → 3 → 1 と回す
         _scale = n / dpi;
-        Redraw();
+        Redraw(force: true);
         KeepOnScreen();
     }
 
+    /// <summary>
+    /// 大きくしたときに画面からはみ出さないよう戻す。
+    /// **仮想デスクトップ全体で見る。** 主モニタだけで見ていたため、
+    /// 副モニタで大きくすると窓が主モニタへ引き戻されていた。
+    /// </summary>
     private void KeepOnScreen()
     {
-        var area = SystemParameters.WorkArea;
-        if (Left + ActualWidth > area.Right) Left = Math.Max(area.Left, area.Right - ActualWidth);
-        if (Top + ActualHeight > area.Bottom) Top = Math.Max(area.Top, area.Bottom - ActualHeight);
+        double vl = SystemParameters.VirtualScreenLeft, vt = SystemParameters.VirtualScreenTop;
+        double vr = vl + SystemParameters.VirtualScreenWidth, vb = vt + SystemParameters.VirtualScreenHeight;
+        if (Left + ActualWidth > vr) Left = Math.Max(vl, vr - ActualWidth);
+        if (Top + ActualHeight > vb) Top = Math.Max(vt, vb - ActualHeight);
     }
 
     // -----------------------------------------------------------------------
     // 描画
     // -----------------------------------------------------------------------
-    private void Redraw()
+    private void Redraw(bool force = false)
     {
         if (_slots.Count == 0) return;
 
+        // 湯気だけは速い時計で動かす。姿のコマ送りより細かく揺れてほしい
+        bool anyHot = _slots.Any(s => s.Load >= 0.60);
+        int steamTick = anyHot ? (int)(_clock.ElapsedMilliseconds / 130) : 0;
+
         var slots = new List<BoardSlot>(_slots.Count);
         foreach (var s in _slots)
-            slots.Add(new BoardSlot(s.CharacterId, s.Kind, MotionFor(s.Load), _frame,
-                                    _state.Level(s.Key), _state.LevelProgress(s.Key), s.Load));
+        {
+            string motion = MotionFor(s.Load);
+            slots.Add(new BoardSlot(s.CharacterId, s.Kind, motion, FrameOf(s.CharacterId, motion),
+                                    _state.Level(s.Key), _state.LevelProgress(s.Key), s.Load, steamTick));
+        }
 
-        var bmp = _board.Render(slots, (int)Math.Ceiling(MinPanelWidth / Math.Max(_scale, 0.1)));
-        BoardImage.Source = bmp;
-        double w = Math.Round(bmp.PixelWidth * _scale);
-        double h = Math.Round(bmp.PixelHeight * _scale);
-        BoardImage.Width = w;
-        BoardImage.Height = h;
+        // **同じ絵なら描き直さない。**
+        // 常駐して置いておくものなので、何も変わっていないのに毎秒7回
+        // 盤を焼き直すのは、そのぶん誰かの CPU を食っているだけになる。
+        var sig = new HashCode();
+        sig.Add(_scale);
+        sig.Add((int)_labels);
+        foreach (var b in slots)
+        {
+            sig.Add(b.CharacterId);
+            sig.Add(b.Motion);
+            sig.Add(b.Frame);
+            sig.Add(b.Level);
+            sig.Add((int)(b.LevelProgress * 60));   // 経験値バーの見た目が変わる粒度まで
+            sig.Add((int)(b.Load * 40));
+            sig.Add(b.SteamTick);
+        }
+        int fingerprint = sig.ToHashCode();
+        if (!force && fingerprint == _lastSignature) return;
+        _lastSignature = fingerprint;
+
+        int minArtWidth = (int)Math.Ceiling(MinPanelWidth / Math.Max(_scale, 0.1));
+        BoardImage.Redraw(dc => _board.Draw(dc, slots, minArtWidth), _scale);
+
+        double w = Math.Round(BoardImage.ArtSize.Width * _scale);
+        double h = Math.Round(BoardImage.ArtSize.Height * _scale);
         BoardHost.Width = w;
         BoardHost.Height = h;
         // **枠の幅は盤の幅と切り離す。**
         // 段を折り返すと盤は細くなるが、数値欄まで一緒に細くすると
         // GPU の型番が入らなくなる。狭いときは枠だけ広げて、盤を中央に置く。
         double panel = Math.Max(w, MinPanelWidth);
-        _boardPixelWidth = bmp.PixelWidth;
+        _boardPixelWidth = (int)BoardImage.ArtSize.Width;
         StoryPanel.Width = panel;
         ArrowBar.Width = panel;
         DetailPanel.Width = panel;
@@ -319,6 +415,14 @@ public partial class MainWindow : Window
     /// 稼働状況を動きで表す。**数字は出さない。**
     /// 判定に使う値は経験値と同じものを使う。表示と中身がずれると嘘くさくなる。
     /// </summary>
+    /// <summary>そのモーションのいまのコマ。速さは絵の側（アトラス）が持っている値に従う。</summary>
+    private int FrameOf(string characterId, string motion)
+    {
+        var m = _atlas.Motion(characterId, motion);
+        if (m is null || m.Frames.Count == 0) return 0;
+        return (int)(_clock.ElapsedMilliseconds / Math.Max(40, m.Ms)) % m.Frames.Count;
+    }
+
     private static string MotionFor(double load)
     {
         if (load >= 0.85) return "peek";   // 必死の顔
@@ -333,8 +437,16 @@ public partial class MainWindow : Window
     private void OnSensorTick()
     {
         _snapshot = _sampler.Sample();
-        (_gpus, _throughput) = _pdh.Sample();
-        _drives = _disk.Sample();
+        if (BenchMode != "nopdh") (_gpus, _throughput) = _pdh.Sample();
+
+        // **容量は毎回読まない。** 何百GBの残量が1秒で変わることはない。
+        // DriveInfo は台数ぶんファイルシステムに問い合わせるので、
+        // 惰性で毎秒呼ぶと、その分だけ誰かのディスクを触り続けることになる。
+        if (_drives.Count == 0 || (DateTime.UtcNow - _lastDriveScan).TotalSeconds >= 30)
+        {
+            _drives = _disk.Sample();
+            _lastDriveScan = DateTime.UtcNow;
+        }
 
         double gpu = _gpus.Count == 0 ? 0 : _gpus.Max(g => g.Utilization);
         // 読み書きは 200MB/s で振り切る目盛りにする。
@@ -374,6 +486,8 @@ public partial class MainWindow : Window
 
     private void SaveState()
     {
+        if (_readOnly) return;
+
         _state.Zoom = _scale;
         _state.WindowLeft = Left;
         _state.WindowTop = Top;
