@@ -109,6 +109,7 @@ Parts Party characters by web-autoai.com (CC BY 4.0)
 - [x] 基板に挿さった見た目
 - [x] CPU（全体・論理コア別）とメモリの実測
 - [x] GPU（使用率・VRAM）とディスク（読み書き・容量・SSD/HDD）の実測
+- [x] 働くほど熱を帯びる表現（輪郭の赤みと湯気）
 - [x] 稼働に応じた自動レベルアップと、勝手に進む物語（序章〜第三章）
 - [x] 日英対応・窓の自由な拡大縮小・位置と進行の保存
 - [ ] 複数CPU/GPU・サーバー構成に合わせた並びの組み立て
@@ -142,3 +143,13 @@ Parts Party characters by web-autoai.com (CC BY 4.0)
 
 経験値は**その子自身の仕事でしか増えません**。
 CPU を回しても GPU くんは上がりません。
+
+## 見た目を確認する
+
+画面のある機械でしか確認できないと、直すたびに往復が要ります。窓を開かずに
+絵と実測値だけを書き出せるようにしてあります。
+
+```powershell
+PartsParty.exe --render out.png 1.0 3   # 負荷 1.0 の基板を 6コマぶん、3倍で PNG に
+PartsParty.exe --probe  out.txt         # GPU・ディスクを実機がどう見ているか
+```

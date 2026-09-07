@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Microsoft.Win32;
 
 namespace PartsParty.Sensors;
 
@@ -35,11 +34,16 @@ public sealed class PdhSampler : IDisposable
     private IntPtr _diskWriteCounter;
     private bool _ready;
 
-    private static readonly Regex LuidRe = new(@"luid_(0x[0-9A-Fa-f]+_0x[0-9A-Fa-f]+)", RegexOptions.Compiled);
+    private static readonly Regex LuidRe = new(@"luid_0x([0-9A-Fa-f]+)_0x([0-9A-Fa-f]+)", RegexOptions.Compiled);
     private static readonly Regex EngTypeRe = new(@"engtype_(\w+)$", RegexOptions.Compiled);
 
-    /// <summary>アダプタごとの総VRAM。レジストリから1回だけ拾う。</summary>
-    private readonly List<(string Name, ulong Bytes)> _adapters = ReadAdaptersFromRegistry();
+    /// <summary>
+    /// LUID → 名前と総VRAM。**D3DKMT から1回だけ拾う。**
+    /// レジストリの並び順で突き合わせると、外したカードの残骸に当たって別物になる
+    /// （経緯は GpuIdentity.cs を参照）。
+    /// </summary>
+    private readonly Dictionary<string, GpuIdentity> _identity =
+        GpuIdentity_.Enumerate().ToDictionary(g => g.LuidKey, g => g);
 
     public PdhSampler()
     {
@@ -69,12 +73,12 @@ public sealed class PdhSampler : IDisposable
         var perEngine = new Dictionary<string, Dictionary<string, double>>();
         foreach (var (instance, value) in ReadArray(_utilCounter))
         {
-            var luid = LuidRe.Match(instance);
-            if (!luid.Success) continue;
+            string? key = LuidKey(instance);
+            if (key is null) continue;
             var engType = EngTypeRe.Match(instance);
             string type = engType.Success ? engType.Groups[1].Value : "other";
-            var byType = perEngine.TryGetValue(luid.Groups[1].Value, out var d)
-                ? d : perEngine[luid.Groups[1].Value] = new Dictionary<string, double>();
+            var byType = perEngine.TryGetValue(key, out var d)
+                ? d : perEngine[key] = new Dictionary<string, double>();
             byType[type] = byType.GetValueOrDefault(type) + value;
         }
 
@@ -84,24 +88,32 @@ public sealed class PdhSampler : IDisposable
         {
             foreach (var (instance, value) in ReadArray(_memCounter))
             {
-                var luid = LuidRe.Match(instance);
-                if (!luid.Success) continue;
-                vram[luid.Groups[1].Value] = vram.GetValueOrDefault(luid.Groups[1].Value) + value;
+                string? key = LuidKey(instance);
+                if (key is null) continue;
+                vram[key] = vram.GetValueOrDefault(key) + value;
             }
         }
 
-        var keys = perEngine.Keys.Union(vram.Keys).OrderBy(k => k).ToList();
-        var result = new List<GpuInfo>(keys.Count);
-        for (int i = 0; i < keys.Count; i++)
+        var result = new List<GpuInfo>();
+        foreach (string k in perEngine.Keys.Union(vram.Keys))
         {
-            string k = keys[i];
             double util = perEngine.TryGetValue(k, out var byType) && byType.Count > 0
                 ? byType.Values.Max() / 100.0 : 0;
             ulong used = (ulong)Math.Max(0, vram.GetValueOrDefault(k));
-            // レジストリ側の並びと突き合わせる手段が無いので、順番で対応させる
-            var adapter = i < _adapters.Count ? _adapters[i] : ("GPU", 0UL);
-            result.Add(new GpuInfo(k, adapter.Item1, Math.Clamp(util, 0, 1), used, adapter.Item2));
+            // **LUID が一致したものだけを名乗らせる。**
+            // 見つからなければ名無しで出す。間違った型番を出すより、分からないと言う方がまだ良い。
+            var id = _identity.GetValueOrDefault(k);
+            result.Add(new GpuInfo(k, id?.Name ?? "GPU", Math.Clamp(util, 0, 1), used, id?.DedicatedBytes ?? 0));
         }
+        // **名前も VRAM も使用率も無いものは出さない。**
+        // 実機に Quest のリンク用仮想ディスプレイが居て、「GPU  0%  0.0/0.0 GB」という
+        // 中身の無い行が並んでいた。描いていない物を GPU として数えると、
+        // 「うちは GPU 4枚なのか？」という誤解だけが残る。
+        // 一度でも動いた（使用率が出た）ものは、名前が無くても残す。
+        result.RemoveAll(g => g.Name == "GPU" && g.VramTotalBytes == 0 && g.Utilization <= 0);
+
+        // 積んでいる VRAM が多い順。主に使っているカードが GPU0 になる方が読みやすい。
+        result.Sort((a, b) => b.VramTotalBytes.CompareTo(a.VramTotalBytes));
 
         var disk = new DiskThroughput(ReadSingle(_diskReadCounter), ReadSingle(_diskWriteCounter));
         return (result, disk);
@@ -143,26 +155,22 @@ public sealed class PdhSampler : IDisposable
     /// 総VRAM。**WMI の Win32_VideoController.AdapterRAM は 4GB で頭打ちになる**ので使わない。
     /// ドライバがレジストリに書く qwMemorySize を読む。
     /// </summary>
-    private static List<(string, ulong)> ReadAdaptersFromRegistry()
+    /// <summary>
+    /// `..._luid_0x00000000_0x0000E123_...` から鍵を作る。
+    /// 桁数の書き方が環境で揺れるので、**数として読んでから揃える。**
+    /// </summary>
+    private static string? LuidKey(string instance)
     {
-        var list = new List<(string, ulong)>();
+        var m = LuidRe.Match(instance);
+        if (!m.Success) return null;
         try
         {
-            using var root = Registry.LocalMachine.OpenSubKey(
-                @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}");
-            if (root is null) return list;
-            foreach (var sub in root.GetSubKeyNames().Where(n => n.Length == 4 && n.All(char.IsDigit)).OrderBy(n => n))
-            {
-                using var k = root.OpenSubKey(sub);
-                if (k is null) continue;
-                var size = k.GetValue("HardwareInformation.qwMemorySize");
-                var name = k.GetValue("DriverDesc") as string ?? "GPU";
-                if (size is long l && l > 0) list.Add((name, (ulong)l));
-                else if (size is int ii && ii > 0) list.Add((name, (ulong)ii));
-            }
+            long high = Convert.ToInt64(m.Groups[1].Value, 16);
+            ulong low = Convert.ToUInt64(m.Groups[2].Value, 16);
+            return GpuIdentity_.KeyOf(high, low);
         }
-        catch { /* 読めなくても総容量が出ないだけ */ }
-        return list;
+        catch (OverflowException) { return null; }
+        catch (FormatException) { return null; }
     }
 
     public void Dispose()

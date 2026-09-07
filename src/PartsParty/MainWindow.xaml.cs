@@ -195,7 +195,8 @@ public partial class MainWindow : Window
         var slots = new List<BoardSlot>(Layout.Length);
         foreach (var (id, kind) in Layout)
             slots.Add(new BoardSlot(id, kind, MotionFor(id), _frame,
-                                    _state.Level(id), _state.LevelProgress(id)));
+                                    _state.Level(id), _state.LevelProgress(id),
+                                    Director.LoadOf(id, _work)));
 
         var bmp = _board.Render(slots);
         BoardImage.Source = bmp;
@@ -446,6 +447,10 @@ public partial class MainWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0xDD, 0xE5, 0xF8)),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right,
+            // **切れたら「…」を出す。**
+            // 黙って切れると「RTX 3080 Ti」が「RTX 3080」と読めてしまう
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            ToolTip = text,
         };
         Grid.SetColumn(t, 2);
         grid.Children.Add(t);

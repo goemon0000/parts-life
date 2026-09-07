@@ -22,6 +22,9 @@ public sealed class DiskSampler
 {
     private static readonly Dictionary<string, bool> EmptyMap = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>判別が失敗した理由。--probe で読むためだけに残す（通常の動作には影響しない）。</summary>
+    public static string? LastProbeError;
+
     /// <summary>
     /// "C:" -> SSDか。**別スレッドで1回だけ引く。**
     /// WMI は数秒かかることがあり、UI スレッドで引くと起動時に固まって見える。
@@ -54,56 +57,52 @@ public sealed class DiskSampler
 
     /// <summary>
     /// ドライブ文字 → SSDかどうか。
-    /// パーティション→ディスク→物理ディスクと辿る必要があるので、素直に書くと長い。
-    /// 失敗したら全部 HDD 扱いにする（表示が少し違うだけで害はない）。
+    ///
+    /// **MSFT_Partition と MSFT_PhysicalDisk の2本だけで引く。**
+    /// 最初は Win32_DiskDriveToDiskPartition から ASSOCIATORS で辿っていたが、
+    /// 実機で全ドライブが HDD 判定になった。あの経路は WQL に
+    /// `Disk #0, Partition #1` のような引用符入りの値を埋め込む必要があり、崩れやすい。
+    ///
+    /// 実機での正解（照合済み）:
+    ///   D → disk0 SSD / E → disk1 HDD / F → disk2 SSD / C → disk3 SSD
+    ///
+    /// 判別できなければ全部 HDD 扱いにする（表示が少し違うだけで害はない）。
     /// </summary>
     private static Dictionary<string, bool> ProbeMediaTypes()
     {
         var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            // 物理ディスク番号 -> SSDか
-            var ssdByIndex = new Dictionary<uint, bool>();
-            using (var searcher = new ManagementObjectSearcher(
-                @"\\.\root\microsoft\windows\storage", "SELECT DeviceId, MediaType FROM MSFT_PhysicalDisk"))
+            const string ns = @"\\.\root\microsoft\windows\storage";
+
+            // 物理ディスク番号 → SSDか
+            var ssdByDisk = new Dictionary<uint, bool>();
+            using (var disks = new ManagementObjectSearcher(ns,
+                "SELECT DeviceId, MediaType FROM MSFT_PhysicalDisk"))
             {
-                foreach (ManagementObject disk in searcher.Get())
+                foreach (ManagementObject d in disks.Get())
                 {
-                    if (!uint.TryParse(disk["DeviceId"]?.ToString(), out uint id)) continue;
-                    ushort media = Convert.ToUInt16(disk["MediaType"] ?? (ushort)0);
-                    ssdByIndex[id] = media == 4;      // 3=HDD, 4=SSD, 5=SCM, 0=不明
+                    if (!uint.TryParse(d["DeviceId"]?.ToString(), out uint id)) continue;
+                    ushort media = Convert.ToUInt16(d["MediaType"] ?? (ushort)0);
+                    ssdByDisk[id] = media == 4 || media == 5;   // 3=HDD, 4=SSD, 5=SCM
                 }
             }
 
-            // ディスク番号 -> ドライブ文字
-            using var partSearcher = new ManagementObjectSearcher(
-                "SELECT * FROM Win32_DiskDriveToDiskPartition");
-            foreach (ManagementObject link in partSearcher.Get())
+            // ドライブ文字 → 物理ディスク番号
+            using var parts = new ManagementObjectSearcher(ns,
+                "SELECT DriveLetter, DiskNumber FROM MSFT_Partition");
+            foreach (ManagementObject p in parts.Get())
             {
-                string drivePath = link["Antecedent"]?.ToString() ?? "";
-                string partPath = link["Dependent"]?.ToString() ?? "";
-                int idx = ExtractDiskIndex(drivePath);
-                if (idx < 0) continue;
-
-                using var logical = new ManagementObjectSearcher(
-                    $"ASSOCIATORS OF {{{partPath}}} WHERE AssocClass=Win32_LogicalDiskToPartition");
-                foreach (ManagementObject ld in logical.Get())
-                {
-                    string letter = ld["DeviceID"]?.ToString() ?? "";
-                    if (letter.Length >= 2) result[letter] = ssdByIndex.GetValueOrDefault((uint)idx, false);
-                }
+                // DriveLetter は文字コード（ushort）で返る。0 は文字が付いていない領域
+                var raw = p["DriveLetter"];
+                if (raw is null) continue;
+                char letter = raw is char c ? c : (char)Convert.ToUInt16(raw);
+                if (!char.IsLetter(letter)) continue;
+                if (!uint.TryParse(p["DiskNumber"]?.ToString(), out uint disk)) continue;
+                result[$"{char.ToUpperInvariant(letter)}:"] = ssdByDisk.GetValueOrDefault(disk, false);
             }
         }
-        catch { /* 判別できなくても容量は出せる */ }
+        catch (Exception ex) { LastProbeError = ex.GetType().Name + ": " + ex.Message; }
         return result;
-    }
-
-    private static int ExtractDiskIndex(string deviceIdPath)
-    {
-        // 例: \\PC\root\cimv2:Win32_DiskDrive.DeviceID="\\\\.\\PHYSICALDRIVE0"
-        int at = deviceIdPath.IndexOf("PHYSICALDRIVE", StringComparison.OrdinalIgnoreCase);
-        if (at < 0) return -1;
-        var digits = new string(deviceIdPath[(at + "PHYSICALDRIVE".Length)..].TakeWhile(char.IsDigit).ToArray());
-        return int.TryParse(digits, out int n) ? n : -1;
     }
 }

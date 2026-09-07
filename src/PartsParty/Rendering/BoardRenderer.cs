@@ -11,7 +11,9 @@ public sealed record BoardSlot(
     string Motion,
     int Frame,
     int Level = 1,
-    double LevelProgress = 0);
+    double LevelProgress = 0,
+    /// <summary>いまの働き 0..1。赤みと湯気の量を決める。</summary>
+    double Load = 0);
 
 public enum SlotKind { Socket, Dimm, Pcie, M2, Sata, Atx }
 
@@ -32,7 +34,8 @@ public sealed class BoardRenderer
     /// 詰めると基板というより一列のアイコンに見え、レベルの字も入らない。</summary>
     public const int Gap = 15;
     public const int PadX = 10;
-    public const int BoardTop = 5;
+    /// <summary>基板の上端からキャラの頭まで。**湯気を昇らせる余白を含む。**</summary>
+    public const int BoardTop = 13;
     public const int SlotH = 8;
     public const int BoardPadBottom = 3;
     /// <summary>スロットの下に取る、レベルを書くための帯。</summary>
@@ -92,6 +95,10 @@ public sealed class BoardRenderer
             // 経験値の進み具合。数字は上に重ねる文字で出すので、ここは線だけ。
             for (int i = 0; i < slots.Count; i++)
                 DrawExpBar(dc, SlotX(i), LabelBandTop + LabelH - 3, Cell, slots[i].LevelProgress);
+
+            // 湯気は最後。スロットの手前より更に上に出す
+            for (int i = 0; i < slots.Count; i++)
+                DrawSteam(dc, SlotX(i), charY, slots[i].Load, slots[i].Frame);
         }
 
         var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
@@ -114,7 +121,73 @@ public sealed class BoardRenderer
         var src = _atlas.Frame(slot.CharacterId, slot.Motion, slot.Frame);
         if (src is null) return;
         var cropped = new CroppedBitmap(_atlas.Characters, src.Value);
-        dc.DrawImage(cropped, new Rect(x, y, Cell, Cell));
+        var rect = new Rect(x, y, Cell, Cell);
+
+        // **働くほど熱くなる。**
+        // 動きの速さだけでは「速い」と「必死」の区別が付かない。色なら一目で分かる。
+        // 55% を超えてから効かせる。常時ほのかに赤いと、逆に何も伝わらなくなる。
+        double heat = Math.Clamp((slot.Load - 0.55) / 0.45, 0, 1);
+
+        // 熱は**輪郭の外側に滲ませる。**
+        // 体そのものを赤く塗ると、実機で試したとき7体とも同じ桃色の塊になって
+        // 誰が誰だか分からなくなった。青灰色の体に赤を重ねると、熱ではなく
+        // ただの濁った紫になる。外に滲ませれば、体の色は残ったまま熱く見える。
+        if (heat > 0.01)
+        {
+            // 上下左右は濃く、斜めは薄く。**斜めを抜くと角が四角く見えて熱に見えない。**
+            var near = new SolidColorBrush(Color.FromArgb((byte)(heat * 145), 0xFF, 0x5A, 0x1E));
+            var far = new SolidColorBrush(Color.FromArgb((byte)(heat * 80), 0xFF, 0x7A, 0x2E));
+            near.Freeze();
+            far.Freeze();
+            foreach (var (dx, dy, brush) in new[]
+                     {
+                         (-1, 0, near), (1, 0, near), (0, -1, near), (0, 1, near),
+                         (-1, -1, far), (1, -1, far), (-1, 1, far), (1, 1, far),
+                     })
+            {
+                var m = new ImageBrush(cropped) { Stretch = Stretch.Fill };
+                m.Freeze();
+                dc.PushOpacityMask(m);
+                dc.DrawRectangle(brush, null, new Rect(x + dx, y + dy, Cell, Cell));
+                dc.Pop();
+            }
+        }
+
+        dc.DrawImage(cropped, rect);
+
+        if (heat <= 0.01) return;
+
+        // 体の側はごく薄く暖めるだけ。色を奪わない程度に留める
+        var mask = new ImageBrush(cropped) { Stretch = Stretch.Fill };
+        mask.Freeze();
+        dc.PushOpacityMask(mask);
+        dc.DrawRectangle(new SolidColorBrush(Color.FromArgb((byte)(heat * 38), 0xFF, 0x76, 0x30)), null, rect);
+        dc.Pop();
+    }
+
+    /// <summary>
+    /// 頭から立ちのぼる湯気。**昇りながら薄く広がる。**
+    /// 同じ形が点滅するだけだと湯気に見えず、ただの点滅した点になる。
+    /// </summary>
+    private static void DrawSteam(DrawingContext dc, int x, int y, double load, int frame)
+    {
+        if (load < 0.60) return;
+        int puffs = load >= 0.85 ? 3 : 2;
+        int cx = x + Cell / 2;
+
+        for (int i = 0; i < puffs; i++)
+        {
+            int phase = (frame + i * 4) % 12;
+            int py = y - phase;
+            if (py < 0) continue;
+
+            // **同じ所から出て、昇るほど太く・薄く・横に逸れる。**
+            // 大きさも位置も変えずに点滅させると、湯気ではなく画面の汚れに見える。
+            int w = phase < 4 ? 2 : phase < 8 ? 3 : 4;
+            int drift = phase / 3 * (i % 2 == 0 ? 1 : -1);
+            byte a = (byte)Math.Clamp(215 - phase * 17, 0, 255);
+            Fill(dc, Color.FromArgb(a, 0xEE, 0xF6, 0xFF), cx - w / 2 + drift, py, w, 2);
+        }
     }
 
     private static void Fill(DrawingContext dc, Color c, double x, double y, double w, double h)
