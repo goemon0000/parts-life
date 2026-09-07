@@ -253,6 +253,99 @@
           "en": "They took one of the old roads. It was the long way, and it got them there."
         }
       ]
+    },
+    {
+      "id": "overflow",
+      "title": {
+        "ja": "第八章  溢れる",
+        "en": "Chapter Eight — Overflow"
+      },
+      "require": 3596,
+      "scenePer": 240,
+      "scenes": [
+        {
+          "ja": "水が来た。細い道を、押し出すように流れてくる。",
+          "en": "The water came, pushing its way down the narrow roads."
+        },
+        {
+          "ja": "M.2くんが真っ先に走った。速いが、抱えられる量は多くない。",
+          "en": "The M.2 ran first. Fast — but it cannot carry much."
+        },
+        {
+          "ja": "HDDくんは動かなかった。重い荷を持つ役は、走る役ではない。",
+          "en": "The HDD did not move. The one who carries the heavy load is not the one who runs."
+        },
+        {
+          "ja": "メモリくんが両手いっぱいに受け止めて、そのまま忘れた。忘れたので、また受け止められた。",
+          "en": "The memory caught an armful and promptly forgot it. Having forgotten, it could catch another."
+        },
+        {
+          "ja": "水が引いた。誰かが持っていたはずの物が、いくつか無くなっていた。",
+          "en": "The water went down. A few things someone had been holding were gone."
+        }
+      ]
+    },
+    {
+      "id": "quiet-day",
+      "title": {
+        "ja": "第九章  静かな日",
+        "en": "Chapter Nine — A Quiet Day"
+      },
+      "require": 4796,
+      "scenePer": 300,
+      "scenes": [
+        {
+          "ja": "何も起きない日が来た。誰も、それを不吉だとは言わなかった。",
+          "en": "A day came when nothing happened. No one called it a bad omen."
+        },
+        {
+          "ja": "クーラーくんが羽根を止めた。止めても大丈夫だと、ようやく思えたらしい。",
+          "en": "The cooler stopped its blades. It seems it finally decided that was allowed."
+        },
+        {
+          "ja": "CPUくんは数を数えていたが、途中でやめた。やめられることを、この子は今日はじめて知った。",
+          "en": "The CPU was counting, and then stopped. Today it learned, for the first time, that stopping was possible."
+        },
+        {
+          "ja": "電源くんだけがいつも通りだった。いつも通りでいられるのが、この子の仕事だった。",
+          "en": "Only the PSU was unchanged. Being unchanged is its work."
+        },
+        {
+          "ja": "日が暮れた。明日も来るのだろう。",
+          "en": "The day ended. Tomorrow will presumably come as well."
+        }
+      ]
+    },
+    {
+      "id": "beyond",
+      "title": {
+        "ja": "第十章  盤の外へ",
+        "en": "Chapter Ten — Beyond the Board"
+      },
+      "require": 6296,
+      "scenePer": 380,
+      "scenes": [
+        {
+          "ja": "盤の縁に立った。ここから先には、受け口が無い。",
+          "en": "They stood at the edge of the board. Beyond it there are no sockets."
+        },
+        {
+          "ja": "マザーボードくんは行かないと言った。自分は道であって、旅人ではないから。",
+          "en": "The motherboard said it would not go. It is the road, not a traveller."
+        },
+        {
+          "ja": "見送る側と、行く側に分かれた。どちらが損な役かは、誰にも分からなかった。",
+          "en": "They divided into those who would see the others off and those who would go. Which had the worse part, no one could say."
+        },
+        {
+          "ja": "外は広かった。広いだけで、道は無かった。",
+          "en": "Outside was wide. Wide, and without roads."
+        },
+        {
+          "ja": "一行は歩き出した。ここから先は、まだ誰も書いていない。",
+          "en": "They set out. From here on, no one has written it yet."
+        }
+      ]
     }
   ],
   "events": [
@@ -372,6 +465,43 @@
         {
           "ja": "{name} が一段、板についてきた。",
           "en": "{name} has grown into the work a little more."
+        }
+      ]
+    },
+    {
+      "id": "m2-busy",
+      "when": "disk-busy",
+      "cooldown": 900,
+      "texts": [
+        {
+          "ja": "M.2くんが先に着いていた。誰も追い付けていない。",
+          "en": "The M.2 had already arrived. No one else was close."
+        },
+        {
+          "ja": "M.2くんは待つということをしない。待ち方を習っていない。",
+          "en": "The M.2 does not wait. It was never taught how."
+        }
+      ]
+    },
+    {
+      "id": "gate-again",
+      "when": "cpu-very-high",
+      "cooldown": 900,
+      "texts": [
+        {
+          "ja": "CPUくんの腕が全部塞がっている。手が空くまで、誰も話しかけない。",
+          "en": "Every one of the CPU's arms is full. No one speaks to it until they are free."
+        }
+      ]
+    },
+    {
+      "id": "cool-relief",
+      "when": "idle-long",
+      "cooldown": 1800,
+      "texts": [
+        {
+          "ja": "何も来ない。クーラーくんだけが、それを少し寂しがっている。",
+          "en": "Nothing arrives. Only the cooler seems faintly lonely about it."
         }
       ]
     }
