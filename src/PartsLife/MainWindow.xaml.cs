@@ -32,9 +32,13 @@ public partial class MainWindow : Window
 
     private bool _expanded;
     private int _boardPixelWidth;
+
+    /// <summary>名札の出し方。パーツが増えると字が邪魔になる人もいるので選べるようにする。</summary>
+    private enum Labels { LevelOnly, NameAndLevel, None }
+    private Labels _labels = Labels.LevelOnly;
     private Snapshot _snapshot = new();
     private IReadOnlyList<GpuInfo> _gpus = Array.Empty<GpuInfo>();
-    private DiskThroughput _throughput = new(0, 0);
+    private DiskThroughput _throughput = DiskThroughput.Zero;
     private IReadOnlyList<DriveInfoLite> _drives = Array.Empty<DriveInfoLite>();
     private Work _work = new(0, 0, 0, 0, 0);
 
@@ -46,6 +50,19 @@ public partial class MainWindow : Window
     private int _frame;
 
     private readonly List<TextBlock> _levelLabels = new();
+
+    /// <summary>重ねたときに出す小さな札。WPF の ToolTip は遅延と再表示の癖が強いので自前で持つ。</summary>
+    private readonly System.Windows.Controls.Primitives.Popup _hoverTip = new()
+    {
+        AllowsTransparency = true,
+        Placement = System.Windows.Controls.Primitives.PlacementMode.Relative,
+    };
+    private readonly TextBlock _hoverTipText = new()
+    {
+        FontSize = 11,
+        Foreground = new SolidColorBrush(Color.FromRgb(0xDD, 0xE5, 0xF8)),
+        LineHeight = 15,
+    };
 
     /// <summary>
     /// いま盤に立っている顔ぶれ。**実機の構成から毎秒組み立て直す。**
@@ -60,9 +77,24 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _board = new BoardRenderer(_atlas);
+        _hoverTip.Child = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF2, 0x10, 0x13, 0x19)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x66, 0x5D, 0xD8, 0xBB)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(7, 4, 7, 5),
+            Child = _hoverTipText,
+        };
         _director = new Director(Story.Load(), _state);
         _packages = TopologySampler.CpuPackages(_sampler.LogicalProcessorCount);
         _state.MigrateKeys();
+        _labels = _state.Labels switch
+        {
+            "name" => Labels.NameAndLevel,
+            "none" => Labels.None,
+            _ => Labels.LevelOnly,
+        };
 
         Strings.Lang = _state.Lang.Length > 0 ? _state.Lang : Strings.DetectDefault();
         _scale = _state.Zoom > 0 ? Math.Clamp(_state.Zoom, 0.8, 6.0) : 2.0;
@@ -89,6 +121,8 @@ public partial class MainWindow : Window
         CloseButton.Click += (_, _) => Close();
 
         Grip.DragDelta += OnGripDrag;
+        BoardHost.MouseMove += OnBoardHover;
+        BoardHost.MouseLeave += (_, _) => _hoverTip.IsOpen = false;
         MouseRightButtonUp += (_, e) => { ShowMenu(); e.Handled = true; };
 
         _frameTimer.Tick += (_, _) => { _frame++; Redraw(); };
@@ -264,11 +298,19 @@ public partial class MainWindow : Window
             var t = _levelLabels[i];
             t.FontSize = font;
             t.Width = cell;
-            t.Text = Strings.Level + _state.Level(_slots[i].Key);
+            int lv = _state.Level(_slots[i].Key);
+            t.Text = _labels switch
+            {
+                Labels.None => "",
+                Labels.NameAndLevel => $"{_slots[i].Title} {Strings.Level}{lv}",
+                _ => Strings.Level + lv,
+            };
+            // 名前まで出すと 32px の枠には入らない。**枠を越えて中央に伸ばす**
+            t.Width = _labels == Labels.NameAndLevel ? cell * 2 : cell;
             int row = i / perRow;
-            Canvas.SetLeft(t,
-                (BoardRenderer.RowInset(_slots.Count, row, _boardPixelWidth)
-                 + BoardRenderer.SlotLeft(i % perRow)) * _scale);
+            double left = (BoardRenderer.RowInset(_slots.Count, row, _boardPixelWidth)
+                           + BoardRenderer.SlotLeft(i % perRow)) * _scale;
+            Canvas.SetLeft(t, left - (t.Width - cell) / 2);
             Canvas.SetTop(t, BoardRenderer.LabelBandTop(row) * _scale);
         }
     }
@@ -311,7 +353,8 @@ public partial class MainWindow : Window
         double dt = Math.Clamp((now - _lastTick).TotalSeconds, 0, 10);
         _lastTick = now;
 
-        _slots = Composition.Build(_snapshot, _packages, _gpus, _throughput, _drives, _work.Disk, Strings.Lang);
+        _slots = Composition.Build(_snapshot, _packages, _gpus, _throughput, _drives,
+                                   _disk.Disks, _work.Disk, Strings.Lang);
 
         _director.Tick(dt, _work, _slots, Strings.Lang);
         UpdateStoryText();
@@ -337,6 +380,62 @@ public partial class MainWindow : Window
         _state.LastSeenUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _state.Save();
         _lastSave = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// 絵の上を指したとき、それが何かを出す。
+    ///
+    /// **盤は1枚の絵なので、当たり判定は座標から自分で割り出す。**
+    /// 部品ごとに UI 要素を置く手もあるが、そうすると絵と当たり判定が
+    /// 二重管理になり、並びを変えたときにずれる。
+    /// </summary>
+    private void OnBoardHover(object sender, MouseEventArgs e)
+    {
+        int index = SlotAt(e.GetPosition(BoardHost));
+        if (index < 0 || index >= _slots.Count)
+        {
+            _hoverTip.IsOpen = false;
+            return;
+        }
+
+        var slot = _slots[index];
+        int lv = _state.Level(slot.Key);
+        string detail = slot.Detail.Length > 0 ? "\n" + slot.Detail : "";
+        _hoverTipText.Text =
+            $"{Director.DisplayName(slot.CharacterId, Strings.Lang)}  {Strings.Level}{lv}\n" +
+            $"{slot.Title}  {slot.Load * 100:0}%{detail}";
+
+        _hoverTip.PlacementTarget = BoardHost;
+        _hoverTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
+        var p = e.GetPosition(BoardHost);
+        _hoverTip.HorizontalOffset = p.X + 14;
+        _hoverTip.VerticalOffset = p.Y + 18;
+        _hoverTip.IsOpen = true;
+    }
+
+    /// <summary>盤の中の座標から、何番目の子かを割り出す。外していれば -1。</summary>
+    private int SlotAt(Point p)
+    {
+        if (_slots.Count == 0 || _scale <= 0) return -1;
+        double ax = p.X / _scale, ay = p.Y / _scale;
+
+        int row = (int)(ay / BoardRenderer.RowHeight);
+        int perRow = BoardRenderer.PerRow(_slots.Count);
+        if (row < 0 || row >= BoardRenderer.RowsFor(_slots.Count)) return -1;
+
+        double top = BoardRenderer.RowTop(row) + BoardRenderer.BoardTop;
+        // 頭の少し上から、名札の帯までを当たりにする。厳密に体だけだと掴みにくい
+        if (ay < top - 3 || ay > top + BoardRenderer.Cell + BoardRenderer.SlotH) return -1;
+
+        double x = ax - BoardRenderer.RowInset(_slots.Count, row, _boardPixelWidth) - BoardRenderer.PadX;
+        if (x < 0) return -1;
+        int col = (int)(x / (BoardRenderer.Cell + BoardRenderer.Gap));
+        if (col >= perRow) return -1;
+        // 隙間を指しているときは何も出さない
+        if (x - col * (BoardRenderer.Cell + BoardRenderer.Gap) > BoardRenderer.Cell) return -1;
+
+        int index = row * perRow + col;
+        return index < _slots.Count ? index : -1;
     }
 
     /// <summary>
@@ -369,6 +468,31 @@ public partial class MainWindow : Window
             ApplyLanguage();
         };
         menu.Items.Add(lang);
+
+        var labels = new MenuItem { Header = Strings.LabelMenu };
+        foreach (var (mode, header) in new[]
+                 {
+                     (Labels.LevelOnly, Strings.LabelLevelOnly),
+                     (Labels.NameAndLevel, Strings.LabelNameAndLevel),
+                     (Labels.None, Strings.LabelNone),
+                 })
+        {
+            var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = _labels == mode };
+            var captured = mode;
+            item.Click += (_, _) =>
+            {
+                _labels = captured;
+                _state.Labels = captured switch
+                {
+                    Labels.NameAndLevel => "name",
+                    Labels.None => "none",
+                    _ => "level",
+                };
+                PlaceLevelLabels();
+            };
+            labels.Items.Add(item);
+        }
+        menu.Items.Add(labels);
 
         menu.Items.Add(new Separator());
         var quit = new MenuItem { Header = Strings.Close };
@@ -435,13 +559,20 @@ public partial class MainWindow : Window
             }
         }
 
+        // 記憶装置は**種類ごとに**出す。総量ひとつだと、どれが動いているのか分からない
+        foreach (var slot in _slots.Where(s2 => s2.Key is "m2" or "ssd" or "hdd"))
+        {
+            var mine = _drives.Where(d => KindOf(d) == slot.Key).Select(d => d.DiskNumber).ToHashSet();
+            DetailStack.Children.Add(BarRow(slot.Title, slot.Load,
+                $"{Mb(_throughput.For(mine)):0.0} MB/s"));
+        }
         DetailStack.Children.Add(BarRow("I/O", Math.Clamp(_work.Disk, 0, 1),
             $"{Mb(_throughput.ReadBytesPerSec):0.0} / {Mb(_throughput.WriteBytesPerSec):0.0} MB/s"));
 
         foreach (var d in _drives)
         {
             double ratio = d.TotalBytes == 0 ? 0 : (double)d.UsedBytes / d.TotalBytes;
-            string kind = d.IsSsd ? Strings.Ssd : Strings.Hdd;
+            string kind = d.IsNvme ? Strings.M2 : d.IsSsd ? Strings.Ssd : Strings.Hdd;
             string name = d.Label.Length > 0 ? $"{d.Name} {d.Label}" : d.Name;
             DetailStack.Children.Add(BarRow(name, ratio,
                 $"{Gb(d.UsedBytes):0} / {Gb(d.TotalBytes):0} GB  {kind}"));
@@ -456,6 +587,9 @@ public partial class MainWindow : Window
             Foreground = new SolidColorBrush(Color.FromRgb(0x6E, 0x7A, 0x93)),
         });
     }
+
+    /// <summary>そのドライブがどの子のものか。Composition の振り分けと必ず揃えること。</summary>
+    private static string KindOf(DriveInfoLite d) => d.IsNvme ? "m2" : d.IsSsd ? "ssd" : "hdd";
 
     private static double Gb(ulong bytes) => bytes / 1024.0 / 1024.0 / 1024.0;
     private static double Mb(double bytes) => bytes / 1024.0 / 1024.0;

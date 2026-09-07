@@ -498,6 +498,67 @@ export const SSD_BODY: BodySpec = {
 };
 
 // ============================================================
+// M.2 SSDくん — 横長の基板。左端の金端子と切り欠きが目印
+// ============================================================
+
+/**
+ * SSDくん（2.5インチ）と見分けが付かないと入れる意味が無い。
+ * **基板がむき出しであること**と**左端の金端子に切り欠きがあること**の2つで分ける。
+ * 2.5インチは金属の箱で覆われているので、緑が見えれば M.2 だと分かる。
+ *
+ * メモリくんも横長だが、あちらは全面がヒートスプレッダで金端子は下辺に並ぶ。
+ * こちらは端子が**左端**に立っていて、右端に固定ねじの耳がある。
+ */
+function drawM2(g: Grid) {
+  const L = 3, R = 28, T = 12, B = 21;
+
+  // 基板
+  for (let y = T; y <= B; y++) {
+    for (let x = L; x <= R; x++) put(g, x, y, (x + y) % 7 === 0 ? C.pcbLight : C.pcb);
+  }
+
+  // 左端の金端子。**切り欠き（Mキー）を1本空ける。**これが M.2 の一番の目印
+  for (let y = T + 1; y <= B - 1; y++) {
+    if (y === 16) continue;               // 切り欠き
+    put(g, L - 1, y, C.gold);
+    put(g, L, y, C.gold);
+  }
+  put(g, L - 1, 16, C.frameDark);
+  put(g, L, 16, C.frameDark);
+
+  // 中央の大きなチップ＝顔を載せる面。ここだけ明るくして表情が読めるようにする
+  for (let y = 13; y <= 20; y++) {
+    for (let x = 9; x <= 24; x++) {
+      put(g, x, y, (x - 17) + (y - 17) < -6 ? C.frameLight : C.frame);
+    }
+  }
+  // 小さいチップを1つ添えると「基板に部品が載っている」と読める
+  for (let y = 14; y <= 16; y++) for (let x = 6; x <= 8; x++) put(g, x, y, C.frameDark);
+
+  // 右端の固定ねじの耳。半円に見えるよう角を落とす
+  for (let y = 15; y <= 18; y++) put(g, R, y, C.pcbLight);
+  put(g, R, 15, C.pcb);
+  put(g, R, 18, C.pcb);
+  put(g, R - 1, 16, C.frameDark);
+  put(g, R - 1, 17, C.frameDark);
+}
+
+export const M2_BODY: BodySpec = {
+  draw: (g: Grid) => drawM2(g),
+  faceX: 11,
+  faceY: 14,
+  armY: 17,
+  armLeftX: 1,
+  armRightX: 30,
+  legY: 22,
+  legLeftX: 11,
+  legRightX: 18,
+  hangLeftX: 11,
+  hangRightX: 18,
+  topY: 12,
+};
+
+// ============================================================
 // マウスくん — 上から見た形。手前側が顔
 // ============================================================
 
@@ -724,6 +785,7 @@ export const BODIES: Record<string, BodySpec> = {
   psu: PSU_BODY,
   hdd: HDD_BODY,
   ssd: SSD_BODY,
+  m2: M2_BODY,
   mouse: MOUSE_BODY,
   keyboard: KEYBOARD_BODY,
   monitor: MONITOR_BODY,

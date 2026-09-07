@@ -5,8 +5,27 @@ namespace PartsLife.Sensors;
 
 public sealed record GpuInfo(string Key, string Name, double Utilization, ulong VramUsedBytes, ulong VramTotalBytes);
 
-/// <summary>ディスク全体の読み書き速度（バイト/秒）。</summary>
-public sealed record DiskThroughput(double ReadBytesPerSec, double WriteBytesPerSec);
+/// <summary>
+/// ディスクの読み書き速度（バイト/秒）。
+/// <paramref name="PerDisk"/> は物理ディスク番号ごとの合計。
+/// **台ごとに分けないと、SSD が働いたぶんで HDDくんが育ってしまう。**
+/// </summary>
+public sealed record DiskThroughput(
+    double ReadBytesPerSec,
+    double WriteBytesPerSec,
+    IReadOnlyDictionary<uint, double> PerDisk)
+{
+    public static readonly DiskThroughput Zero =
+        new(0, 0, new Dictionary<uint, double>());
+
+    /// <summary>指定した物理ディスクたちの合計（バイト/秒）。</summary>
+    public double For(IEnumerable<uint> numbers)
+    {
+        double sum = 0;
+        foreach (var n in numbers) sum += PerDisk.GetValueOrDefault(n);
+        return sum;
+    }
+}
 
 /// <summary>
 /// GPU の使用率・VRAM と、ディスクの読み書き速度を読む。
@@ -32,6 +51,7 @@ public sealed class PdhSampler : IDisposable
     private IntPtr _memCounter;
     private IntPtr _diskReadCounter;
     private IntPtr _diskWriteCounter;
+    private IntPtr _diskPerCounter;
     private bool _ready;
 
     private static readonly Regex LuidRe = new(@"luid_0x([0-9A-Fa-f]+)_0x([0-9A-Fa-f]+)", RegexOptions.Compiled);
@@ -56,6 +76,8 @@ public sealed class PdhSampler : IDisposable
             // ディスクの流量も同じクエリに相乗りさせる。ハンドルを分ける理由が無い。
             PdhAddEnglishCounter(_query, @"\PhysicalDisk(_Total)\Disk Read Bytes/sec", IntPtr.Zero, out _diskReadCounter);
             PdhAddEnglishCounter(_query, @"\PhysicalDisk(_Total)\Disk Write Bytes/sec", IntPtr.Zero, out _diskWriteCounter);
+            // 台ごとの流量。インスタンス名は "0 C:" のように**先頭が物理ディスク番号**
+            PdhAddEnglishCounter(_query, @"\PhysicalDisk(*)\Disk Bytes/sec", IntPtr.Zero, out _diskPerCounter);
             PdhCollectQueryData(_query);   // 1回目は差分の基準になるだけ
             _ready = true;
         }
@@ -67,7 +89,7 @@ public sealed class PdhSampler : IDisposable
     public (IReadOnlyList<GpuInfo> Gpus, DiskThroughput Disk) Sample()
     {
         if (!_ready || PdhCollectQueryData(_query) != 0)
-            return (Array.Empty<GpuInfo>(), new DiskThroughput(0, 0));
+            return (Array.Empty<GpuInfo>(), DiskThroughput.Zero);
 
         // --- 使用率: (luid, engtype) ごとに合計し、luid ごとに最大を取る ---
         var perEngine = new Dictionary<string, Dictionary<string, double>>();
@@ -115,7 +137,18 @@ public sealed class PdhSampler : IDisposable
         // 積んでいる VRAM が多い順。主に使っているカードが GPU0 になる方が読みやすい。
         result.Sort((a, b) => b.VramTotalBytes.CompareTo(a.VramTotalBytes));
 
-        var disk = new DiskThroughput(ReadSingle(_diskReadCounter), ReadSingle(_diskWriteCounter));
+        var perDisk = new Dictionary<uint, double>();
+        foreach (var (instance, value) in ReadArray(_diskPerCounter))
+        {
+            // "0 C:" / "1 D: E:" / "_Total" の形。先頭の数だけ見る
+            int sp = instance.IndexOf(' ');
+            string head = sp > 0 ? instance[..sp] : instance;
+            if (!uint.TryParse(head, out uint n)) continue;     // _Total はここで落ちる
+            perDisk[n] = perDisk.GetValueOrDefault(n) + Math.Max(0, value);
+        }
+
+        var disk = new DiskThroughput(
+            ReadSingle(_diskReadCounter), ReadSingle(_diskWriteCounter), perDisk);
         return (result, disk);
     }
 

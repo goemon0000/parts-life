@@ -147,6 +147,14 @@ export const SSD_UNIT: Personality = {
   bias: { spec: 1.6, perch: 0.9, related: 1.2, edge: 0.7 },
 };
 
+/** M.2 SSDくん — SSDくんより更に速い。落ち着きが無いのではなく、単に待たない。 */
+export const M2_UNIT: Personality = {
+  walkSpeed: 86, climbSpeed: 155,
+  idleMs: [800, 2000], restMs: [2600, 5200],
+  sleepAfterMs: 220_000, stayMs: [26_000, 46_000], absentMs: [5_000, 11_000],
+  bias: { spec: 1.7, perch: 0.9, related: 1.3, edge: 0.7 },
+};
+
 /** マウスくん — 落ち着きない・小動物。とにかく素早い。 */
 export const MOUSE_UNIT: Personality = {
   walkSpeed: 88, climbSpeed: 150,

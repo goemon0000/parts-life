@@ -91,10 +91,15 @@ public partial class App : System.Windows.Application
         }
 
         System.Threading.Thread.Sleep(2500);
-        sb.AppendLine("== ドライブ ==");
+        sb.AppendLine("== 物理ディスク ==");
         if (Sensors.DiskSampler.LastProbeError is { } err) sb.AppendLine("  判別に失敗: " + err);
+        foreach (var d in disks.Disks.OrderBy(d => d.Number))
+            sb.AppendLine($"  #{d.Number}  {(d.IsNvme ? "M.2 (NVMe)" : d.IsSsd ? "SSD (SATA)" : "HDD")}");
+
+        sb.AppendLine("== ドライブ ==");
         foreach (var d in disks.Sample())
-            sb.AppendLine($"  {d.Name} {d.Label,-12} {d.UsedBytes / 1073741824.0:0} / {d.TotalBytes / 1073741824.0:0} GB  {(d.IsSsd ? "SSD" : "HDD")}");
+            sb.AppendLine($"  {d.Name} {d.Label,-12} {d.UsedBytes / 1073741824.0:0} / {d.TotalBytes / 1073741824.0:0} GB" +
+                          $"  {(d.IsNvme ? "M.2" : d.IsSsd ? "SSD" : "HDD")}  (disk #{d.DiskNumber})");
 
         File.WriteAllText(path, sb.ToString());
     }

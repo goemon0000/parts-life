@@ -24,11 +24,16 @@ public static class Strings
     public static string CollapseTip  => T("閉じる", "Collapse");
     public static string ResizeTip    => T("ドラッグで大きさを変える", "Drag to resize");
     public static string RunAtLogin   => T("Windows起動時に開く", "Start with Windows");
+    public static string LabelMenu    => T("名札", "Labels");
+    public static string LabelLevelOnly    => T("レベルだけ", "Level only");
+    public static string LabelNameAndLevel => T("名前とレベル", "Name and level");
+    public static string LabelNone         => T("出さない", "Hide");
 
     public static string CoresSuffix(int n) => T($"{n} 論理コア", $"{n} logical cores");
     public static string NoGpu    => T("GPUが見つかりません", "No GPU detected");
     public static string Vram     => T("VRAM", "VRAM");
     public static string ReadWrite=> T("読み / 書き", "Read / Write");
+    public static string M2       => T("M.2", "M.2");
     public static string Ssd      => T("SSD", "SSD");
     public static string Hdd      => T("HDD", "HDD");
     public static string Drives   => T("ドライブ", "Drives");

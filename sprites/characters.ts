@@ -1,7 +1,7 @@
 import {
   ARCADE_UNIT, CPU_COOLER, CPU_UNIT, GPU_UNIT, HANDHELD_UNIT, HDD_UNIT,
   KEYBOARD_UNIT, MEMORY_UNIT, MONITOR_UNIT, MOTHERBOARD_UNIT, MOUSE_UNIT,
-  PSU_UNIT, SSD_UNIT,
+  PSU_UNIT, SSD_UNIT, M2_UNIT,
   type Personality,
 } from "./personality";
 
@@ -161,6 +161,19 @@ export const CHARACTERS: Character[] = [
       en: "Waiting is the one thing it cannot stand. Orders of magnitude faster than HDD — but it cannot match him on capacity.",
     },
     personality: SSD_UNIT,
+    disclaimer: COMMON_DISCLAIMER,
+  },
+  {
+    id: "m2",
+    family: "pc",
+    name: { ja: "M.2 SSDくん", en: "Mr. M.2 SSD" },
+    motif: { ja: "M.2 SSD（中央のチップが顔）", en: "An M.2 SSD — the central chip is its face" },
+    trait: { ja: "せっかち・素っ気ない", en: "Impatient, and curt" },
+    why: {
+      ja: "SSDくんより更に速い。速すぎて、待つという概念が身に付かなかった。線が1本も要らない身軽さも自慢だが、そのぶん熱を持ちやすい。",
+      en: "Faster still than the SSD — so fast it never learned what waiting is. It is proud of needing no cables at all, though that same slimness makes it run hot.",
+    },
+    personality: M2_UNIT,
     disclaimer: COMMON_DISCLAIMER,
   },
   {

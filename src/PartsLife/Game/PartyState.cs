@@ -49,6 +49,9 @@ public sealed class PartyState
     public bool Topmost { get; set; } = true;
     public bool Expanded { get; set; }
 
+    /// <summary>名札の出し方 "level" / "name" / "none"。</summary>
+    public string Labels { get; set; } = "level";
+
     // ---------------------------------------------------------------------
 
     /// <summary>

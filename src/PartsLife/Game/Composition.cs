@@ -29,12 +29,30 @@ public static class Composition
     /// <summary>これ以上は並べない。サーバでも窓が画面をはみ出さない上限。</summary>
     public const int MaxGpu = 6;
 
+    /// <summary>
+    /// 記憶装置の種類。**目盛りは種類ごとに変える。**
+    /// 一律 200MB/s にすると、NVMe は常に振り切れて熱を持ちっぱなしになり、
+    /// HDD は全力で回していても半分にも届かない。
+    /// 「その子の実力に対してどれだけ働いているか」で揃えるのが正しい。
+    /// </summary>
+    private sealed record StorageKind(
+        string Key, string CharacterId, SlotKind Slot, string Title,
+        double FullScaleMbps, Func<PhysicalDisk, bool> Match);
+
+    private static readonly StorageKind[] StorageKinds =
+    {
+        new("m2",  "m2",  SlotKind.M2,   "M.2", 2000, d => d.IsNvme),
+        new("ssd", "ssd", SlotKind.Sata, "SSD",  500, d => d.IsSsd && !d.IsNvme),
+        new("hdd", "hdd", SlotKind.Sata, "HDD",  120, d => !d.IsSsd),
+    };
+
     public static List<PartySlot> Build(
         Snapshot cpu,
         IReadOnlyList<int[]> packages,
         IReadOnlyList<GpuInfo> gpus,
         DiskThroughput io,
         IReadOnlyList<DriveInfoLite> drives,
+        IReadOnlyCollection<PhysicalDisk> disks,
         double diskLoad,
         string lang)
     {
@@ -63,17 +81,33 @@ public static class Composition
                 $"{g.Utilization * 100:0}%  {g.Name}", g.Utilization));
         }
 
-        // 有る種類だけ立てる。SSD しか無い機械に HDD くんは居ない
-        bool hasSsd = drives.Any(d => d.IsSsd);
-        bool hasHdd = drives.Any(d => !d.IsSsd);
-        if (!hasSsd && !hasHdd) hasSsd = true;      // 判別できなかったときは1体だけ出す
+        // --- 記憶装置 -------------------------------------------------
+        // **有る種類だけ立てる。** SSD しか無い機械に HDD くんは居ない。
+        // そして**台ごとに実測を分ける。** ひとつ前の版は読み書きの総量を
+        // SSD くんと HDD くんで山分けしていたので、SSD だけ動かしても
+        // HDD くんが育っていた。「実機と食い違わない」を掲げておいて嘘だった。
+        foreach (var kind in StorageKinds)
+        {
+            var mine = disks.Where(kind.Match).Select(d => d.Number).ToHashSet();
+            if (mine.Count == 0) continue;
 
-        if (hasSsd)
-            slots.Add(new PartySlot("ssd", "ssd", SlotKind.M2, "SSD",
-                Capacity(drives.Where(d => d.IsSsd)), diskLoad));
-        if (hasHdd)
-            slots.Add(new PartySlot("hdd", "hdd", SlotKind.Sata, "HDD",
-                Capacity(drives.Where(d => !d.IsSsd)), diskLoad * 0.7));
+            var vols = drives.Where(d => mine.Contains(d.DiskNumber)).ToList();
+            // その種類自身の実力に対してどれだけ働いているか。
+            // 一律の目盛りにすると、NVMe は常に振り切れ、HDD は永久に動かない
+            double load = Math.Clamp(io.For(mine) / (kind.FullScaleMbps * 1024.0 * 1024.0), 0, 1);
+
+            slots.Add(new PartySlot(kind.Key, kind.CharacterId, kind.Slot, kind.Title,
+                Capacity(vols, mine.Count), load));
+        }
+
+        // 一台も種別を判別できなかったとき（WMIが引けない等）は、まとめて1体だけ出す
+        if (!slots.Any(s2 => s2.Key is "m2" or "ssd" or "hdd"))
+        {
+            double total = io.ReadBytesPerSec + io.WriteBytesPerSec;
+            slots.Add(new PartySlot("ssd", "ssd", SlotKind.M2, "DISK",
+                Capacity(drives, drives.Count),
+                Math.Clamp(total / (500.0 * 1024 * 1024), 0, 1)));
+        }
 
         // 電源は全員に配る側。誰かが働けば、その分だけ働いている
         double gpuMax = gpus.Count == 0 ? 0 : gpus.Max(g => g.Utilization);
@@ -92,13 +126,13 @@ public static class Composition
         return mine.Count == 0 ? s.CpuTotal : mine.Average();
     }
 
-    private static string Capacity(IEnumerable<DriveInfoLite> drives)
+    private static string Capacity(IEnumerable<DriveInfoLite> drives, int diskCount)
     {
         var list = drives.ToList();
-        if (list.Count == 0) return "";
+        if (list.Count == 0) return diskCount > 1 ? $"{diskCount} 台" : "";
         ulong used = 0, total = 0;
         foreach (var d in list) { used += d.UsedBytes; total += d.TotalBytes; }
-        string count = list.Count > 1 ? $" ({list.Count})" : "";
+        string count = diskCount > 1 ? $"  ×{diskCount}" : "";
         return $"{Gb(used):0} / {Gb(total):0} GB{count}";
     }
 
