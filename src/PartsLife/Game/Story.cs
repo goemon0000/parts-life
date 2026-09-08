@@ -20,6 +20,7 @@ public sealed class Story
     {
         Chapters = f.Chapters;
         Events = f.Events;
+        Vignettes = f.Vignettes;
     }
 
     public static Story Load()
@@ -31,7 +32,7 @@ public sealed class Story
         var file = JsonSerializer.Deserialize<StoryFile>(r.ReadToEnd(),
                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                    ?? throw new InvalidDataException("story.json を読めませんでした");
-        if (file.Version != 1)
+        if (file.Version is not (1 or 2))
             throw new InvalidDataException($"story.json の形式が想定と違います (version={file.Version})");
         return new Story(file);
     }
@@ -48,12 +49,22 @@ public sealed class Story
     public StoryEvent? EventById(string id) => Events.FirstOrDefault(e => e.Id == id);
     public IEnumerable<StoryEvent> EventsFor(string when) => Events.Where(e => e.When == when);
 
+    /// <summary>章に属さない小話。ふとした瞬間に1つだけ流れる。</summary>
+    public IReadOnlyList<Line> Vignettes { get; }
+
+    /// <summary>全部でいくつの文章を持っているか。README と画面に出す用。</summary>
+    public int LineCount =>
+        Chapters.Sum(c => c.Scenes.Sum(s => s.Count))
+        + Events.Sum(e => e.Texts.Count)
+        + Vignettes.Count;
+
     // -- json の形 ------------------------------------------------------------
     private sealed class StoryFile
     {
         public int Version { get; set; }
         public List<Chapter> Chapters { get; set; } = new();
         public List<StoryEvent> Events { get; set; } = new();
+        public List<Line> Vignettes { get; set; } = new();
     }
 }
 
@@ -65,7 +76,67 @@ public sealed class Chapter
     public double Require { get; set; }
     /// <summary>次の場面へ進むのに要る旅程。</summary>
     public double ScenePer { get; set; } = 20;
-    public List<LocalizedText> Scenes { get; set; } = new();
+
+    /// <summary>
+    /// 場面。**1場面が複数の候補を持てる。**
+    /// 条件に当たったものが選ばれ、どれにも当たらなければ最後のものが出る。
+    /// </summary>
+    public List<Scene> Scenes { get; set; } = new();
+}
+
+/// <summary>
+/// 1場面。候補が1つだけのこともある。
+///
+/// json では2通りの書き方を許す。**書く側の手数を増やさないため。**
+///   { "ja": "...", "en": "..." }                     … 分岐しない場面
+///   { "variants": [ {...}, {...} ] }                 … 分岐する場面
+/// </summary>
+[JsonConverter(typeof(SceneConverter))]
+public sealed class Scene
+{
+    /// <summary>候補。上から順に条件を見て、最初に当たったものを出す。</summary>
+    public List<Line> Variants { get; set; } = new();
+
+    public int Count => Variants.Count;
+
+    public Line? Pick(WorldState w)
+    {
+        foreach (var v in Variants)
+            if (Conditions.Match(v.When, w)) return v;
+        // どれにも当たらなければ、条件の無いものを探す。それも無ければ最後
+        return Variants.LastOrDefault(v => string.IsNullOrEmpty(v.When)) ?? Variants.LastOrDefault();
+    }
+}
+
+/// <summary>条件付きの一文。</summary>
+public sealed class Line : LocalizedText
+{
+    /// <summary>この文が出る条件。空なら常に候補になる。</summary>
+    public string? When { get; set; }
+}
+
+/// <summary>場面を、分岐あり・なしの両方の書き方から読む。</summary>
+public sealed class SceneConverter : JsonConverter<Scene>
+{
+    private static readonly JsonSerializerOptions Inner = new() { PropertyNameCaseInsensitive = true };
+
+    public override Scene Read(ref Utf8JsonReader reader, Type _, JsonSerializerOptions __)
+    {
+        using var doc = JsonDocument.ParseValue(ref reader);
+        var root = doc.RootElement;
+
+        if (root.TryGetProperty("variants", out var variants) && variants.ValueKind == JsonValueKind.Array)
+            return new Scene
+            {
+                Variants = variants.Deserialize<List<Line>>(Inner) ?? new List<Line>(),
+            };
+
+        var one = root.Deserialize<Line>(Inner);
+        return new Scene { Variants = one is null ? new List<Line>() : new List<Line> { one } };
+    }
+
+    public override void Write(Utf8JsonWriter writer, Scene value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value.Variants, options);
 }
 
 public sealed class StoryEvent
@@ -75,10 +146,10 @@ public sealed class StoryEvent
     public string When { get; set; } = "";
     /// <summary>同じ種類を再び出せるまでの秒数。</summary>
     public double Cooldown { get; set; }
-    public List<LocalizedText> Texts { get; set; } = new();
+    public List<Line> Texts { get; set; } = new();
 }
 
-public sealed class LocalizedText
+public class LocalizedText
 {
     public string Ja { get; set; } = "";
     public string En { get; set; } = "";

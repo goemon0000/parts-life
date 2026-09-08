@@ -1,0 +1,514 @@
+{
+  "vignettes": [
+    {
+      "ja": "CPUくんが腕を全部使っている。次の荷は、まだ列に並んでいる。",
+      "en": "Every one of the CPU's arms is in use. The next load is still standing in line."
+    },
+    {
+      "ja": "クーラーくんが羽根を速めた。CPUくんの背中しか見ていない。",
+      "en": "The cooler quickened its blades. It watches nothing but the CPU's back."
+    },
+    {
+      "ja": "湯気が立った。誰のものかは、立ち上る場所で分かる。",
+      "en": "Steam rose. Where it comes from tells you whose it is."
+    },
+    {
+      "ja": "M.2くんが先に着いて、待った。待つのは、この子が一番下手だ。",
+      "en": "The M.2 arrived first and waited. Waiting is the thing it does worst."
+    },
+    {
+      "ja": "電源くんが線を一本ずつ確かめた。GPUくんの線が一番太い。",
+      "en": "The PSU checked the lines one by one. The GPU's line is the thickest."
+    },
+    {
+      "ja": "HDDくんが荷を降ろし始めた。ゆっくりだが、途中で落とさない。",
+      "en": "The HDD began setting down its load. Slowly, but it drops nothing on the way."
+    },
+    {
+      "ja": "メモリくんの両手が塞がった。塞がっているあいだは、忘れない。",
+      "en": "The memory's hands are full. While they are full, it does not forget."
+    },
+    {
+      "ja": "列ができた。SSDくんが並ぶのをやめて、列の先を覗きに行った。",
+      "en": "A line formed. The SSD stopped queueing and went to look at the front."
+    },
+    {
+      "ja": "マザーボードくんが給電の順を決めた。CPUくんが先で、光るのは後。",
+      "en": "The motherboard set the order for power. The CPU first; the glowing comes after."
+    },
+    {
+      "ja": "GPUくんが光りながら働いている。光る分の電気も、誰かが払っている。",
+      "en": "The GPU works while it glows. Someone is paying for the glow, too."
+    },
+    {
+      "ja": "CPUくんの休憩が短くなった。数えている間に、次が届く。",
+      "en": "The CPU's breaks grew shorter. The next arrives while it is still counting."
+    },
+    {
+      "ja": "クーラーくんが羽根の音を上げた。CPUくんは気づいていない。気づかせないのが仕事だ。",
+      "en": "The cooler grew louder. The CPU has not noticed; not letting it notice is the job."
+    },
+    {
+      "ja": "書き込みが続いている。M.2くんの背中が、触ると温い。",
+      "en": "The writing goes on. The M.2's back is warm to the touch."
+    },
+    {
+      "ja": "読み出しの列。HDDくんの前だけ、列が動かない。",
+      "en": "A line for reading. Only in front of the HDD does it stand still."
+    },
+    {
+      "ja": "荷が来て、また来る。メモリくんは数えるのをやめた。",
+      "en": "Loads arrive, and more arrive. The memory stopped counting them."
+    },
+    {
+      "ja": "電気が足りない夕方。電源くんは誰にも言わずに、配る量を揃えた。",
+      "en": "An evening with not enough power. The PSU evened out the shares, and told no one."
+    },
+    {
+      "ja": "全力で回る時間が続いている。誰も、いつ終わるかを聞かない。",
+      "en": "The full-speed stretch goes on. No one asks when it ends."
+    },
+    {
+      "ja": "SSDくんが三往復した。HDDくんは、まだ一往復目の途中だ。",
+      "en": "The SSD made three trips. The HDD is still on its first."
+    },
+    {
+      "ja": "CPUくんが荷を分けた。八つに分けても、余った。",
+      "en": "The CPU split the load. Split eight ways, some was still left over."
+    },
+    {
+      "ja": "GPUくんが谷の熱を浴びている。前に出た者が、一番熱い。",
+      "en": "The GPU stands in the valley's heat. Whoever is in front gets the most of it."
+    },
+    {
+      "ja": "クーラーくんが冷たい風を送っている。行き先はCPUくんだけで、隣には届かない。",
+      "en": "The cooler sends cool air. It goes to the CPU alone; the neighbor gets none."
+    },
+    {
+      "ja": "M.2くんが線の無い道を走った。足音も無い。",
+      "en": "The M.2 ran the road with no wires. No footsteps, either."
+    },
+    {
+      "ja": "渋滞。マザーボードくんが道を一本開けた。誰が通るかまでは決めなかった。",
+      "en": "A jam. The motherboard opened one more lane. It did not decide who goes through."
+    },
+    {
+      "ja": "電源くんの持ち場が温くなった。持ち場は離れない。",
+      "en": "The PSU's post grew warm. It does not leave its post."
+    },
+    {
+      "ja": "HDDくんが止まりかけた。呼ばれて、また回り出した。",
+      "en": "The HDD was about to stop. It was called, and started turning again."
+    },
+    {
+      "ja": "順番待ち。SSDくんは、自分の前に何人いるかを三度数えた。",
+      "en": "Waiting a turn. The SSD counted the ones ahead of it three times."
+    },
+    {
+      "ja": "メモリくんが荷を受け取り、渡し、受け取った。渡したことは、もう覚えていない。",
+      "en": "The memory took a load, handed it on, took another. It no longer recalls the handing."
+    },
+    {
+      "ja": "熱が上がった分だけ、CPUくんの足が遅くなった。守る側が気づく前に、本人が緩めた。",
+      "en": "As the heat climbed, the CPU slowed its pace. It eased off before its guardian noticed."
+    },
+    {
+      "ja": "夜通しの仕事だった。朝、クーラーくんの羽根だけがまだ速い。",
+      "en": "The work ran all night. In the morning, only the cooler's blades are still fast."
+    },
+    {
+      "ja": "GPUくんが仕事を終えた。光は、しばらく消えなかった。",
+      "en": "The GPU finished its work. The glow stayed on for a while."
+    },
+    {
+      "ja": "書き込みが間に合わない。SSDくんが受け口の前で、荷を抱えたまま立っている。",
+      "en": "The writing cannot keep up. The SSD stands at the socket, load still in its arms."
+    },
+    {
+      "ja": "M.2くんが熱を持った。速い者ほど、早く熱くなる。",
+      "en": "The M.2 warmed up. The fast ones heat up fastest."
+    },
+    {
+      "ja": "電源くんが全員分の線を握っている。手は震えない。",
+      "en": "The PSU holds everyone's lines. Its hands do not shake."
+    },
+    {
+      "ja": "CPUくんが一つ終えた。終えた数を数える暇は無い。",
+      "en": "The CPU finished one. There is no time to count how many it has finished."
+    },
+    {
+      "ja": "荷の山。HDDくんが一番下から取り出した。一番古いものが、一番下にある。",
+      "en": "A pile of loads. The HDD took from the bottom. The oldest are always at the bottom."
+    },
+    {
+      "ja": "電気の取り合い。GPUくんが多く取り、残りを皆で分けた。",
+      "en": "A scramble for power. The GPU took the most; the rest was shared out."
+    },
+    {
+      "ja": "クーラーくんが一晩中起きていた。CPUくんの熱が下がるまで、羽根を緩めなかった。",
+      "en": "The cooler was up all night. It did not slow its blades until the CPU's heat came down."
+    },
+    {
+      "ja": "マザーボードくんが時計を速めた。全員の足が、少し速くなった。",
+      "en": "The motherboard quickened the clock. Everyone's stride picked up a little."
+    },
+    {
+      "ja": "メモリくんが満杯になった。溢れた分は、SSDくんが預かった。",
+      "en": "The memory filled up. What overflowed, the SSD took into keeping."
+    },
+    {
+      "ja": "冷やしても冷やしても、熱が来る。クーラーくんは冷やし続けた。",
+      "en": "However much it cools, heat keeps coming. The cooler kept on cooling."
+    },
+    {
+      "ja": "M.2くんが二つ目を終えた頃、HDDくんは一つ目を探していた。",
+      "en": "By the time the M.2 finished its second, the HDD was still looking for its first."
+    },
+    {
+      "ja": "CPUくんの腕が一本空いた。空いた腕に、すぐ次が載った。",
+      "en": "One of the CPU's arms came free. The next load was on it at once."
+    },
+    {
+      "ja": "湯気の中で、GPUくんの光だけが見えた。",
+      "en": "In the steam, only the GPU's glow could be seen."
+    },
+    {
+      "ja": "読み出しが混んでいる。SSDくんは前の者の背中を見ている。",
+      "en": "Reading is crowded. The SSD stares at the back of the one ahead."
+    },
+    {
+      "ja": "荷が重い。メモリくんは重さを感じているが、何の荷かは分からない。",
+      "en": "The load is heavy. The memory feels the weight, and does not know what is in it."
+    },
+    {
+      "ja": "一日中回っていた。夜、CPUくんの足元に熱が残っている。",
+      "en": "It ran all day. At night, heat lingers at the CPU's feet."
+    },
+    {
+      "ja": "電気が落ちかけた。電源くんが一歩も動かずに、持ち直した。",
+      "en": "The power nearly went. The PSU held it, without moving a step."
+    },
+    {
+      "ja": "書き終えた。M.2くんは、誰かが確かめる前に、もう次に向かっている。",
+      "en": "Done writing. The M.2 is already onto the next before anyone checks."
+    },
+    {
+      "ja": "クーラーくんがCPUくんの額に手を当てた。まだ熱いので、羽根は止められない。",
+      "en": "The cooler put a hand to the CPU's brow. Still hot; the blades cannot stop."
+    },
+    {
+      "ja": "遅い者を待つか、置いていくか。マザーボードくんは待つ方を選んだ。",
+      "en": "Wait for the slow one, or leave it. The motherboard chose to wait."
+    },
+    {
+      "ja": "HDDくんが昔の荷を出してきた。誰も頼んでいないが、それが要る荷だった。",
+      "en": "The HDD brought out an old load. No one had asked, but it was the one needed."
+    },
+    {
+      "ja": "GPUくんが一人で谷を渡っている。他の者は、麓で荷を渡すだけだ。",
+      "en": "The GPU crosses the valley alone. The others only hand it loads from the foot."
+    },
+    {
+      "ja": "全力の時間が終わった。SSDくんが座った。座り方が、少し乱暴だった。",
+      "en": "The full-speed stretch ended. The SSD sat down. It sat roughly."
+    },
+    {
+      "ja": "数を数える速さが上がった。CPUくんは、上がったことに気づいていない。",
+      "en": "The counting got faster. The CPU has not noticed the change."
+    },
+    {
+      "ja": "M.2くんが待たされた。待ち方を知らないので、その場で足踏みをした。",
+      "en": "The M.2 was made to wait. Not knowing how, it marked time on the spot."
+    },
+    {
+      "ja": "熱い夕方。GPUくんは自分の羽根で自分を冷やしている。クーラーくんは手を貸せない。",
+      "en": "A hot evening. The GPU cools itself with its own fans. The cooler cannot lend a hand."
+    },
+    {
+      "ja": "荷が届き続ける。メモリくんの棚が、端から埋まっていく。",
+      "en": "Loads keep arriving. The memory's shelves fill from one end."
+    },
+    {
+      "ja": "マザーボードくんが起動の順を守った。急いでいても、順は変えない。",
+      "en": "The motherboard kept to the boot order. Even in a hurry, the order does not change."
+    },
+    {
+      "ja": "一行が同時に動いた。電源くんの線が、一斉に張った。",
+      "en": "They all moved at once. Every one of the PSU's lines went taut together."
+    },
+    {
+      "ja": "渋滞の中で、HDDくんだけが慌てていない。慌てても、速くはならない。",
+      "en": "In the jam, only the HDD is unhurried. Hurrying would not make it faster."
+    },
+    {
+      "ja": "CPUくんが荷を落とした。落とした荷は、最初からやり直しになった。",
+      "en": "The CPU dropped a load. The dropped one had to be started over."
+    },
+    {
+      "ja": "読んで、書いて、また読む。SSDくんの足跡が、受け口の前に重なっている。",
+      "en": "Read, write, read again. The SSD's footprints pile up in front of the socket."
+    },
+    {
+      "ja": "GPUくんの光が一段強くなった。電源くんが、それに合わせて線を締めた。",
+      "en": "The GPU's glow went up a notch. The PSU tightened the line to match."
+    },
+    {
+      "ja": "クーラーくんが羽根を止められない日が、三日続いた。",
+      "en": "For three days running, the cooler could not stop its blades."
+    },
+    {
+      "ja": "順番が回ってこない。列の後ろで、メモリくんが自分の番を忘れた。",
+      "en": "The turn never comes. At the back of the line, the memory forgot it had one."
+    },
+    {
+      "ja": "熱を持った荷を、M.2くんが素手で受け取った。受け取った手が、もう熱い。",
+      "en": "The M.2 took a hot load barehanded. The hand is already hot."
+    },
+    {
+      "ja": "冷やす順は決まっている。谷が燃えていても、クーラーくんはCPUくんから離れない。",
+      "en": "The cooling order is fixed. Even with the valley burning, the cooler stays with the CPU."
+    },
+    {
+      "ja": "電気の余りが出た。電源くんはそれを、誰にも配らずに持っていた。",
+      "en": "There was power to spare. The PSU held it, and gave it to no one."
+    },
+    {
+      "ja": "HDDくんが荷を探している。棚は広い。広いから、探すのに時間がかかる。",
+      "en": "The HDD is searching for a load. The shelves are wide, and wide is why it takes time."
+    },
+    {
+      "ja": "CPUくんが数を数え間違えた。誰も気づかなかったので、数え直した。",
+      "en": "The CPU miscounted. No one noticed, so it counted again."
+    },
+    {
+      "ja": "GPUくんが仕事を独り占めした。独り占めできる仕事は、この子にしかできない。",
+      "en": "The GPU took the work for itself. Work it can hoard is work only it can do."
+    },
+    {
+      "ja": "待ち行列の長さを、マザーボードくんだけが知っている。言わないだけだ。",
+      "en": "Only the motherboard knows the length of the queue. It just does not say."
+    },
+    {
+      "ja": "SSDくんが荷を置いた。置いた場所を、次の者がすぐ使った。",
+      "en": "The SSD set down a load. The next one used the spot at once."
+    },
+    {
+      "ja": "メモリくんの灯が一度消えた。戻ったとき、手には何も無かった。",
+      "en": "The memory's light went out once. When it came back, its hands were empty."
+    },
+    {
+      "ja": "M.2くんが誰よりも早く終えて、誰よりも早く熱くなった。",
+      "en": "The M.2 finished ahead of everyone, and heated up ahead of everyone."
+    },
+    {
+      "ja": "列の先頭で、CPUくんが一人ずつ捌いている。列は、減っているようには見えない。",
+      "en": "At the head of the line, the CPU handles them one by one. The line does not look shorter."
+    },
+    {
+      "ja": "クーラーくんの羽根の音が、夜の間ずっと部屋にあった。",
+      "en": "The sound of the cooler's blades was in the room all night."
+    },
+    {
+      "ja": "荷が多すぎる。HDDくんが預かった。この子が一番多く持てる。",
+      "en": "Too many loads. The HDD took them in. It holds the most."
+    },
+    {
+      "ja": "疲れた者から座った。電源くんは最後まで立っていた。",
+      "en": "They sat as they tired. The PSU stood to the last."
+    },
+    {
+      "ja": "GPUくんが熱で手を止めかけた。止めずに、少しだけ緩めた。",
+      "en": "The heat nearly stopped the GPU's hands. It did not stop; it eased, a little."
+    },
+    {
+      "ja": "マザーボードくんが電気を振り分けている。足りない時は、光る方を後にする。",
+      "en": "The motherboard portions out the power. When it is short, the glowing goes last."
+    },
+    {
+      "ja": "書き込みの合間に、SSDくんが息を吸った。次の書き込みが、その息の途中で来た。",
+      "en": "Between writes, the SSD drew a breath. The next write came mid-breath."
+    },
+    {
+      "ja": "CPUくんが冷えるのを待って、クーラーくんは羽根を落とした。それでも止めはしない。",
+      "en": "The cooler waited for the CPU to cool, then dropped its blades. It did not stop them."
+    },
+    {
+      "ja": "メモリくんが忘れた分は、また読み直せばいい。読み直す役は、遅い方が引き受ける。",
+      "en": "What the memory forgot can be read again. The slow one takes the re-reading."
+    },
+    {
+      "ja": "全部が同時に来た。CPUくんも、GPUくんも、SSDくんも、その日は一度も座らなかった。",
+      "en": "It all came at once. The CPU, the GPU, the SSD — none of them sat down that day."
+    },
+    {
+      "ja": "電源くんが持ち場で立っている。夜も、朝も、同じ姿勢だった。",
+      "en": "The PSU stands at its post. Night and morning, the same posture."
+    },
+    {
+      "ja": "荷が渋滞している。M.2くんは道が空くのを待たずに、脇を抜けた。",
+      "en": "The loads are jammed. The M.2 did not wait for the road to clear; it slipped past."
+    },
+    {
+      "ja": "HDDくんの回る音が、久しぶりに部屋に響いた。頼まれたら、回る。",
+      "en": "The HDD's spinning was heard in the room for the first time in a while. Asked, it turns."
+    },
+    {
+      "ja": "冷やし足りない。クーラーくんは、足りないぶんだけ寝る時間を削った。",
+      "en": "Not enough cooling. The cooler cut its sleep by exactly that much."
+    },
+    {
+      "ja": "GPUくんの光が落ち着いた。仕事が終わったのではなく、電気を絞られただけだ。",
+      "en": "The GPU's glow settled. The work is not done; the power was trimmed."
+    },
+    {
+      "when": "gpus>=2",
+      "ja": "GPUくんが二人いる。谷の熱は、二人分になった。",
+      "en": "There are two GPUs. The valley holds heat for two."
+    },
+    {
+      "when": "gpus>=2",
+      "ja": "二人のGPUくんが同時に光った。電源くんの線が二本、同じだけ張った。",
+      "en": "Both GPUs lit up at once. Two of the PSU's lines went taut alike."
+    },
+    {
+      "when": "gpus>=3",
+      "ja": "GPUくんが三人並ぶと、電源くんの線が足りない日がある。",
+      "en": "With three GPUs in a row, some days the PSU runs short of lines."
+    },
+    {
+      "when": "cpus>=2",
+      "ja": "CPUくんが二人並んで数えている。数える声は重ならない。",
+      "en": "Two CPUs count side by side. Their counting does not overlap."
+    },
+    {
+      "when": "has:hdd",
+      "ja": "荷が溢れた。最後に受け止めるのはHDDくんで、一番遅く、一番多く持てる。",
+      "en": "The loads overflowed. The HDD catches what is left — slowest, and holds the most."
+    },
+    {
+      "when": "has:m2",
+      "ja": "M.2くんが熱を持った。線が無いので、熱の逃げ道も無い。",
+      "en": "The M.2 ran hot. With no wires, there is nowhere for the heat to go."
+    },
+    {
+      "when": "has:ssd",
+      "ja": "SSDくんが列に並んだ。並んでいる間、足が止まらなかった。",
+      "en": "The SSD stood in the line. Its feet never quite stopped."
+    },
+    {
+      "when": "level:cpu>=10",
+      "ja": "CPUくんの腕が増えた。増えた分だけ、荷も増えた。",
+      "en": "The CPU has more arms now. The loads grew to match."
+    },
+    {
+      "when": "level:cpu>=20",
+      "ja": "CPUくんの数え方が変わった。速いのではなく、無駄が無い。",
+      "en": "The CPU counts differently now. Not faster — nothing wasted."
+    },
+    {
+      "when": "level:cpu<5",
+      "ja": "CPUくんが数え直している。数え方が、まだ手に付いていない。",
+      "en": "The CPU is counting over. The counting is not yet in its hands."
+    },
+    {
+      "when": "level:cpu-cooler>=10",
+      "ja": "クーラーくんが羽根の回し方を覚えた。熱が上がる前に、速める。",
+      "en": "The cooler has learned its blades. It quickens before the heat rises."
+    },
+    {
+      "when": "level:cpu-cooler<5",
+      "ja": "クーラーくんが羽根を回しすぎた。冷やす相手は、まだそこまで熱くない。",
+      "en": "The cooler is spinning too hard. The one it guards is not yet that hot."
+    },
+    {
+      "when": "level:memory>=10",
+      "ja": "メモリくんの棚が広くなった。広くなっても、消えるときは全部消える。",
+      "en": "The memory's shelves grew wider. Wider or not, when it goes, it all goes."
+    },
+    {
+      "when": "level:gpu>=10",
+      "ja": "GPUくんが谷の熱に慣れた。慣れても、熱は減らない。",
+      "en": "The GPU has grown used to the valley's heat. Used to it, the heat is no less."
+    },
+    {
+      "when": "level:gpu>=20",
+      "ja": "GPUくんが光を抑えて働いた。抑えても、一番食う。",
+      "en": "The GPU worked with its glow held down. Held down, it still eats the most."
+    },
+    {
+      "when": "level:m2>=10",
+      "ja": "M.2くんが待てるようになった。三つ数えるまでだ。",
+      "en": "The M.2 can wait now. As far as a count of three."
+    },
+    {
+      "when": "level:m2<5",
+      "ja": "M.2くんが脇を抜けて、行き先を間違えた。速さだけは、初めからあった。",
+      "en": "The M.2 slipped past the line and took the wrong turn. The speed was there from the start."
+    },
+    {
+      "when": "level:ssd>=10",
+      "ja": "SSDくんが自分で荷を並べ替えた。要るものが、上に来た。",
+      "en": "The SSD reordered its pack on its own. What is needed came to the top."
+    },
+    {
+      "when": "level:hdd>=10",
+      "ja": "HDDくんが止まる回数が減った。呼ばれる前に、回っている。",
+      "en": "The HDD stops less often. It is turning before it is called."
+    },
+    {
+      "when": "level:psu>=10",
+      "ja": "電源くんの線が太くなった。配る量は、変わらない。",
+      "en": "The PSU's lines are thicker. What it hands out has not changed."
+    },
+    {
+      "when": "level:psu>=20",
+      "ja": "電気が落ちかけた。電源くんは、落ちかける前に気づいていた。",
+      "en": "The power nearly went. The PSU had noticed before it nearly went."
+    },
+    {
+      "when": "level:motherboard>=10",
+      "ja": "マザーボードくんが道を一本増やした。渋滞は、少し短くなった。",
+      "en": "The motherboard added a road. The jam got a little shorter."
+    },
+    {
+      "when": "chapter>=2",
+      "ja": "谷を越えてからも、熱は来る。谷が無くても、荷は熱を持つ。",
+      "en": "Heat still comes after the valley. Even without a valley, loads carry heat."
+    },
+    {
+      "when": "chapter>=3",
+      "ja": "荷を減らしたはずだった。今日の分で、また元に戻った。",
+      "en": "They had lightened the load. Today's share brought it back."
+    },
+    {
+      "when": "chapter>=5",
+      "ja": "何度目かの全力の日。誰も、初めての時ほど慌てない。",
+      "en": "Another full-speed day, whichever number it is. No one scrambles like the first time."
+    },
+    {
+      "when": "boots>=10",
+      "ja": "起き方が板についた。CPUくんは、灯がともる前から数え始めている。",
+      "en": "Waking has become routine. The CPU is counting before the light is fully on."
+    },
+    {
+      "when": "boots>=50",
+      "ja": "何度も起きて、何度も落ちた。メモリくんだけが、その回数を覚えていない。",
+      "en": "Up many times, down many times. Only the memory does not keep the count."
+    },
+    {
+      "when": "hours>=100",
+      "ja": "百時間。クーラーくんの羽根は、その大半を回っていた。",
+      "en": "A hundred hours. The cooler's blades were turning for most of them."
+    },
+    {
+      "when": "hours>=500",
+      "ja": "長く回っている。電源くんの持ち場だけが、初日と同じ形をしている。",
+      "en": "A long run. Only the PSU's post looks as it did on the first day."
+    },
+    {
+      "when": "hours>=1000",
+      "ja": "千時間を越えた。HDDくんはその全部を覚えていて、速い者は昨日の分も怪しい。",
+      "en": "Past a thousand hours. The HDD remembers all of them; the fast ones are unsure of yesterday."
+    }
+  ]
+}

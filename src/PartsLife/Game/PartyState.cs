@@ -28,6 +28,9 @@ public sealed class PartyState
     /// <summary>傍白の連発を防ぐため、種類ごとに最後に出した時刻を覚える。</summary>
     public Dictionary<string, long> LastEventAt { get; set; } = new();
 
+    /// <summary>直近に出した小話。同じ話が続けて出ると、量があっても使い回しに見える。</summary>
+    public List<string> RecentVignettes { get; set; } = new();
+
     /// <summary>累計の起動時間（秒）。「長い夜」等の判定に使う。</summary>
     public double UptimeSeconds { get; set; }
 
@@ -102,6 +105,37 @@ public sealed class PartyState
     {
         if (amount <= 0) return;
         Experience[characterId] = Experience.GetValueOrDefault(characterId) + amount;
+    }
+
+    // ---------------------------------------------------------------------
+    // 初期化
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// 物語だけを最初から。**レベルは残す。**
+    /// 育てた分を巻き添えにしないのが要点で、そこを分けないと
+    /// 「もう一度読みたい」だけの人が押せなくなる。
+    /// </summary>
+    public void ResetStory()
+    {
+        Journey = 0;
+        Chapter = 0;
+        Scene = 0;
+        Log.Clear();
+        LastEventAt.Clear();
+        RecentVignettes.Clear();
+    }
+
+    /// <summary>レベルだけを最初から。物語は残す。</summary>
+    public void ResetLevels() => Experience.Clear();
+
+    /// <summary>両方とも最初から。窓の位置と言語の設定は残す（それは進行ではない）。</summary>
+    public void ResetAll()
+    {
+        ResetStory();
+        ResetLevels();
+        UptimeSeconds = 0;
+        Boots = 0;
     }
 
     // ---------------------------------------------------------------------

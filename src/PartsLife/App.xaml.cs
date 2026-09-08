@@ -35,6 +35,14 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        int story = Array.FindIndex(args, a => a == "--story");
+        if (story >= 0 && story + 1 < args.Length)
+        {
+            DumpStory(args[story + 1], LangArg(args) ?? "ja");
+            Shutdown();
+            return;
+        }
+
         int shot = Array.FindIndex(args, a => a == "--shot");
         if (shot >= 0 && shot + 1 < args.Length)
         {
@@ -52,6 +60,57 @@ public partial class App : System.Windows.Application
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];
         main.Show();
+    }
+
+    /// <summary>
+    /// `--story <出力先.txt>` — 物語の中身を点検する。
+    /// **どの条件がどの機械で出るのかは、実機に置いて数週間待たないと分からない。**
+    /// それでは書いた物が正しく繋がっているか確かめようがないので、
+    /// 条件を仮定して全場面を書き出せるようにしてある。
+    /// </summary>
+    private static void DumpStory(string path, string lang)
+    {
+        var story = Game.Story.Load();
+        var sb = new System.Text.StringBuilder();
+
+        // 育ち具合を変えて2通り書き出す。分岐が効いていれば違う文が出る
+        var worlds = new (string Name, Game.WorldState W)[]
+        {
+            ("はじめて / fresh", new Game.WorldState(
+                new Dictionary<string, int>(), 0, 1, 1,
+                new HashSet<string> { "cpu", "cpu-cooler", "memory", "gpu", "ssd", "psu" }, 1, 0)),
+            ("育った / grown", new Game.WorldState(
+                new Dictionary<string, int>
+                {
+                    ["cpu"] = 20, ["cpu-cooler"] = 20, ["memory"] = 18, ["gpu"] = 22,
+                    ["m2"] = 16, ["ssd"] = 14, ["hdd"] = 12, ["psu"] = 19, ["motherboard"] = 10,
+                }, 20, 3, 2,
+                new HashSet<string> { "cpu", "cpu-cooler", "memory", "gpu", "m2", "ssd", "hdd", "psu" },
+                300, 1200)),
+        };
+
+        foreach (var (name, w) in worlds)
+        {
+            sb.AppendLine($"================ {name} ================");
+            foreach (var ch in story.Chapters)
+            {
+                sb.AppendLine($"\n--- {ch.Title.For(lang)}  (旅程 {ch.Require:N0} / 1場面 {ch.ScenePer:N0}) ---");
+                foreach (var sc in ch.Scenes)
+                {
+                    var line = sc.Pick(w);
+                    sb.AppendLine("  " + (line?.For(lang) ?? "(出せる文がありません)"));
+                }
+            }
+            int usable = story.Vignettes.Count(v => Game.Conditions.Match(v.When, w));
+            sb.AppendLine($"\n小話: {usable} / {story.Vignettes.Count} 本がこの機械で出せます");
+            foreach (var ev in story.Events)
+            {
+                int n = ev.Texts.Count(t => Game.Conditions.Match(t.When, w));
+                sb.AppendLine($"  傍白 {ev.When,-16} {n,3} / {ev.Texts.Count,3} 本");
+            }
+        }
+        sb.AppendLine($"\n文章の総数 {story.LineCount}");
+        File.WriteAllText(path, sb.ToString());
     }
 
     /// <summary>`--lang en` で書き出す言語を指定する。宣材を日英ぶん作るため。</summary>

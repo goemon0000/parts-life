@@ -29,6 +29,22 @@ public static class Strings
     public static string LabelNameAndLevel => T("名前とレベル", "Name and level");
     public static string LabelNone         => T("出さない", "Hide");
 
+    public static string ResetMenu    => T("最初から", "Start over");
+    public static string ResetStory   => T("物語だけ最初から", "Story only");
+    public static string ResetLevels  => T("レベルだけ最初から", "Levels only");
+    public static string ResetAll     => T("両方とも最初から", "Both");
+    public static string ResetTitle   => T("最初からやり直しますか", "Start over?");
+
+    public static string ResetStoryAsk => T(
+        "物語を最初の章に戻します。各パーツのレベルはそのまま残ります。\n\nこの操作は取り消せません。",
+        "The story goes back to its first chapter. Part levels are kept.\n\nThis cannot be undone.");
+    public static string ResetLevelsAsk => T(
+        "各パーツのレベルを 1 に戻します。物語の進み具合はそのまま残ります。\n\nこの操作は取り消せません。",
+        "Every part goes back to level 1. Story progress is kept.\n\nThis cannot be undone.");
+    public static string ResetAllAsk => T(
+        "物語もレベルも最初に戻します。窓の位置と言語の設定は残ります。\n\nこの操作は取り消せません。",
+        "Both the story and every level go back to the start. Window position and language are kept.\n\nThis cannot be undone.");
+
     public static string CoresSuffix(int n) => T($"{n} 論理コア", $"{n} logical cores");
     public static string NoGpu    => T("GPUが見つかりません", "No GPU detected");
     public static string Vram     => T("VRAM", "VRAM");

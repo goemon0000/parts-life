@@ -30,6 +30,10 @@ public sealed class Director
     private bool _bootDone;
     private readonly Random _rnd = new();
 
+    /// <summary>前の小話から何秒経ったか。</summary>
+    private double _sinceVignette;
+    private double _nextVignetteAt = 120;
+
     public Director(Story story, PartyState state)
     {
         _story = story;
@@ -64,6 +68,7 @@ public sealed class Director
     {
         var produced = new List<string>();
         _state.UptimeSeconds += dt;
+        var world = WorldOf(slots);
 
         // --- 経験値 ---
         // **その子自身の仕事でしか増えない。**
@@ -103,15 +108,27 @@ public sealed class Director
         while (_state.Scene < wantScene)
         {
             _state.Scene++;
-            produced.Add(ch.Scenes[_state.Scene].For(lang));
+            if (ch.Scenes[_state.Scene].Pick(world) is { } line) produced.Add(line.For(lang));
         }
         // 章の頭の一文は、まだ何も出していなければ出す
-        if (_state.Log.Count == 0 && ch.Scenes.Count > 0)
-            produced.Add(ch.Scenes[Math.Clamp(_state.Scene, 0, ch.Scenes.Count - 1)].For(lang));
+        if (_state.Log.Count == 0 && ch.Scenes.Count > 0
+            && ch.Scenes[Math.Clamp(_state.Scene, 0, ch.Scenes.Count - 1)].Pick(world) is { } first)
+            produced.Add(first.For(lang));
 
         // --- 傍白 ---
-        foreach (var text in CheckEvents(dt, w, lang))
+        foreach (var text in CheckEvents(dt, w, lang, world))
             produced.Add(text);
+
+        // --- 小話 ---
+        // 章の進行とは別に、ふとした瞬間に1つだけ流す。
+        // **物語が進み切ったあとも、ここが尽きない。**
+        _sinceVignette += dt;
+        if (_sinceVignette >= _nextVignetteAt && produced.Count == 0)
+        {
+            _sinceVignette = 0;
+            _nextVignetteAt = 90 + _rnd.NextDouble() * 210;   // 1分半〜5分に1つ
+            if (PickVignette(world) is { } v) produced.Add(v.For(lang));
+        }
 
         foreach (var line in produced)
         {
@@ -121,7 +138,54 @@ public sealed class Director
         return produced;
     }
 
-    private IEnumerable<string> CheckEvents(double dt, Work w, string lang)
+    /// <summary>
+    /// 出せる小話から1つ選ぶ。**直近に出したものは避ける。**
+    /// 同じ話が続けて出ると、量があっても「使い回している」と感じられる。
+    /// </summary>
+    private Line? PickVignette(WorldState world)
+    {
+        var pool = _story.Vignettes.Where(v => Conditions.Match(v.When, world)).ToList();
+        if (pool.Count == 0) return null;
+
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            var pick = pool[_rnd.Next(pool.Count)];
+            if (!_state.RecentVignettes.Contains(pick.Ja)) return Remember(pick);
+        }
+        return Remember(pool[_rnd.Next(pool.Count)]);
+    }
+
+    private Line Remember(Line line)
+    {
+        _state.RecentVignettes.Add(line.Ja);
+        // 覚えておく数は、出せる話の3割ほど。多すぎると選べる物が無くなる
+        int keep = Math.Clamp(_story.Vignettes.Count / 3, 10, 120);
+        if (_state.RecentVignettes.Count > keep)
+            _state.RecentVignettes.RemoveRange(0, _state.RecentVignettes.Count - keep);
+        return line;
+    }
+
+    /// <summary>いまの機械と進行を、条件判定に使える形にまとめる。</summary>
+    private WorldState WorldOf(IReadOnlyList<PartySlot> slots)
+    {
+        var levels = new Dictionary<string, int>();
+        var present = new HashSet<string>();
+        foreach (var s in slots)
+        {
+            present.Add(s.CharacterId);
+            int lv = _state.Level(s.Key);
+            // 同じ種類が複数あるときは、**最も育っている個体**を代表にする
+            if (!levels.TryGetValue(s.CharacterId, out int cur) || lv > cur)
+                levels[s.CharacterId] = lv;
+        }
+        return new WorldState(
+            levels, _state.Chapter,
+            slots.Count(s => s.CharacterId == "gpu"),
+            slots.Count(s => s.CharacterId == "cpu"),
+            present, _state.Boots, _state.UptimeSeconds / 3600.0);
+    }
+
+    private IEnumerable<string> CheckEvents(double dt, Work w, string lang, WorldState world)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -130,17 +194,18 @@ public sealed class Director
             _bootDone = true;
             long gap = _state.LastSeenUnix == 0 ? 0 : now - _state.LastSeenUnix;
             string kind = gap > 3 * 24 * 3600 ? "long-absence" : "boot";
-            if (TryFire(kind, now, lang, out var boot)) yield return boot;
+            if (TryFire(kind, now, lang, world, out var boot)) yield return boot;
         }
 
         _idleSeconds = w.Cpu <= 0.05 ? _idleSeconds + dt : 0;
 
-        foreach (var kind in Conditions(w))
-            if (TryFire(kind, now, lang, out var text))
+        foreach (var kind in SituationsOf(w))
+            if (TryFire(kind, now, lang, world, out var text))
                 yield return text;
     }
 
-    private IEnumerable<string> Conditions(Work w)
+    /// <summary>いま満たしている状況の種類。</summary>
+    private IEnumerable<string> SituationsOf(Work w)
     {
         if (w.Cpu >= 0.90) yield return "cpu-very-high";
         if (w.Gpu >= 0.85) yield return "gpu-very-high";
@@ -150,7 +215,7 @@ public sealed class Director
         if (_idleSeconds >= 120) yield return "idle-long";
     }
 
-    private bool TryFire(string when, long now, string lang, out string text)
+    private bool TryFire(string when, long now, string lang, WorldState world, out string text)
     {
         text = "";
         var candidates = _story.EventsFor(when).ToList();
@@ -159,14 +224,17 @@ public sealed class Director
 
         if (_state.LastEventAt.TryGetValue(ev.When, out long last) && now - last < ev.Cooldown)
             return false;
-        if (ev.Texts.Count == 0) return false;
+
+        // 条件に当たるものだけから選ぶ。育った機械でだけ出る一行がある
+        var usable = ev.Texts.Where(t => Conditions.Match(t.When, world)).ToList();
+        if (usable.Count == 0) return false;
 
         _state.LastEventAt[ev.When] = now;
-        text = Pick(ev).For(lang);
+        text = usable[_rnd.Next(usable.Count)].For(lang);
         return true;
     }
 
-    private LocalizedText Pick(StoryEvent ev) => ev.Texts[_rnd.Next(ev.Texts.Count)];
+    private Line Pick(StoryEvent ev) => ev.Texts[_rnd.Next(ev.Texts.Count)];
 
     /// <summary>物語の中で呼ぶ名。アトラス側の name とは別に持つ（文章の据わりが違うため）。</summary>
     public static string DisplayName(string id, string lang) => lang == "en"

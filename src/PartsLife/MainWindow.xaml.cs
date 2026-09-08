@@ -608,6 +608,23 @@ public partial class MainWindow : Window
         }
         menu.Items.Add(labels);
 
+        // **取り返しがつかないので、一段深い所に置いて必ず確認する。**
+        // 献立の一番上に「最初から」があると、押し間違いで数ヶ月ぶんが消える。
+        var reset = new MenuItem { Header = Strings.ResetMenu };
+        foreach (var (header, ask, act) in new (string, string, Action)[]
+                 {
+                     (Strings.ResetStory,  Strings.ResetStoryAsk,  _state.ResetStory),
+                     (Strings.ResetLevels, Strings.ResetLevelsAsk, _state.ResetLevels),
+                     (Strings.ResetAll,    Strings.ResetAllAsk,    _state.ResetAll),
+                 })
+        {
+            var item = new MenuItem { Header = header };
+            var (askText, action) = (ask, act);
+            item.Click += (_, _) => ConfirmReset(askText, action);
+            reset.Items.Add(item);
+        }
+        menu.Items.Add(reset);
+
         menu.Items.Add(new Separator());
         var quit = new MenuItem { Header = Strings.Close };
         quit.Click += (_, _) => Close();
@@ -615,6 +632,24 @@ public partial class MainWindow : Window
 
         menu.PlacementTarget = this;
         menu.IsOpen = true;
+    }
+
+    private void ConfirmReset(string ask, Action apply)
+    {
+        bool wasTopmost = Topmost;
+        Topmost = false;                 // 確認の窓が最前面の後ろに隠れないように
+        var answer = MessageBox.Show(this, ask, Strings.ResetTitle,
+                                     MessageBoxButton.OKCancel, MessageBoxImage.Warning,
+                                     MessageBoxResult.Cancel);
+        Topmost = wasTopmost;
+        if (answer != MessageBoxResult.OK) return;
+
+        apply();
+        SaveState();                     // すぐ書き戻す。ここで落ちても戻らないように
+        _lastSignature = 0;
+        UpdateStoryText();
+        Redraw(force: true);
+        UpdateDetail();
     }
 
     private void ApplyLanguage()

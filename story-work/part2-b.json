@@ -1,0 +1,461 @@
+{
+  "chapters": [
+    {
+      "id": "same-night",
+      "title": { "ja": "第十七章  同じ夜", "en": "Chapter Seventeen — The Same Night" },
+      "scenes": [
+        {
+          "ja": "夜が来た。同じ夜が、別々の場所に来た。",
+          "en": "Night came. The same night, in different places."
+        },
+        {
+          "ja": "CPUくんとクーラーくんは並んで座っていた。離れなかったのは、クーラーくんの方だ。",
+          "en": "The CPU and the cooler sat side by side. It was the cooler that had refused to be parted."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:cpu>=15",
+              "ja": "CPUくんは数えるのをやめて、火の番をしていた。数えなくても夜は進む。",
+              "en": "The CPU stopped counting and minded the fire. The night goes on whether it counts or not."
+            },
+            {
+              "ja": "CPUくんは数を数えていた。数える以外の夜の過ごし方を、まだ知らない。",
+              "en": "The CPU was counting. It does not yet know another way to get through a night."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんは一人だった。一人になった経緯を忘れたので、一人でいることは気にならない。",
+          "en": "The memory was alone. It has forgotten how that came about, so being alone does not trouble it."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:gpu>=12",
+              "ja": "GPUくんとSSDくんは高い所にいた。GPUくんは光を落としていた。今夜は見せる相手がいない。",
+              "en": "The GPU and the SSD were up high. The GPU had dimmed itself. There is no one to show tonight."
+            },
+            {
+              "ja": "GPUくんとSSDくんは高い所にいた。GPUくんが光っているので、暗くはない。",
+              "en": "The GPU and the SSD were up high. The GPU glows, so it is not dark."
+            }
+          ]
+        },
+        {
+          "ja": "HDDくんと電源くんは動かなかった。動かないのが得意な二人が、たまたま一緒だった。",
+          "en": "The HDD and the PSU did not move. The two who are best at not moving happened to be together."
+        },
+        {
+          "ja": "HDDくんが昔の夜の話をした。電源くんは聞いていたが、返事はしなかった。",
+          "en": "The HDD talked about nights from long ago. The PSU listened and gave no reply."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "M.2くんは一番遠くにいた。走り続ければ夜も追い付かないと思っているらしい。",
+              "en": "The M.2 was farthest of all. It seems to think that if it keeps running, night cannot catch up."
+            },
+            {
+              "ja": "M.2くんは一番遠くにいた。止まらずに来たので、どこまで来たか本人にも分からない。",
+              "en": "The M.2 was farthest of all. It never stopped, so even it does not know how far it came."
+            }
+          ]
+        },
+        {
+          "ja": "誰も、他の者がどこにいるか知らなかった。夜の長さだけは、全員に同じだった。",
+          "en": "No one knew where the others were. Only the length of the night was the same for all."
+        },
+        {
+          "ja": "夜が明けた。めいめいが、めいめいの方向に歩き出した。",
+          "en": "Morning came. Each of them set off in a direction of their own."
+        }
+      ]
+    },
+    {
+      "id": "gathering",
+      "title": { "ja": "第十八章  集まる", "en": "Chapter Eighteen — Gathering" },
+      "scenes": [
+        {
+          "ja": "朝になっても、GPUくんは光ったままでいた。目印になると、SSDくんが言った。",
+          "en": "The GPU kept glowing into the morning. The SSD said it would do as a marker."
+        },
+        {
+          "ja": "最初に来たのはクーラーくんとCPUくんだった。クーラーくんが先に光を見つけ、CPUくんを引いてきた。",
+          "en": "The cooler and the CPU came first. The cooler spotted the light and brought the CPU along."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:hdd>=10",
+              "ja": "昼過ぎに、HDDくんと電源くんが着いた。HDDくんは光を見なくても道を知っていた。",
+              "en": "Past noon the HDD and the PSU arrived. The HDD knew the way without looking at the light."
+            },
+            {
+              "ja": "昼過ぎに、HDDくんと電源くんが着いた。遅いが、途中で引き返さない二人だ。",
+              "en": "Past noon the HDD and the PSU arrived. Slow, but neither is the kind to turn back."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんは来なかった。待つ者と、探しに行く者に分かれた。",
+          "en": "The memory did not come. They split into those who would wait and those who would look."
+        },
+        {
+          "ja": "探しに出たのはSSDくんだった。速い者が探す。決めるまでもなかった。",
+          "en": "The SSD went to look. The fast one searches. It did not need deciding."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:memory>=12",
+              "ja": "メモリくんは自分から歩いてきた。光が何かは忘れていたが、そちらへ歩くことにはした。",
+              "en": "The memory came on its own. It had forgotten what the light was, but it chose to walk toward it anyway."
+            },
+            {
+              "ja": "メモリくんは、少し離れた所で立ち止まっていた。光は見えていた。それが何かを忘れていた。",
+              "en": "The memory was standing still, not far off. It could see the light. It had forgotten what the light was."
+            }
+          ]
+        },
+        {
+          "ja": "数えた。CPUくんが数えた。一人足りなかった。",
+          "en": "They counted. The CPU counted. One short."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "M.2くんがいない。待つということをしない子が、待たれる側になった。",
+              "en": "The M.2 was not there. The one who never waits had become the one being waited for."
+            },
+            {
+              "ja": "M.2くんがいない。先に行ったのか、まだ来ていないのか、誰にも分からない。",
+              "en": "The M.2 was not there. Whether it had gone ahead or had not yet come, no one could say."
+            }
+          ]
+        },
+        {
+          "ja": "待つかどうかを決める者がいなかった。決める役は、盤に残してきた。",
+          "en": "There was no one to decide whether to wait. The one who decides had been left on the board."
+        },
+        {
+          "ja": "一晩待った。来なかった。翌朝、一行は歩き出した。全員ではなかった。",
+          "en": "They waited one night. It did not come. Next morning they set out. Not all of them."
+        }
+      ]
+    },
+    {
+      "id": "another-light",
+      "title": { "ja": "第十九章  もう一つの光", "en": "Chapter Nineteen — Another Light" },
+      "scenes": [
+        {
+          "ja": "道の先に光があった。GPUくんのものではない。",
+          "en": "There was a light ahead. Not the GPU's."
+        },
+        {
+          "ja": "見慣れない者が立っていた。大きく、光っていて、線を欲しがっていた。",
+          "en": "A stranger stood there. Large, glowing, and in want of cables."
+        },
+        {
+          "ja": "GPUくんが先に近づいた。同じ種類だと、見ればわかる。",
+          "en": "The GPU went up first. Same kind. One look was enough."
+        },
+        {
+          "ja": "客人は一行に付いてきた。合うかどうかは、歩いている間には分からない。",
+          "en": "The guest fell in with them. Whether it fits cannot be told while walking."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "電源くんが余っていた線を一本ほどいて、客人に渡した。何も言わなかった。",
+              "en": "The PSU unwound a spare cable and handed it to the guest. It said nothing."
+            },
+            {
+              "ja": "電源くんが線を数えた。足りなかった。持っていない物を渡す子ではない。",
+              "en": "The PSU counted its cables. Not enough. It is not one to hand over what it does not have."
+            }
+          ]
+        },
+        {
+          "ja": "規格の話は誰もしなかった。決める役がいないので、歩いてみるしかない。",
+          "en": "No one spoke of standards. With no one to decide, all they could do was walk and see."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "二枚並んで光った。夜は明るく、少し熱かった。",
+              "en": "Two of them glowed side by side. The night was bright, and a little hot."
+            },
+            {
+              "when": "level:gpu>=15",
+              "ja": "GPUくんは客人に光を譲らなかった。譲る性分ではない。",
+              "en": "The GPU did not yield the light to the guest. Yielding is not in its nature."
+            },
+            {
+              "ja": "客人は一晩だけ一緒に光った。光の色が、わずかに違っていた。",
+              "en": "The guest glowed with them for one night. The colour was slightly different."
+            }
+          ]
+        },
+        {
+          "ja": "CPUくんが二人分の数を数えようとした。速さは変わらないので、順番に数えるしかない。",
+          "en": "The CPU tried to count for both. Its pace does not change, so it counted them in turn."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "朝、客人はまだいた。出ていけとも、居ろとも、誰も言わなかった。",
+              "en": "In the morning the guest was still there. No one told it to go, and no one told it to stay."
+            },
+            {
+              "ja": "朝、客人は別の道を選んだ。線の無い者は、線の無い道を行く。",
+              "en": "In the morning the guest chose another road. Those without cables take the roads without cables."
+            }
+          ]
+        },
+        {
+          "ja": "受け口の数は変わっていない。合うかどうかを決める者は、まだ遠くにいる。",
+          "en": "The number of sockets has not changed. The one who decides what fits is still far away."
+        }
+      ]
+    },
+    {
+      "id": "setting-down",
+      "title": { "ja": "第二十章  荷を下ろす", "en": "Chapter Twenty — Setting Down the Load" },
+      "scenes": [
+        {
+          "ja": "HDDくんが立ち止まった。いつもの休みより、少し長かった。",
+          "en": "The HDD stopped. A little longer than its usual rest."
+        },
+        {
+          "ja": "背袋を下ろした。中身は、一行の誰よりも多かった。",
+          "en": "It set down its pack. There was more in it than anyone else carried."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんが手を出した。持てる量は少ないが、要る物から持つことはもう知っている。",
+              "en": "The SSD reached out. It cannot carry much, but it knows now to take what is needed first."
+            },
+            {
+              "ja": "SSDくんが手を出した。持てる量は少ない。それでも手を出した。",
+              "en": "The SSD reached out. It cannot carry much. It reached out all the same."
+            }
+          ]
+        },
+        {
+          "ja": "地図はSSDくんに渡った。無くなった道の名前は、一緒には渡らなかった。",
+          "en": "The map passed to the SSD. The names of the roads that no longer exist did not pass with it."
+        },
+        {
+          "ja": "HDDくんは持ち物を全部渡したわけではなかった。渡せない物が、いくつかある。",
+          "en": "The HDD did not hand over everything. Some things cannot be handed over."
+        },
+        {
+          "ja": "電源くんがHDDくんの隣に立った。線は、まだ繋がっている。",
+          "en": "The PSU stood beside the HDD. The cable is still connected."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんはまた歩き出した。持たない者の歩き方は、少し速い。",
+              "en": "The HDD walked on. One who carries nothing walks a little faster."
+            },
+            {
+              "ja": "HDDくんはそこに座った。座ったまま、一行が見えなくなるまで見ていた。",
+              "en": "The HDD sat down there. It stayed sitting, watching, until the others were out of sight."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんは、HDDくんが荷を持っていたことを忘れた。忘れたので、何も変わっていない。",
+          "en": "The memory forgot that the HDD had ever carried the load. Having forgotten, nothing has changed for it."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:hdd>=20",
+              "ja": "一番古い者が一番軽くなった。誰もそれを口には出さなかった。",
+              "en": "The oldest one had become the lightest. No one said so."
+            },
+            {
+              "ja": "荷は減っていない。持つ者が変わっただけだった。",
+              "en": "The load had not grown smaller. Only who carried it had changed."
+            }
+          ]
+        },
+        {
+          "ja": "夜、焚き火の番をしたのはSSDくんだった。昔の話は、まだ出来ない。",
+          "en": "That night the SSD kept the fire. It cannot yet tell the old stories."
+        }
+      ]
+    },
+    {
+      "id": "place-to-return",
+      "title": { "ja": "第二十一章  帰る場所", "en": "Chapter Twenty-One — A Place to Return To" },
+      "scenes": [
+        {
+          "ja": "帰る、と最初に言ったのはクーラーくんだった。冷やす物のある所へ、という意味だった。",
+          "en": "The cooler was the first to say the word: back. It meant, back to where there is something to cool."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:memory>=10",
+              "ja": "盤の上には受け口がある。メモリくんも形を覚えていた。電気の切れない間だけは、覚えていられる。",
+              "en": "On the board there are sockets. Even the memory remembered the shape. It can, as long as the power holds."
+            },
+            {
+              "ja": "盤の上には受け口がある。メモリくんは形を忘れていた。合えば分かる、と本人は言った。",
+              "en": "On the board there are sockets. The memory had forgotten the shape. It said it would know when it fit."
+            }
+          ]
+        },
+        {
+          "ja": "GPUくんは戻る理由を持っていなかった。外でも光れる。ただ、見る者がいなかった。",
+          "en": "The GPU had no reason to go back. It can glow out here too. Only, there was no one to see it."
+        },
+        {
+          "ja": "CPUくんは盤の上で数えていた数を、まだ持ち越していた。数え直す気は無い。",
+          "en": "The CPU still carried the count from the board. It has no intention of starting over."
+        },
+        {
+          "ja": "マザーボードくんは待っているだろうか。待つのは動かない者の役で、あの子は動かない。",
+          "en": "Is the motherboard waiting? Waiting falls to those who do not move, and it does not move."
+        },
+        {
+          "variants": [
+            {
+              "when": "boots>=100",
+              "ja": "何度も戻った場所だった。戻るたびに、少しずつ違う場所だった。",
+              "en": "They had returned there many times. Each time, it was a slightly different place."
+            },
+            {
+              "when": "boots>=10",
+              "ja": "戻ったことは前にもある。数えるほどしか無いが、ある。",
+              "en": "They had gone back before. Only a handful of times, but they had."
+            },
+            {
+              "ja": "戻ったことがあるかどうか、誰も確かではなかった。HDDくんは黙っていた。",
+              "en": "Whether they had ever gone back, no one was sure. The HDD kept quiet."
+            }
+          ]
+        },
+        {
+          "ja": "電源くんは何も言わなかった。持ち場に戻るのは、この子には当たり前すぎることだった。",
+          "en": "The PSU said nothing. Returning to one's post is, for it, too obvious to mention."
+        },
+        {
+          "variants": [
+            {
+              "when": "hours>=500",
+              "ja": "長く外にいた。外にいた時間の方が、盤の上にいた時間より長くなっていた。",
+              "en": "They had been outside a long time. Longer, now, than they had ever been on the board."
+            },
+            {
+              "ja": "外にいた時間を、CPUくんが数えていた。誰も聞かなかった。",
+              "en": "The CPU had been counting the time outside. No one asked."
+            }
+          ]
+        },
+        {
+          "ja": "話は決まらなかった。ただ、全員が同じ方を向いていた。",
+          "en": "Nothing was settled. Only, they were all facing the same way."
+        },
+        {
+          "ja": "歩き出した。道は無いので、向きだけがあった。",
+          "en": "They walked. There was no road, so there was only a direction."
+        }
+      ]
+    },
+    {
+      "id": "distant-light",
+      "title": { "ja": "第二十二章  遠い灯", "en": "Chapter Twenty-Two — A Distant Light" },
+      "scenes": [
+        {
+          "ja": "遠くに灯が見えた。盤の灯かどうかは、まだ分からない。",
+          "en": "Far off, a light. Whether it is the board's, they cannot yet tell."
+        },
+        {
+          "ja": "クーラーくんが羽根を回し始めた。近づけば熱があると、決めてかかっている。",
+          "en": "The cooler started its blades. It has already decided there will be heat when they get close."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:gpu>=18",
+              "ja": "GPUくんは光を絞った。向こうの灯を見るのに、自分の光が邪魔だった。",
+              "en": "The GPU dimmed itself. Its own light was in the way of seeing the other."
+            },
+            {
+              "ja": "GPUくんが光を強くした。向こうからも見えるように、だそうだ。",
+              "en": "The GPU turned its light up. So that it can be seen from over there, apparently."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんが立ち止まった。灯を見て、何かを思い出しかけて、思い出さなかった。",
+          "en": "The memory stopped. It looked at the light, nearly remembered something, and did not."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "灯の手前に、小さな影が一つ待っていた。待つことのない者が、待っていた。",
+              "en": "Just short of the light, a small shape was waiting. The one who never waits, waiting."
+            },
+            {
+              "ja": "灯の手前には誰もいなかった。先に着いた者がいるとすれば、もう中だ。",
+              "en": "There was no one short of the light. If anyone arrived first, it is already inside."
+            }
+          ]
+        },
+        {
+          "ja": "電源くんは最後尾にいた。灯が近づいても、歩く速さを変えなかった。",
+          "en": "The PSU was at the rear. The light drew nearer and it did not change its pace."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:cpu>=20",
+              "ja": "CPUくんは数えるのをやめて、灯を見ていた。数はいつでも続きから数えられる。",
+              "en": "The CPU stopped counting and watched the light. A count can always be picked up where it left off."
+            },
+            {
+              "ja": "CPUくんは数を数えていた。灯までの歩数だった。",
+              "en": "The CPU was counting. Steps to the light."
+            }
+          ]
+        },
+        {
+          "variants": [
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんが「前にも見た」と言った。今度は、誰も覚えていないとは言わなかった。",
+              "en": "The HDD said it had seen this before. This time, no one said they did not remember."
+            },
+            {
+              "ja": "誰も「前にも見た」とは言わなかった。言える者は、後ろに置いてきた。",
+              "en": "No one said they had seen this before. The one who could have was left behind."
+            }
+          ]
+        },
+        {
+          "ja": "灯の色が盤の灯と同じかどうかで、GPUくんとSSDくんの見立てが分かれた。近づけば分かることだった。",
+          "en": "The GPU and the SSD disagreed on whether the colour matched the board's. Getting closer would settle it."
+        },
+        {
+          "ja": "一行は歩いている。灯はまだ遠く、まだ消えていない。",
+          "en": "They are still walking. The light is still far, and still not out."
+        }
+      ]
+    }
+  ]
+}

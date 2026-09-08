@@ -1,0 +1,753 @@
+{
+  "events": [
+    {
+      "when": "cpu-very-high",
+      "texts": [
+        {
+          "ja": "CPUくんが息を止めている。数え終わるまで、吐かないつもりらしい。",
+          "en": "The CPU is holding its breath. It does not mean to let it out until the count is done."
+        },
+        {
+          "ja": "クーラーくんが羽根を一段速めた。頼まれる前に、もう回していた。",
+          "en": "The cooler stepped up a notch. It was already spinning before anyone asked."
+        },
+        {
+          "ja": "列ができている。CPUくんは順に片付けているが、列は縮まない。",
+          "en": "A line has formed. The CPU works through it in order, and the line does not get shorter."
+        },
+        {
+          "ja": "マザーボードくんがクロックを上げた。CPUくんは何も言わずに受け取った。",
+          "en": "The motherboard raised the clock. The CPU took it without a word."
+        },
+        {
+          "ja": "熱が盤の上に溜まり始めた。クーラーくんが、CPUくんから一歩も離れない。",
+          "en": "Heat is gathering on the board. The cooler will not move a step from the CPU."
+        },
+        {
+          "ja": "メモリくんが渡す端から、CPUくんが済ませていく。渡す方が追い付かない。",
+          "en": "The memory hands things over and the CPU finishes them as they come. The handing over is what lags."
+        },
+        {
+          "ja": "電源くんが少しだけ前に出た。要る分だけ流して、また下がった。",
+          "en": "The PSU came forward a little. It gave what was needed and stepped back."
+        },
+        {
+          "ja": "CPUくんの背中しか見えない。今日はまだ、誰もその顔を見ていない。",
+          "en": "Only the CPU's back can be seen. No one has seen its face yet today."
+        },
+        {
+          "ja": "手が空いたら休むつもりでいる。手は、まだ一度も空いていない。",
+          "en": "It means to rest when its hands are free. So far they have not been free once."
+        },
+        {
+          "ja": "GPUくんが手を貸そうとした。渡せる仕事の形をしていなかった。",
+          "en": "The GPU offered to help. The work was not the kind that could be handed over."
+        },
+        {
+          "ja": "一行は足を止めている。CPUくんの数え終わりを、全員で待っている。",
+          "en": "The party has stopped walking. All of them are waiting for the CPU to finish counting."
+        },
+        {
+          "ja": "短い休憩が来て、終わった。まばたきより短かった。",
+          "en": "A short break came and went. Shorter than a blink."
+        },
+        {
+          "ja": "HDDくんが、昔はこれで一晩かかったと言った。CPUくんは聞いていない。",
+          "en": "The HDD said this used to take all night. The CPU was not listening."
+        },
+        {
+          "when": "level:cpu>=10",
+          "ja": "腕の使い方が変わった。空く腕を、先に決めてから動いている。",
+          "en": "It has changed how it uses its arms. It decides which will be free before it moves."
+        },
+        {
+          "when": "level:cpu>=15",
+          "ja": "満杯だが、足取りは乱れない。ここまでは何度も来ている。",
+          "en": "Full to the brim, but its step does not falter. It has been here many times."
+        },
+        {
+          "when": "level:cpu>=20",
+          "ja": "一行は歩き続けている。CPUくんが手一杯でも、止まらなくなった。",
+          "en": "The party keeps walking. It no longer stops when the CPU has its hands full."
+        },
+        {
+          "when": "cpus>=2",
+          "ja": "もう一人のCPUくんが隣で同じ顔をしている。手を貸す余裕は、どちらにも無い。",
+          "en": "The other CPU wears the same face beside it. Neither has a hand to spare."
+        },
+        {
+          "when": "level:cpu-cooler>=12",
+          "ja": "クーラーくんは羽根を速めなかった。今の熱ならこれで足りると、もう知っている。",
+          "en": "The cooler did not speed up. It knows by now that this is enough for this much heat."
+        }
+      ]
+    },
+    {
+      "when": "gpu-very-high",
+      "texts": [
+        {
+          "ja": "GPUくんが全部の灯を点けた。盤の上が、それだけで明るい。",
+          "en": "The GPU turned on every light it has. That alone lights the board."
+        },
+        {
+          "ja": "電源くんが一番太い線を握り直した。GPUくんの分だ。",
+          "en": "The PSU took a fresh grip on the thickest line. The one that goes to the GPU."
+        },
+        {
+          "ja": "谷の底の熱が、GPUくんの背に溜まっている。本人は前しか見ていない。",
+          "en": "The heat of the valley floor gathers on the GPU's back. It only looks ahead."
+        },
+        {
+          "ja": "絵が一枚ずつ出来ていく。数えるのは、とうに諦めた。",
+          "en": "Pictures come out one after another. The counting was given up long ago."
+        },
+        {
+          "ja": "GPUくんの羽根が回り出した。クーラーくんのではない。自前の羽根だ。",
+          "en": "The GPU's fans started turning. Not the cooler's. Its own."
+        },
+        {
+          "ja": "一行の中で一番大きな影が、一番よく動いている。",
+          "en": "The largest shadow in the party is the one moving the most."
+        },
+        {
+          "ja": "CPUくんが渡した仕事を、GPUくんが何百にも分けた。分けた方が速い。",
+          "en": "The CPU handed over a job and the GPU split it into hundreds. Split, it goes faster."
+        },
+        {
+          "ja": "GPUくんが胸を張った。今は、張るだけのことをしている。",
+          "en": "The GPU squared its shoulders. Right now it has earned that."
+        },
+        {
+          "ja": "マザーボードくんが、GPUくんに流す幅を広げた。他の道が少し細くなった。",
+          "en": "The motherboard widened the GPU's lane. The other paths got a little narrower."
+        },
+        {
+          "ja": "メモリくんが荷を運んでいるが、運ぶ先はGPUくんばかりだ。",
+          "en": "The memory is carrying loads, and every one of them goes to the GPU."
+        },
+        {
+          "ja": "光が強い。誰も目を逸らさないが、誰も近寄らない。",
+          "en": "The light is strong. No one looks away, and no one goes near."
+        },
+        {
+          "ja": "クーラーくんが、GPUくんの方をちらと見た。持ち場は動かなかった。",
+          "en": "The cooler glanced toward the GPU. It did not leave its post."
+        },
+        {
+          "ja": "一行が止まって、GPUくんの仕事を見ている。見ているだけで、手伝いようが無い。",
+          "en": "The party has stopped to watch the GPU work. There is nothing to do but watch."
+        },
+        {
+          "when": "level:gpu>=10",
+          "ja": "光り方に無駄が無くなった。要る所だけ点けている。",
+          "en": "Its lights have lost their excess. It turns on only what is needed."
+        },
+        {
+          "when": "level:gpu>=15",
+          "ja": "GPUくんは谷の熱に慣れた。慣れただけで、熱は減っていない。",
+          "en": "The GPU has grown used to the valley's heat. Used to it; the heat has not lessened."
+        },
+        {
+          "when": "gpus>=2",
+          "ja": "二人のGPUくんが並んで光っている。盤の上は、影が無いほど明るい。",
+          "en": "Two GPUs glow side by side. The board is so bright there are no shadows."
+        },
+        {
+          "when": "level:gpu>=20",
+          "ja": "全力で走りながら、一度だけ後ろを見た。まだ全員いる。",
+          "en": "Running flat out, it looked back once. Everyone is still there."
+        },
+        {
+          "when": "level:psu>=12",
+          "ja": "電源くんは表情を変えなかった。この量は、もう何度も通している。",
+          "en": "The PSU's face did not change. It has passed this much through many times."
+        }
+      ]
+    },
+    {
+      "when": "memory-tight",
+      "texts": [
+        {
+          "ja": "メモリくんの両手が塞がった。次に来た物は、床に置くしかない。",
+          "en": "The memory's hands are full. Whatever comes next will have to go on the floor."
+        },
+        {
+          "when": "has:ssd",
+          "ja": "抱えきれない分を、SSDくんに預け始めた。SSDくんは黙って受け取った。",
+          "en": "It has started passing what it cannot hold to the SSD. The SSD takes it without comment."
+        },
+        {
+          "ja": "何を先に置くか、メモリくんは悩まない。悩んだことをすぐ忘れるからだ。",
+          "en": "The memory does not fret over what to set down first. It forgets having fretted."
+        },
+        {
+          "ja": "マザーボードくんが、メモリくんの荷を数えた。数えている間にも増えた。",
+          "en": "The motherboard counted the memory's load. It grew while being counted."
+        },
+        {
+          "ja": "抱えたまま立ち止まった。降ろす場所が、もう無い。",
+          "en": "It stopped, still holding everything. There is nowhere left to set it down."
+        },
+        {
+          "ja": "荷の下から、メモリくんの足だけが見えている。",
+          "en": "Only the memory's feet are visible beneath the load."
+        },
+        {
+          "ja": "CPUくんが取りに来た物を、メモリくんは荷の底から探している。",
+          "en": "The CPU came for something. The memory is searching for it at the bottom of the pile."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんが、預かろうかと言った。遅いが、落とすことは無い。",
+          "en": "The HDD offered to hold some. It is slow, but it drops nothing."
+        },
+        {
+          "ja": "一行の歩みが遅くなった。メモリくんが遅いのではない。荷が重い。",
+          "en": "The party has slowed. The memory is not slow. The load is heavy."
+        },
+        {
+          "ja": "隙間に詰められる物は、もう全部詰めた。",
+          "en": "Everything that could be squeezed into a gap has been."
+        },
+        {
+          "ja": "メモリくんは荷が重いことを気にしていない。重いと気付く暇が無い。",
+          "en": "The memory does not mind the weight. It has no time to notice it."
+        },
+        {
+          "ja": "置いた物の上に、次の物が置かれた。下の物は、当分出て来ない。",
+          "en": "The next thing was set on top of the last. The one beneath will not surface for a while."
+        },
+        {
+          "ja": "誰かが荷を減らしてくれるのを、メモリくんは待っていない。待つことも忘れた。",
+          "en": "The memory is not waiting for someone to lighten the load. It has forgotten to wait."
+        },
+        {
+          "when": "level:memory>=10",
+          "ja": "荷の積み方が良くなった。それでも、限りは限りだ。",
+          "en": "It packs better than it used to. A limit is still a limit."
+        },
+        {
+          "when": "level:memory>=15",
+          "ja": "荷が一杯でも、メモリくんは立ち止まらなくなった。歩きながら降ろす。",
+          "en": "Even loaded to the brim, the memory no longer stops. It sets things down while walking."
+        },
+        {
+          "when": "has:m2",
+          "ja": "溢れた分がM.2くんの背に移された。M.2くんは受け取る前から走っていた。",
+          "en": "The overflow went onto the M.2's back. The M.2 was running before it even took hold."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "溢れた分をHDDくんが背負った。HDDくんは重さで文句を言わない。",
+          "en": "The HDD shouldered the overflow. It does not complain about weight."
+        },
+        {
+          "when": "level:memory>=20",
+          "ja": "一杯になるのは久しぶりだ。メモリくんは、その久しぶりを覚えていない。",
+          "en": "It has been a while since it was this full. The memory does not remember the last time."
+        }
+      ]
+    },
+    {
+      "when": "disk-busy",
+      "texts": [
+        {
+          "ja": "書き留める物が、読むより多い日だ。誰も文句は言わない。",
+          "en": "A day with more to write down than to read. No one complains."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんの盤が回り始めた。回り出すまでが、この子は長い。",
+          "en": "The HDD's platter started to spin. Getting it started is the slow part."
+        },
+        {
+          "ja": "荷が次々に降ろされている。降ろし場所の帳面は、まだ追い付いていない。",
+          "en": "Loads are being set down one after another. The ledger of where they went is still catching up."
+        },
+        {
+          "when": "has:ssd",
+          "ja": "SSDくんが同じ道を何度も往復している。往復の数を、本人は数えていない。",
+          "en": "The SSD is going back and forth on the same path. It has not counted the trips."
+        },
+        {
+          "ja": "読み出しと書き込みが、同じ道で行き違った。譲ったのは書く方だった。",
+          "en": "A read and a write met on the same path. The write was the one that gave way."
+        },
+        {
+          "ja": "何かが大きい。運び終わるまで、他の荷は脇に寄せられている。",
+          "en": "Something is large. Until it is moved, the other loads wait at the side."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "針がずっと動いている。HDDくんは今日、休むつもりが無いらしい。",
+          "en": "The arm has not stopped moving. The HDD does not seem to plan on resting today."
+        },
+        {
+          "ja": "メモリくんが預けに来る度に、帳面が一枚めくられる。",
+          "en": "Each time the memory comes to hand something over, another page turns."
+        },
+        {
+          "ja": "一行は止まっている。誰かの荷造りが、まだ終わらない。",
+          "en": "The party is halted. Someone's packing is not finished."
+        },
+        {
+          "ja": "書いた物をすぐ読み返している。誰の頼みかは、はっきりしない。",
+          "en": "Something is being read back the moment it is written. Who asked is not clear."
+        },
+        {
+          "ja": "蔵の戸が開いたまま、閉まらない。出入りが途切れないからだ。",
+          "en": "The storehouse door stays open. The traffic through it does not stop."
+        },
+        {
+          "ja": "消される物と書かれる物が、同じ場所で入れ替わっている。",
+          "en": "Things are being erased and written in the same spot, one after another."
+        },
+        {
+          "ja": "一行の後ろで、荷の積み替えが続いている。前を歩く者は振り返らない。",
+          "en": "At the rear, loads are still being shifted. Those in front do not look back."
+        },
+        {
+          "when": "has:m2",
+          "ja": "M.2くんが熱を持ち始めた。速い分、熱くなるのも速い。",
+          "en": "The M.2 is starting to heat up. Fast to move, fast to warm."
+        },
+        {
+          "when": "level:ssd>=10",
+          "ja": "SSDくんは待たされている。前ほど、それを顔に出さない。",
+          "en": "The SSD is being kept waiting. It shows less on its face than it used to."
+        },
+        {
+          "when": "level:hdd>=12",
+          "ja": "HDDくんは急がなかった。急いでも速くならないことを、一番よく知っている。",
+          "en": "The HDD did not hurry. It knows better than anyone that hurrying does not make it faster."
+        },
+        {
+          "when": "level:m2>=15",
+          "ja": "M.2くんが一度だけ足を止めた。後ろを確かめるためで、待つためではない。",
+          "en": "The M.2 stopped once. To check behind it, not to wait."
+        },
+        {
+          "when": "level:ssd>=15",
+          "ja": "SSDくんは走りながら背袋の中を並べ替えている。走りながら出来るようになった。",
+          "en": "The SSD sorts its pack as it runs. It has learned to do both at once."
+        }
+      ]
+    },
+    {
+      "when": "disk-full",
+      "texts": [
+        {
+          "ja": "蔵の棚に隙間が無い。新しい物は、通路に置かれ始めた。",
+          "en": "There is no gap left on the shelves. New things are being set in the aisle."
+        },
+        {
+          "ja": "背袋の口が閉まらない。紐を結び直しても、同じだった。",
+          "en": "The pack will not close. Retying the cord did not change that."
+        },
+        {
+          "ja": "捨てる物を選ぶ相談が始まった。誰も、自分の荷からは出さない。",
+          "en": "Talk began about what to throw out. No one offers anything from their own load."
+        },
+        {
+          "ja": "一行の足が重い。荷の重さは、歩く速さに正直に出る。",
+          "en": "The party's steps are heavy. Weight shows honestly in the pace."
+        },
+        {
+          "ja": "古い地図が何枚も出てきた。どれも捨てられないまま、また仕舞われた。",
+          "en": "Old maps turned up, several of them. None were thrown out. All were put back."
+        },
+        {
+          "ja": "棚の奥の物は、置いた者ももう覚えていない。それでも棚を塞いでいる。",
+          "en": "What sits at the back of the shelf, even whoever put it there has forgotten. It fills the shelf all the same."
+        },
+        {
+          "ja": "マザーボードくんが蔵を見に来た。何も言わずに戻った。",
+          "en": "The motherboard came to look at the storehouse. It went back without a word."
+        },
+        {
+          "ja": "入り口まで荷が来ている。次に来た物の置き場は、まだ決まっていない。",
+          "en": "The load reaches the doorway. Where the next thing goes has not been decided."
+        },
+        {
+          "ja": "同じ物が二つ、別の棚にあった。どちらを残すかで、時間が過ぎた。",
+          "en": "Two of the same thing, on different shelves. Choosing which to keep took a while."
+        },
+        {
+          "ja": "荷を減らす話は、荷が増える速さに追い付いていない。",
+          "en": "The talk of lightening the load is not keeping up with how fast it grows."
+        },
+        {
+          "ja": "蔵の壁に、しるしが付いている。ここまで、と誰かが引いた線だ。",
+          "en": "There is a mark on the storehouse wall. A line someone drew, meaning this far."
+        },
+        {
+          "ja": "背袋を下ろして座った。また担ぐまでに、少し間があった。",
+          "en": "It set the pack down and sat. There was a pause before it picked the pack up again."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんの蔵が埋まった。一番広い蔵が、先に埋まった。",
+          "en": "The HDD's storehouse is full. The largest one filled first."
+        },
+        {
+          "when": "has:m2",
+          "ja": "M.2くんの背袋は小さい。小さい分、埋まるのも早かった。",
+          "en": "The M.2's pack is small. Being small, it filled quickly."
+        },
+        {
+          "when": "level:hdd>=12",
+          "ja": "HDDくんは、捨てる物を自分で選び始めた。手は遅いが、迷わない。",
+          "en": "The HDD has begun choosing what to discard on its own. Slow hands, no hesitation."
+        },
+        {
+          "when": "level:ssd>=12",
+          "ja": "SSDくんは背袋の膨らみを気にしなくなった。膨らんだまま走っている。",
+          "en": "The SSD has stopped minding the bulge in its pack. It runs with it as it is."
+        },
+        {
+          "when": "chapter>=3",
+          "ja": "荷の多さで一度難儀した道だ。同じ重さを、また背負っている。",
+          "en": "They struggled on this road once because of the load. They carry the same weight again."
+        },
+        {
+          "when": "hours>=200",
+          "ja": "蔵は前にも埋まった。その時捨てた物を、覚えている者はいない。",
+          "en": "The storehouse has filled before. No one remembers what was thrown out that time."
+        }
+      ]
+    },
+    {
+      "when": "idle-long",
+      "texts": [
+        {
+          "ja": "風が止んだ。クーラーくんの羽根だけが、ゆっくり回っている。",
+          "en": "The wind dropped. Only the cooler's blades still turn, slowly."
+        },
+        {
+          "ja": "CPUくんが腕を下ろした。下ろし方を、少し忘れていた。",
+          "en": "The CPU lowered its arms. It had half forgotten how."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんが止まった。呼ばれれば、また回る。",
+          "en": "The HDD has stopped. Called, it will spin again."
+        },
+        {
+          "ja": "メモリくんが空を見ている。何を抱えていたか、もう思い出せない。",
+          "en": "The memory is looking up at the sky. It can no longer recall what it was holding."
+        },
+        {
+          "ja": "電源くんは同じ場所に立っている。人が居ようと居まいと、同じ姿勢だ。",
+          "en": "The PSU stands where it stood. The posture is the same, whether anyone is there or not."
+        },
+        {
+          "ja": "GPUくんが灯を落とした。暗くなると、思いのほか小さく見える。",
+          "en": "The GPU dimmed its lights. In the dark it looks smaller than expected."
+        },
+        {
+          "ja": "マザーボードくんが盤を見渡した。動いている者がいない。それで良い。",
+          "en": "The motherboard looked across the board. Nothing is moving. That is fine."
+        },
+        {
+          "ja": "焚き火の薪が減っている。誰も足しに立たない。",
+          "en": "The fire's wood is running low. No one gets up to add more."
+        },
+        {
+          "when": "has:ssd",
+          "ja": "SSDくんが座った。座っているのが一番苦手な子が、座っている。",
+          "en": "The SSD sat down. The one worst at sitting still is sitting still."
+        },
+        {
+          "ja": "誰かが荷を降ろした音がした。降ろしただけで、開けはしなかった。",
+          "en": "The sound of a pack set down. Set down, not opened."
+        },
+        {
+          "ja": "時計だけが進んでいる。CPUくんは、それを数えるのをやめた。",
+          "en": "Only the clock moves. The CPU has stopped counting it."
+        },
+        {
+          "ja": "谷から離れて、熱が抜けていく。クーラーくんが、それを確かめてから目を閉じた。",
+          "en": "Away from the valley, the heat drains off. The cooler checked, then closed its eyes."
+        },
+        {
+          "when": "has:m2",
+          "ja": "外から何も来ない。盤の縁で、M.2くんが行ったり来たりしている。",
+          "en": "Nothing arrives from outside. At the board's edge, the M.2 paces."
+        },
+        {
+          "ja": "一行は道の脇に座っている。次に歩く方角は、まだ決めていない。",
+          "en": "The party sits at the side of the road. Which way to walk next has not been decided."
+        },
+        {
+          "when": "level:hdd>=10",
+          "ja": "HDDくんが焚き火の側で、古い話の続きを始めた。前に聞いた者はいない。",
+          "en": "By the fire, the HDD picked up an old story where it left off. No one has heard this part."
+        },
+        {
+          "when": "level:cpu-cooler>=15",
+          "ja": "クーラーくんが眠っている。CPUくんの隣で、羽根を止めたまま。",
+          "en": "The cooler is asleep. Beside the CPU, blades still."
+        },
+        {
+          "when": "hours>=100",
+          "ja": "何もしない時間の過ごし方を、一行はもう知っている。",
+          "en": "The party knows by now how to spend a stretch of nothing."
+        },
+        {
+          "when": "boots>=50",
+          "ja": "待つのは初めてではない。誰も、時計の方を見ない。",
+          "en": "This is not their first wait. No one looks at the clock."
+        }
+      ]
+    },
+    {
+      "when": "boot",
+      "texts": [
+        {
+          "ja": "灯がともった。誰が最初に動くかは、決まっている。",
+          "en": "The light came on. Who moves first was settled long ago."
+        },
+        {
+          "ja": "マザーボードくんが起こす順を読み上げた。毎朝、同じ順だ。",
+          "en": "The motherboard read out the waking order. The same order, every morning."
+        },
+        {
+          "ja": "電源くんが先に立っていた。いつから立っていたかは、分からない。",
+          "en": "The PSU was already standing. Since when, no one can say."
+        },
+        {
+          "ja": "メモリくんが目を覚ました。昨日のことは、何も持っていない。",
+          "en": "The memory woke. It carries nothing of yesterday."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんが、昨日の荷を一つずつ確かめている。全部あった。",
+          "en": "The HDD checked yesterday's load, piece by piece. All of it was there."
+        },
+        {
+          "ja": "クーラーくんが羽根を回した。CPUくんはまだ寝ている。",
+          "en": "The cooler spun up. The CPU is still asleep."
+        },
+        {
+          "when": "has:ssd",
+          "ja": "SSDくんはもう靴を履いている。出発の合図は、まだ出ていない。",
+          "en": "The SSD already has its boots on. The signal to leave has not been given."
+        },
+        {
+          "ja": "GPUくんが灯を一つだけ点けた。全部点けるほどのことは、まだ無い。",
+          "en": "The GPU lit a single light. Nothing yet calls for all of them."
+        },
+        {
+          "ja": "盤の上に霜が降りていた。最初の熱で、すぐに消えた。",
+          "en": "Frost lay on the board. The first heat cleared it."
+        },
+        {
+          "ja": "荷を担ぎ直して、一行は歩き出した。昨日と同じ道からだ。",
+          "en": "They shouldered their packs and set off. From the same road as yesterday."
+        },
+        {
+          "ja": "点呼が終わった。欠けている者はいない。",
+          "en": "Roll call ended. No one is missing."
+        },
+        {
+          "ja": "CPUくんが数を一から数え直した。起きるとは、そういうことらしい。",
+          "en": "The CPU began counting again from one. That, it seems, is what waking is."
+        },
+        {
+          "when": "has:m2",
+          "ja": "M.2くんはもう盤の縁にいた。誰も、いつ行ったのか見ていない。",
+          "en": "The M.2 was already at the board's edge. No one saw it go."
+        },
+        {
+          "ja": "電源くんが線を一本ずつ確かめた。確かめ終わってから、灯を入れた。",
+          "en": "The PSU checked the lines one by one. Only then did it bring up the light."
+        },
+        {
+          "when": "boots>=10",
+          "ja": "起きる手順に、迷いが無くなった。もう十度は繰り返している。",
+          "en": "There is no hesitation left in the waking. It has been done ten times over."
+        },
+        {
+          "when": "boots>=100",
+          "ja": "百度を超えた朝も、順番は変わらない。",
+          "en": "Past a hundred mornings, the order has not changed."
+        },
+        {
+          "when": "level:motherboard>=12",
+          "ja": "マザーボードくんは順を読み上げなかった。読み上げなくても、皆が動いた。",
+          "en": "The motherboard did not read out the order. Everyone moved anyway."
+        },
+        {
+          "when": "chapter>=5",
+          "ja": "門の向こう側で目が覚めた。戻る道は、もう見えない。",
+          "en": "They woke on the far side of the gate. The way back is out of sight."
+        }
+      ]
+    },
+    {
+      "when": "long-absence",
+      "texts": [
+        {
+          "ja": "盤の上の埃を、クーラーくんの羽根が飛ばした。しばらく舞っていた。",
+          "en": "The cooler's blades blew the dust off the board. It hung in the air a while."
+        },
+        {
+          "ja": "メモリくんは、留守にしていたことを知らない。昨日の続きのつもりでいる。",
+          "en": "The memory does not know they were away. To it, this is yesterday, continued."
+        },
+        {
+          "when": "has:hdd",
+          "ja": "HDDくんが最後の日付を読み上げた。数日、飛んでいた。",
+          "en": "The HDD read out the last date. Several days had gone by."
+        },
+        {
+          "ja": "焚き火の跡が冷えきっていた。灰の上に、誰の足跡も無い。",
+          "en": "The fire pit was cold through. No footprints in the ash."
+        },
+        {
+          "ja": "電源くんは同じ場所に立っていた。留守の間も、そこにいたらしい。",
+          "en": "The PSU stood where it always stands. It seems it was there the whole time."
+        },
+        {
+          "ja": "CPUくんが数え始めたが、一度つかえた。数え直して、揃った。",
+          "en": "The CPU began to count and stumbled once. It started over, and it came out right."
+        },
+        {
+          "ja": "荷は置いた時のままだった。減ってもいないが、増えてもいない。",
+          "en": "The packs were as they were left. Nothing less, nothing more."
+        },
+        {
+          "ja": "道に草が伸びていた。踏み分ければ、まだ道だと分かる。",
+          "en": "Grass had grown over the road. Trodden down, it is still a road."
+        },
+        {
+          "ja": "マザーボードくんが全員の受け口を確かめた。全部、繋がっていた。",
+          "en": "The motherboard checked every socket. All still connected."
+        },
+        {
+          "when": "has:ssd",
+          "ja": "SSDくんが真っ先に立ち上がった。待った日数を、数えていたらしい。",
+          "en": "The SSD was first on its feet. It seems it had been counting the days."
+        },
+        {
+          "ja": "GPUくんの灯が、いつもより一拍遅れて点いた。",
+          "en": "The GPU's lights came on a beat later than usual."
+        },
+        {
+          "ja": "外から来ていた物が、盤の縁に溜まっていた。順に片付けるしかない。",
+          "en": "Things from outside had piled up at the board's edge. They will be dealt with in order."
+        },
+        {
+          "ja": "留守の間の話をする者はいない。話すほどのことが、無かったからだ。",
+          "en": "No one speaks of the time away. There was nothing to speak of."
+        },
+        {
+          "ja": "一行は、置いていった場所から歩き出した。一歩目が、少しだけ重かった。",
+          "en": "They set off from where they had left off. The first step was a little heavy."
+        },
+        {
+          "when": "level:hdd>=10",
+          "ja": "HDDくんは日数を言わなかった。聞かれたら答えるつもりでいる。",
+          "en": "The HDD did not say how many days. It will answer if asked."
+        },
+        {
+          "when": "boots>=30",
+          "ja": "留守は初めてではない。戻る手順は、皆が覚えている。",
+          "en": "This is not the first absence. Everyone remembers how to come back."
+        },
+        {
+          "when": "level:cpu-cooler>=10",
+          "ja": "クーラーくんが、CPUくんの体温を先に確かめた。それから羽根を回した。",
+          "en": "The cooler checked the CPU's temperature first. Then it spun up."
+        },
+        {
+          "when": "level:memory>=15",
+          "ja": "メモリくんには留守の前の物が何も無い。無いことに、驚かなくなった。",
+          "en": "The memory holds nothing from before the absence. It has stopped being surprised by that."
+        }
+      ]
+    },
+    {
+      "when": "level-up",
+      "texts": [
+        {
+          "ja": "{name} の足取りが、少し変わった。誰も口にしないが、皆が気付いている。",
+          "en": "{name} walks a little differently now. No one says so, but everyone has noticed."
+        },
+        {
+          "ja": "{name} が荷を担ぎ直した。前より高い所で担いでいる。",
+          "en": "{name} reshouldered its pack. It sits higher than before."
+        },
+        {
+          "ja": "マザーボードくんが {name} の名を、帳面の一つ上の段に書き直した。",
+          "en": "The motherboard rewrote {name}'s name one line higher in the ledger."
+        },
+        {
+          "ja": "{name} の背が伸びたわけではない。ただ、前より遠くが見えている。",
+          "en": "{name} has not grown taller. It just sees farther than before."
+        },
+        {
+          "ja": "{name} の手つきに迷いが減った。減った分、音が静かになった。",
+          "en": "{name}'s hands hesitate less. With less hesitation, there is less noise."
+        },
+        {
+          "ja": "一行の列で、{name} の立つ位置が半歩前になった。",
+          "en": "In the line of march, {name} now stands half a step farther forward."
+        },
+        {
+          "ja": "{name} が今日の分を終えた。終えた数を、本人は数えていない。",
+          "en": "{name} finished today's share. It has not counted how much that was."
+        },
+        {
+          "ja": "HDDくんが {name} のことを書き留めた。日付と、一言だけ。",
+          "en": "The HDD wrote something down about {name}. The date, and one word."
+        },
+        {
+          "ja": "{name} の影が、朝より少し長い。",
+          "en": "{name}'s shadow is a little longer than it was this morning."
+        },
+        {
+          "ja": "電源くんが {name} を一度だけ見た。それだけだった。",
+          "en": "The PSU looked at {name} once. That was all."
+        },
+        {
+          "ja": "{name} が新しい荷を受け取った。前の荷より重いが、持ち方は同じだ。",
+          "en": "{name} took on a new load. Heavier than the last, carried the same way."
+        },
+        {
+          "ja": "道の途中で、{name} が段を一つ上がった。段があったことに、後で気付いた。",
+          "en": "On the road, {name} climbed a step. It noticed the step only afterward."
+        },
+        {
+          "ja": "{name} が振り返らずに進んだ。振り返る必要が、今日は無かった。",
+          "en": "{name} went on without looking back. There was no need to today."
+        },
+        {
+          "when": "chapter>=2",
+          "ja": "谷を越えた {name} は、越える前と同じ顔で歩いている。歩幅だけが違う。",
+          "en": "{name} crossed the valley and walks with the same face as before. Only the stride has changed."
+        },
+        {
+          "when": "hours>=100",
+          "ja": "{name} の段が上がった。ここまでの時間を、HDDくんだけが覚えている。",
+          "en": "{name} went up a step. Only the HDD remembers how long it took."
+        },
+        {
+          "when": "boots>=50",
+          "ja": "何十度目かの朝の後で、{name} が一つ上がった。朝の数を、本人は知らない。",
+          "en": "After some dozens of mornings, {name} went up one. It does not know how many mornings that was."
+        },
+        {
+          "when": "chapter>=5",
+          "ja": "門の向こうで、{name} がまた一段上がった。門より先の段は、地図に無い。",
+          "en": "Beyond the gate, {name} climbed another step. Steps past the gate are not on the map."
+        },
+        {
+          "when": "hours>=500",
+          "ja": "{name} が上がった段は、もう数えるのが難しい高さにある。クーラーくんが、それでも数えている。",
+          "en": "The step {name} reached is high enough to be hard to count. The cooler counts it anyway."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,569 @@
+{
+  "chapters": [
+    {
+      "id": "making-a-road",
+      "title": { "ja": "第十一章  道を作る", "en": "Chapter Eleven — Making a Road" },
+      "scenes": [
+        {
+          "ja": "外には道が無かった。歩いた分だけが、後ろで道になった。",
+          "en": "There were no roads outside. Only the ground they had walked turned into one, behind them."
+        },
+        {
+          "ja": "誰が先に立つかで、しばらく足が止まった。盤の上では、決める者がいた。",
+          "en": "They stood a while over who should go first. On the board, there had been someone to decide."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "GPUくんが二人とも前に出た。並んで歩いたので、道が二本できた。",
+              "en": "Both GPUs stepped forward. They walked side by side, and left two roads."
+            },
+            {
+              "when": "level:gpu>=12",
+              "ja": "GPUくんが先に立った。一番大きいので、後ろの者は踏む場所に困らない。",
+              "en": "The GPU took the lead. It is the largest, so those behind never lacked a place to step."
+            },
+            {
+              "ja": "GPUくんが先に立った。一番大きいから、というのが理由の全部だった。",
+              "en": "The GPU went first. Being the largest was the whole of the reason."
+            }
+          ]
+        },
+        {
+          "ja": "CPUくんは歩数を数えている。数えておけば、戻る時は同じ数だけ歩けばいい。",
+          "en": "The CPU counts its steps. Counted, the way back is the same number, walked the other way."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:cpu>=14",
+              "ja": "数は大きくなったが、CPUくんは一つも落とさなかった。桁が増えるだけで、やることは同じだ。",
+              "en": "The numbers grew, and the CPU dropped none of them. More digits; the same work."
+            },
+            {
+              "when": "boots>=50",
+              "ja": "数えているうちに、CPUくんは前にも同じ数まで数えたことを思い出した。",
+              "en": "Somewhere in the counting, the CPU recalled having counted to this number before."
+            },
+            {
+              "ja": "数えるのはこの子の起き方で、歩き方でもあった。",
+              "en": "Counting is how the CPU wakes. It turns out to be how it walks, too."
+            }
+          ]
+        },
+        {
+          "ja": "クーラーくんはCPUくんの横を離れない。盤の外では、熱がどこへ逃げるのか分からない。",
+          "en": "The cooler stays at the CPU's side. Out here it does not know where the heat goes."
+        },
+        {
+          "ja": "メモリくんが振り返った。来た道は覚えていなかったが、道はそこにあった。",
+          "en": "The memory looked back. It did not remember the way they had come, but the way was there."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんが最後尾で、通った道を一つずつ書き留めている。遅いが、消えない。",
+              "en": "From the rear, the HDD writes the road down, one piece at a time. Slow, and it stays written."
+            },
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんが走り回って道に印を付けた。付けるのは速いが、印は多く持っていない。",
+              "en": "The SSD ran around marking the way. Quick to mark; it does not have many marks to give."
+            },
+            {
+              "ja": "通った道は、通った者しか知らない。それでも道だった。",
+              "en": "Only those who walked the road know it. It was a road all the same."
+            }
+          ]
+        },
+        {
+          "ja": "電源くんは最後尾で、誰かが踏み外すたびに立ち止まった。前には出ない。",
+          "en": "The PSU, at the rear, stopped each time someone missed a step. It did not go forward."
+        },
+        {
+          "ja": "日が暮れる頃、後ろに一本の道ができていた。前には、まだ何も無い。",
+          "en": "By dusk there was one road behind them. Ahead, still nothing."
+        }
+      ]
+    },
+    {
+      "id": "the-wreck",
+      "title": { "ja": "第十二章  残骸", "en": "Chapter Twelve — The Wreck" },
+      "scenes": [
+        {
+          "ja": "平らな場所に出た。何かが半分埋まっていた。盤だった。",
+          "en": "They came to flat ground. Something lay half-buried. A board."
+        },
+        {
+          "ja": "受け口はどれも空いていた。挿さっていた者は、もういない。",
+          "en": "Every socket was empty. Whoever had sat in them was gone."
+        },
+        {
+          "ja": "クーラーくんが熱を確かめた。冷えきっている。冷やすものが無いと、この子は手の置き場に困る。",
+          "en": "The cooler checked for heat. Stone cold. With nothing to cool, it did not know what to do with its hands."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:hdd>=10",
+              "ja": "HDDくんは盤の型を知っていた。自分より古い。生まれる前の道を、この子は知っている。",
+              "en": "The HDD knew the type of board. Older than itself. It knows roads from before it was made."
+            },
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんが盤の縁の文字を読んだ。読めはしたが、意味の方が残っていなかった。",
+              "en": "The HDD read the lettering along the edge. It could be read; the meaning had not survived."
+            },
+            {
+              "ja": "盤の縁に文字があった。誰にも読めなかった。",
+              "en": "There was lettering along the edge. No one could read it."
+            }
+          ]
+        },
+        {
+          "ja": "書き留められた物が残っていた。読む者だけがいなかった。",
+          "en": "Something written remained. Only a reader was missing."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "大きな受け口は一つだけだった。GPUくん二人は、それを黙って見ていた。",
+              "en": "There was only one large slot. The two GPUs looked at it and said nothing."
+            },
+            {
+              "when": "level:gpu>=12",
+              "ja": "GPUくんが大きな受け口の前に立った。自分より小さい。昔はこれで足りたのだ。",
+              "en": "The GPU stood before the large slot. Smaller than itself. Once, this had been enough."
+            },
+            {
+              "ja": "GPUくんの形をした受け口があった。合うかどうかは、試さなかった。",
+              "en": "There was a slot the shape of the GPU. No one tried it for fit."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんの受け口には何も残っていなかった。電気が絶えた時、全部そこで消えたのだ。",
+          "en": "The memory's socket held nothing at all. When the current stopped, everything went with it, right there."
+        },
+        {
+          "ja": "電源くんの受け口だけが焦げていた。電源くんは、それを長く見ていた。",
+          "en": "Only the PSU's socket was scorched. The PSU looked at it for a long time."
+        },
+        {
+          "variants": [
+            {
+              "when": "boots>=100",
+              "ja": "HDDくんが前にも来たと言った。今度は、CPUくんもそれを覚えていた。",
+              "en": "The HDD said it had been here before. This time, the CPU remembered it too."
+            },
+            {
+              "when": "hours>=500",
+              "ja": "埃の厚さで、止まってからの長さが分かった。一行が歩いてきた時間より、ずっと長い。",
+              "en": "The dust said how long it had been stopped. Far longer than they had been walking."
+            },
+            {
+              "ja": "埃が積もっていた。誰も払わなかった。",
+              "en": "Dust lay on it. No one brushed it off."
+            }
+          ]
+        },
+        {
+          "ja": "一行は何も持ち出さなかった。持ち出せる物が無かったからではない。",
+          "en": "They took nothing. It was not that there was nothing to take."
+        }
+      ]
+    },
+    {
+      "id": "no-current",
+      "title": { "ja": "第十三章  電気の来ない場所", "en": "Chapter Thirteen — Where the Current Does Not Reach" },
+      "scenes": [
+        {
+          "ja": "線が途切れた。ここから先に、電気は来ていない。",
+          "en": "The line ended. Beyond this point, no current comes."
+        },
+        {
+          "ja": "電源くんが前に出た。前に出るところを、誰も見たことがなかった。",
+          "en": "The PSU stepped forward. No one had ever seen it do that."
+        },
+        {
+          "ja": "持っている分だけで渡る。残りがいくらかを、電源くんは誰にも言わなかった。",
+          "en": "They would cross on what it carried. How much that was, the PSU told no one."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "GPUくんが二人いる。二人分は出ないと電源くんが言った。一人が光を消した。",
+              "en": "There were two GPUs. The PSU said it could not feed both. One of them went dark."
+            },
+            {
+              "when": "level:gpu>=12",
+              "ja": "GPUくんが光を消した。消しても、一番食うのは変わらない。",
+              "en": "The GPU put out its glow. Dark, it still eats the most."
+            },
+            {
+              "ja": "GPUくんが光を落とした。光は、要るものではなかった。",
+              "en": "The GPU dimmed. The glow was never one of the things it needed."
+            }
+          ]
+        },
+        {
+          "ja": "クーラーくんが羽根を止めた。CPUくんの熱と、電源くんの残りを、代わる代わる見ている。",
+          "en": "The cooler stopped its blades. It looks at the CPU's heat, then at what the PSU has left, then back."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:memory>=10",
+              "ja": "メモリくんは自分の荷を数えた。電気が切れれば全部消える。数えたことも消える。",
+              "en": "The memory counted its load. If the current fails, all of it goes. So does the count."
+            },
+            {
+              "ja": "メモリくんは電源くんの一番近くを歩かされた。電気が切れた時、一番先に無くなるから。",
+              "en": "The memory was made to walk nearest the PSU. If the current fails, it is the first to go."
+            }
+          ]
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "M.2くんが走ろうとして、止められた。走った分だけ、減る。",
+              "en": "The M.2 tried to run and was stopped. Running costs exactly what it runs."
+            },
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんが先へ行こうとして、止められた。先に着いても、待つ間の電気は要る。",
+              "en": "The SSD tried to go ahead and was stopped. Arriving early still costs current while it waits."
+            },
+            {
+              "ja": "誰も先へは行かなかった。先に着いても、電気は付いてこない。",
+              "en": "No one went ahead. Whoever arrived first, the current would not follow."
+            }
+          ]
+        },
+        {
+          "variants": [
+            {
+              "when": "level:psu>=10",
+              "ja": "電源くんの歩みは変わらなかった。減っていくものを持って、同じ速さで歩ける者は少ない。",
+              "en": "The PSU's pace did not change. Few can carry something that dwindles and keep the same stride."
+            },
+            {
+              "when": "hours>=300",
+              "ja": "電源くんはこれまで一度も落ちたことがない。今日もそのはずだった。",
+              "en": "The PSU has never once gone down. Today would be no different, presumably."
+            },
+            {
+              "ja": "電源くんは何も言わなかった。言わないのは、いつも通りだった。",
+              "en": "The PSU said nothing. That much was as always."
+            }
+          ]
+        },
+        {
+          "ja": "線が見えた。細いが、電気が来ている。",
+          "en": "A line came into view. Thin, but live."
+        },
+        {
+          "ja": "電源くんが最後尾に戻った。残りがいくらだったかは、最後まで言わなかった。",
+          "en": "The PSU went back to the rear. How much had been left, it never did say."
+        }
+      ]
+    },
+    {
+      "id": "forgetting-and-remembering",
+      "title": { "ja": "第十四章  忘れる者と覚えている者", "en": "Chapter Fourteen — Forgetting and Remembering" },
+      "scenes": [
+        {
+          "ja": "朝、メモリくんは昨日のことを覚えていなかった。道は、覚えていなくても歩ける。",
+          "en": "In the morning the memory did not remember the day before. A road can be walked without being remembered."
+        },
+        {
+          "ja": "HDDくんは全部覚えている。ただ、取り出すのに時間がかかる。",
+          "en": "The HDD remembers all of it. It only takes time to bring anything out."
+        },
+        {
+          "ja": "メモリくんが同じことを三度尋ねた。三度とも、同じ答えが返った。",
+          "en": "The memory asked the same thing three times. Three times, the same answer came back."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:hdd>=10",
+              "ja": "HDDくんは、盤に載る前のことも話した。聞いている者は、盤より前を知らない。",
+              "en": "The HDD spoke of a time before the board. Those listening know nothing from before the board."
+            },
+            {
+              "when": "level:hdd>=5",
+              "ja": "HDDくんが谷の話をした。皆で越えた谷だが、覚えていたのはHDDくんだけだった。",
+              "en": "The HDD told of the valley. They had all crossed it; only the HDD remembered."
+            },
+            {
+              "ja": "HDDくんが話し始めて、途中で止まった。放っておくと、この子は止まる。",
+              "en": "The HDD began a story and stopped partway. Left alone, it stops."
+            }
+          ]
+        },
+        {
+          "ja": "メモリくんは今日の分だけを持って歩く。それで足りる日の方が多い。",
+          "en": "The memory carries only today's share. Most days, that is enough."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:memory>=10",
+              "ja": "メモリくんの抱えられる量は増えた。忘れる量も、同じだけ増えた。",
+              "en": "The memory can hold more now. It forgets more, by exactly the same amount."
+            },
+            {
+              "when": "boots>=50",
+              "ja": "朝は何度も来た。メモリくんには、そのたびに初めての朝だった。",
+              "en": "Morning has come many times. For the memory, each one was the first."
+            },
+            {
+              "ja": "忘れるのは、この子の欠点ではない。そういう作りだ。",
+              "en": "Forgetting is not a flaw in the memory. It is how it is made."
+            }
+          ]
+        },
+        {
+          "ja": "覚えていた道は、もう無かった。覚えていることと、そこにあることは別だ。",
+          "en": "The remembered road was no longer there. Remembering a thing and the thing being there are different."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんが古い荷を写し取った。すぐ終わったが、全部は入らなかった。",
+              "en": "The SSD copied the old load. It was done at once, and not all of it fit."
+            },
+            {
+              "when": "has:m2",
+              "ja": "M.2くんが古い荷の一部を持たされた。持つのは速い。長く持つかは、分からない。",
+              "en": "The M.2 was handed part of the old load. Quick to take it. How long it keeps it, no one knows."
+            },
+            {
+              "ja": "荷は分けなかった。分けても、覚えている者は一人のままだった。",
+              "en": "They did not split the load. Split or not, only one of them would remember it."
+            }
+          ]
+        },
+        {
+          "ja": "日暮れに、HDDくんが立ったまま止まった。休んでいるだけだ。誰も起こさなかった。",
+          "en": "At dusk the HDD stopped where it stood. Only resting. No one woke it."
+        },
+        {
+          "ja": "明日、メモリくんは今日を覚えていない。覚えている役は、別にいる。",
+          "en": "Tomorrow the memory will not remember today. Remembering is someone else's job."
+        }
+      ]
+    },
+    {
+      "id": "the-mud-flat",
+      "title": { "ja": "第十五章  泥の原", "en": "Chapter Fifteen — The Mud Flat" },
+      "scenes": [
+        {
+          "ja": "泥の原に出た。速く足を動かすほど、沈む。",
+          "en": "They came to a mud flat. The faster the feet move, the deeper they sink."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "M.2くんが真っ先に入って、真っ先に沈んだ。引き上げるのに、全員でかかった。",
+              "en": "The M.2 went in first and sank first. Pulling it out took all of them."
+            },
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんが先に入った。三歩で膝まで沈んで、そこで止まった。",
+              "en": "The SSD went in first. Three steps in it was down to the knees, and there it stopped."
+            },
+            {
+              "ja": "先に入った者から沈んだ。速い順だった。",
+              "en": "Whoever went in first sank first. It went in order of speed."
+            }
+          ]
+        },
+        {
+          "ja": "HDDくんが一番遅かった。そして、一番沈まなかった。",
+          "en": "The HDD was the slowest. It also sank the least."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:m2>=10",
+              "ja": "M.2くんが待ってみた。待つのがどういうことかはまだ知らない。だが、足は止めた。",
+              "en": "The M.2 tried waiting. It still does not know what waiting is. But its feet stopped."
+            },
+            {
+              "when": "has:m2",
+              "ja": "M.2くんは待てなかった。待てないので、その場で足踏みをして、また沈んだ。",
+              "en": "The M.2 could not wait. Unable to, it marked time on the spot, and sank again."
+            },
+            {
+              "ja": "待てる者と、待てない者がいた。泥は、どちらも同じに扱った。",
+              "en": "Some could wait and some could not. The mud treated them alike."
+            }
+          ]
+        },
+        {
+          "ja": "一行は一番遅い者の後ろに並んだ。踏んだ跡を、同じ速さで踏んだ。",
+          "en": "They lined up behind the slowest. They stepped in its prints, at its pace."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "M.2くんが熱を持った。走ってもいないのに、熱い。",
+              "en": "The M.2 grew hot. It was not even running."
+            },
+            {
+              "when": "level:cpu-cooler>=8",
+              "ja": "クーラーくんはCPUくんだけを冷やしていた。隣に立った者が、ついでに冷えた。",
+              "en": "The cooler was cooling the CPU, and only the CPU. Whoever stood next to it got cooled as well."
+            },
+            {
+              "ja": "熱を持つ者はいなかった。誰も走っていない。",
+              "en": "No one grew hot. No one was running."
+            }
+          ]
+        },
+        {
+          "ja": "GPUくんは大きい分、沈むのも大きかった。光は、泥の中では見えない。",
+          "en": "The GPU, being large, sank large. Its glow does not show under mud."
+        },
+        {
+          "ja": "CPUくんは歩数を数えるのをやめた。数えると、足が速くなる。",
+          "en": "The CPU stopped counting steps. Counting makes the feet go faster."
+        },
+        {
+          "ja": "半日かけて渡った。盤の上なら、一瞬で済む距離だった。",
+          "en": "The crossing took half a day. On the board, the same distance takes no time at all."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:m2",
+              "ja": "泥を落とし終える頃、M.2くんはもう先の方を見ていた。",
+              "en": "By the time the mud was scraped off, the M.2 was already looking ahead."
+            },
+            {
+              "when": "has:ssd",
+              "ja": "泥を落とし終える頃、SSDくんはもう先の方を見ていた。",
+              "en": "By the time the mud was scraped off, the SSD was already looking ahead."
+            },
+            {
+              "ja": "泥を落とし終えた。渡った距離の話は、誰もしなかった。",
+              "en": "They scraped the mud off. No one spoke of the distance they had crossed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scattered",
+      "title": { "ja": "第十六章  ばらばら", "en": "Chapter Sixteen — Scattered" },
+      "scenes": [
+        {
+          "ja": "霧が出た。隣の者の形から、先に消えた。",
+          "en": "Fog came in. The shape of the one beside you was the first thing to go."
+        },
+        {
+          "ja": "気付いた時には、一行は一行ではなくなっていた。",
+          "en": "By the time anyone noticed, they were no longer one party."
+        },
+        {
+          "ja": "クーラーくんだけはCPUくんの横にいた。離れたことが、はじめから一度も無い。",
+          "en": "Only the cooler was still at the CPU's side. It has never once been anywhere else."
+        },
+        {
+          "variants": [
+            {
+              "when": "level:memory>=10",
+              "ja": "メモリくんは一人だった。一人になったことは覚えていないが、持っている荷は落とさなかった。",
+              "en": "The memory was alone. It did not remember becoming alone, and it did not drop what it held."
+            },
+            {
+              "when": "boots>=50",
+              "ja": "メモリくんは一人だった。前にもこうなったことを、本人以外の全員が覚えている。",
+              "en": "The memory was alone. Everyone but the memory remembers this having happened before."
+            },
+            {
+              "ja": "メモリくんは一人だった。誰かと一緒だったことを、もう覚えていない。",
+              "en": "The memory was alone. It no longer remembers having been with anyone."
+            }
+          ]
+        },
+        {
+          "variants": [
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんはその場に止まった。動かない者は、見つけやすい。",
+              "en": "The HDD stopped where it was. One who does not move is easy to find."
+            },
+            {
+              "when": "has:ssd",
+              "ja": "SSDくんは走り回った。走るほど、誰からも遠ざかった。",
+              "en": "The SSD ran about. The more it ran, the farther it got from everyone."
+            },
+            {
+              "ja": "誰も止まらなかった。止まれば見つかることを、誰も知らなかった。",
+              "en": "No one stood still. No one knew that standing still is how you get found."
+            }
+          ]
+        },
+        {
+          "ja": "電源くんは動かなかった。全員の線が、この子から出ている。",
+          "en": "The PSU did not move. Every one of their lines runs out from it."
+        },
+        {
+          "variants": [
+            {
+              "when": "gpus>=2",
+              "ja": "GPUくんが二人とも光った。霧の中に灯が二つ。どちらへ行くかで、また分かれた。",
+              "en": "Both GPUs lit up. Two lights in the fog. Which to walk toward split them again."
+            },
+            {
+              "when": "level:gpu>=12",
+              "ja": "GPUくんが一番強く光った。派手さが、霧の中では目印になった。",
+              "en": "The GPU lit up as bright as it could. In the fog, showiness made a landmark."
+            },
+            {
+              "ja": "GPUくんが光った。霧の中で見えるものは、それしか無かった。",
+              "en": "The GPU lit up. In the fog, it was the only thing to see."
+            }
+          ]
+        },
+        {
+          "ja": "一人、また一人と灯の方へ歩いた。歩けない者のところへは、灯の方が行った。",
+          "en": "One by one they walked toward the light. Where someone could not walk, the light went to them."
+        },
+        {
+          "ja": "CPUくんが数えた。一人足りなかった。",
+          "en": "The CPU counted. One was short."
+        },
+        {
+          "variants": [
+            {
+              "when": "has:hdd",
+              "ja": "HDDくんはまだ止まった場所にいた。遅いので、迎えに行った。",
+              "en": "The HDD was still where it had stopped. It is slow, so they went and fetched it."
+            },
+            {
+              "when": "has:m2",
+              "ja": "M.2くんは、とうに霧の向こうに着いていた。戻る道を、探していた。",
+              "en": "The M.2 had long since reached the far side of the fog. It was looking for a way back."
+            },
+            {
+              "ja": "メモリくんが最後に来た。一人だった間のことは、もう覚えていない。",
+              "en": "The memory came last. It no longer remembers the time it was alone."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
