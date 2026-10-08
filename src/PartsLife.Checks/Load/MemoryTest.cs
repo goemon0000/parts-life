@@ -197,8 +197,8 @@ public static class MemoryTest
             L.T($"書き {r.WriteMBps / 1024:0.0} GB/s / 照合 {r.ReadMBps / 1024:0.0} GB/s（メモリの最大帯域ではありません）",
                 $"write {r.WriteMBps / 1024:0.0} GB/s / verify {r.ReadMBps / 1024:0.0} GB/s (not the peak bandwidth)")));
         f.Add(new Finding(L.T("範囲", "Coverage"), Verdict.Ok,
-            L.T($"搭載 {r.TotalPhys / 1073741824.0:0} GB のうち、OS が貸してくれた {size} だけを試験しました。全域の検査は Windows メモリ診断で",
-                $"tested only the {size} Windows lent us out of {r.TotalPhys / 1073741824.0:0} GB; use Windows Memory Diagnostic for a full test")));
+            L.T($"Windows が使える {r.TotalPhys / 1073741824.0:0.0} GB のうち、貸してくれた {size} だけを試験しました。全域の検査は Windows メモリ診断で",
+                $"tested only the {size} Windows lent us out of {r.TotalPhys / 1073741824.0:0.0} GB usable; use Windows Memory Diagnostic for a full test")));
         if (r.AbortReason is { } why)
             f.Add(new Finding(L.T("中断", "Stopped early"), Verdict.Caution, why));
         return f;

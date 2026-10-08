@@ -58,8 +58,19 @@ public static unsafe class GpuAdapters
         catch (DllNotFoundException) { }
         catch (EntryPointNotFoundException) { }
         finally { if (factory != IntPtr.Zero) Com.Release(factory); }
-        return list;
+        return Dedupe(list);
     }
+
+    /// <summary>
+    /// 同じ GPU の別名を除く。仮想ディスプレイのドライバ（VR のストリーミング等）が入っていると、
+    /// DXGI が同じカードを別の LUID でもう1枚見せることがある（実機で RTX 5070 が2枚に見えた）。
+    /// そちらは PCI の番地が引けない。**番地の無い物のうち、名前と VRAM が番地のある物と同じなら別名**とみなす。
+    /// 同じ型番を本当に2枚挿している場合は、どちらにも番地があるので消えない。
+    /// </summary>
+    internal static List<GpuAdapter> Dedupe(List<GpuAdapter> list) =>
+        list.Where(a => a.PciBus is not null ||
+                        !list.Any(b => b.PciBus is not null && b.Name == a.Name && b.DedicatedBytes == a.DedicatedBytes))
+            .ToList();
 
     internal readonly record struct Desc1(string Name, uint VendorId, ulong Dedicated, uint LuidLow, int LuidHigh, uint Flags);
 
@@ -93,6 +104,8 @@ public static unsafe class GpuAdapters
                     pPrivateDriverData = (IntPtr)(&addr), PrivateDriverDataSize = (uint)sizeof(D3DKMT_ADAPTERADDRESS),
                 };
                 if (D3DKMTQueryAdapterInfo(ref q) != 0) return (null, null);
+                // 番地を持たないアダプタ（仮想・ソフトウェア）は 0xFFFFFFFF が返る
+                if (addr.BusNumber == uint.MaxValue || addr.DeviceNumber is 0xFFFF or uint.MaxValue) return (null, null);
                 return (addr.BusNumber, addr.DeviceNumber);
             }
             finally

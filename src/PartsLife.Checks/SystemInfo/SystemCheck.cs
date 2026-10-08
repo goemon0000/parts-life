@@ -184,8 +184,8 @@ public static class SystemCheck
         string up = L.T($"起動から {(int)os.Uptime.TotalDays} 日 {os.Uptime.Hours} 時間", $"up {(int)os.Uptime.TotalDays} d {os.Uptime.Hours} h");
         string ver = $"{os.Name} {os.DisplayVersion} (build {os.Build}.{os.Ubr})".Replace("  ", " ");
         return os.Uptime.TotalDays > 30
-            ? new Finding("OS", Verdict.Caution, $"{ver}、{up}" + L.T("。長く再起動していません（更新が溜まっている可能性）", ". Not restarted for a long time (updates may be pending)"))
-            : new Finding("OS", Verdict.Ok, $"{ver}、{up}");
+            ? new Finding("OS", Verdict.Caution, $"{ver}{L.T("、", ", ")}{up}" + L.T("。長く再起動していません（更新が溜まっている可能性）", ". Not restarted for a long time (updates may be pending)"))
+            : new Finding("OS", Verdict.Ok, $"{ver}{L.T("、", ", ")}{up}");
     }
 
     public static Finding JudgeCpu(CpuInfo c) =>
@@ -230,6 +230,8 @@ public static class SystemCheck
     {
         string drv = L.T($"ドライバ {v.DriverVersion}", $"driver {v.DriverVersion}") +
                      (v.DriverDate is { } d ? $" ({d:yyyy-MM-dd})" : "");
+        if (v.ErrorCode == 22)   // 「このデバイスは無効です」= 利用者か設定が止めている。故障ではない
+            return new Finding(v.Name, Verdict.Ok, L.T("無効になっています（コード 22）。使っていないなら問題ありません。", "disabled (code 22). Fine if you do not use it. ") + drv);
         if (v.ErrorCode != 0)
             return new Finding(v.Name, Verdict.Check, L.T($"デバイスがエラーを報告しています（コード {v.ErrorCode}）。", $"the device reports an error (code {v.ErrorCode}). ") + drv);
         if (v.Name.Contains("Basic Display", StringComparison.OrdinalIgnoreCase) || v.Name.Contains("基本ディスプレイ"))
