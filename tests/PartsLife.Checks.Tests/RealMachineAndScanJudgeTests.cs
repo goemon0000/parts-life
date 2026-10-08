@@ -58,6 +58,17 @@ public class GpuAdapterDedupeTests
         var list = new List<GpuAdapter> { A(0, "RTX 3080 Ti", 12, 1), A(1, "RTX 3080 Ti", 12, 9) };
         Assert.Equal(2, GpuAdapters.Dedupe(list).Count);
     }
+
+    /// <summary>
+    /// 決まりは盤（PartsLife.Core の GpuRoster）と共有している。盤の側は D3DKMT の名前を使い、
+    /// D3DKMT は別名を名無しで返すので、名前が無い物も別名に数える。
+    /// </summary>
+    [Fact]
+    public void A_nameless_alias_is_dropped_but_a_different_card_without_an_address_is_kept()
+    {
+        var list = new List<GpuAdapter> { A(0, "RTX 5070", 12, 1), A(1, "", 12, null), A(2, "Remote GPU", 8, null) };
+        Assert.Equal(new[] { 0, 2 }, GpuAdapters.Dedupe(list).Select(x => x.DxgiIndex).ToArray());
+    }
 }
 
 public class RealMachineReadOnlyTests

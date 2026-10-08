@@ -95,6 +95,7 @@ public sealed class AdventureEngine
                      WorldState world, List<string> output, string lang)
     {
         TrackMembers(slots);
+        TrackStrayGear(dt);
 
         // 5分・15分の移動平均。**一瞬の山では構えを変えない。** 続いた負荷だけを熱とみなす
         double busy = Math.Clamp(Math.Max(w.Cpu, w.Gpu), 0, 1);
@@ -137,6 +138,83 @@ public sealed class AdventureEngine
             if (seen.Add(sl.Key)) list.Add(new Member(sl.Key, sl.CharacterId));
         _members = Equipment.SortMembers(list);
         foreach (var m in _members) Equipment.GiveStarters(_book, S, m);
+    }
+
+    // ---------------------------------------------------------------------
+    // 盤に居ない者の装備
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// 盤に居ない番号付きの鍵（gpu#3 等）が、この秒数続けて居なければ、その装備を持ち物に戻す。
+    /// **一瞬の揺れでは外さない。** 計測が一度途切れただけで装備が剥がれると、戻ってきた者が丸裸になる。
+    /// </summary>
+    public const double StrayGraceSeconds = 600;
+    private const double StrayCheckEvery = 30;
+    private double _strayClock;
+    private readonly Dictionary<string, double> _strayFor = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 保存に残った、盤に居ない者の装備を片付ける。
+    ///
+    /// v0.7.0 の試運転までは、Basic Render や仮想ディスプレイの別名が動いた秒だけ GPU が1枚増えて見え、
+    /// その秒の顔ぶれで「新しく来た者」（gpu#3）に装備が配られて保存に残っていた（Core の GpuRoster）。
+    /// 冒険はいまの顔ぶれしか見ないので害は無いが、残し続ける理由も無い。
+    ///
+    /// 外すのは **同じ種類の者が盤に居て、その鍵だけが居ない** ときだけ（gpu#0..#2 が居て gpu#3 が居ない）。
+    /// 種類ごと居ない（計測が止まって GPU が一枚も見えない等）なら触らない。番号の無い鍵（memory・hdd 等）も触らない。
+    /// 外した物は**捨てずに持ち物へ戻す**（入りきらなければ拾い物の荷に包む＝町で売れる）。他の者の装備には触らない。
+    /// </summary>
+    private void TrackStrayGear(double dt)
+    {
+        _strayClock += dt;
+        if (_strayClock < StrayCheckEvery) return;
+        double step = _strayClock;
+        _strayClock = 0;
+
+        var s = S;
+        if (_members.Length == 0 || s.Equipped.Count <= _members.Length) { _strayFor.Clear(); return; }
+
+        List<string>? prune = null;
+        foreach (var key in s.Equipped.Keys)
+        {
+            if (!IsStray(key)) { _strayFor.Remove(key); continue; }
+            double t = _strayFor.GetValueOrDefault(key) + step;
+            _strayFor[key] = t;
+            if (t >= StrayGraceSeconds) (prune ??= new List<string>()).Add(key);
+        }
+        if (prune is null) return;
+        foreach (var key in prune)
+        {
+            ReturnToBag(s.Equipped[key]);
+            s.Equipped.Remove(key);
+            _strayFor.Remove(key);
+        }
+    }
+
+    /// <summary>番号付きの鍵で、同じ種類の者は盤に居るのに、その鍵の者だけが居ないか。</summary>
+    private bool IsStray(string key)
+    {
+        int hash = key.IndexOf('#');
+        if (hash <= 0) return false;
+        var kind = key.AsSpan(0, hash + 1);   // "gpu#"
+        bool kindHere = false;
+        foreach (var m in _members)
+        {
+            if (m.Key == key) return false;
+            if (m.Key.AsSpan().StartsWith(kind, StringComparison.Ordinal)) kindHere = true;
+        }
+        return kindHere;
+    }
+
+    private void ReturnToBag(string[] gear)
+    {
+        var s = S;
+        foreach (var id in gear)
+        {
+            if (string.IsNullOrEmpty(id) || _book.Item(id) is not { } it) continue;
+            if (s.Inventory.Count < InventoryCap) s.Inventory.Add(id);
+            else s.Loot += it.SellPrice;
+        }
     }
 
     // ---------------------------------------------------------------------

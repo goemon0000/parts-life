@@ -64,13 +64,10 @@ public static unsafe class GpuAdapters
     /// <summary>
     /// 同じ GPU の別名を除く。仮想ディスプレイのドライバ（VR のストリーミング等）が入っていると、
     /// DXGI が同じカードを別の LUID でもう1枚見せることがある（実機で RTX 5070 が2枚に見えた）。
-    /// そちらは PCI の番地が引けない。**番地の無い物のうち、名前と VRAM が番地のある物と同じなら別名**とみなす。
-    /// 同じ型番を本当に2枚挿している場合は、どちらにも番地があるので消えない。
+    /// 決まりは盤の側（PartsLife.Core の GpuRoster）と共有している（src/Shared/GpuAliasRule.cs）。
     /// </summary>
     internal static List<GpuAdapter> Dedupe(List<GpuAdapter> list) =>
-        list.Where(a => a.PciBus is not null ||
-                        !list.Any(b => b.PciBus is not null && b.Name == a.Name && b.DedicatedBytes == a.DedicatedBytes))
-            .ToList();
+        PartsLife.Hardware.GpuAliasRule.WithoutAliases(list, a => a.Name, a => a.DedicatedBytes, a => a.PciBus is not null);
 
     internal readonly record struct Desc1(string Name, uint VendorId, ulong Dedicated, uint LuidLow, int LuidHigh, uint Flags);
 

@@ -140,8 +140,15 @@ public partial class App : System.Windows.Application
         // SSD/HDD の判別は別スレッドで走る。**先に作っておかないと、待っても間に合わない**
         var disks = new Sensors.DiskSampler();
         sb.AppendLine("== D3DKMT が返したアダプタ ==");
-        foreach (var g in Sensors.GpuIdentity_.Enumerate())
-            sb.AppendLine($"  luid={g.LuidKey,-14} {g.Name,-28} {g.DedicatedBytes / 1073741824.0:0.00} GB");
+        var adapters = Sensors.GpuIdentity_.Enumerate();
+        var real = Hardware.GpuRoster.Real(adapters).Select(a => a.LuidKey).ToHashSet();
+        foreach (var g in adapters)
+        {
+            // 盤に立てない物には理由を添える。**「何枚に見えているか」と「何枚立てるか」を並べて見られるように**
+            string why = real.Contains(g.LuidKey) ? "" : g.Software ? "  ← 除外（ソフトウェア）" : "  ← 除外（別名・中身なし）";
+            sb.AppendLine($"  luid={g.LuidKey,-14} {(g.Name.Length > 0 ? g.Name : "(名前なし)"),-28} {g.DedicatedBytes / 1073741824.0:0.00} GB" +
+                          $"  pci={(g.PciBus is { } b ? b.ToString() : "-")}{why}");
+        }
 
         using (var pdh = new Sensors.PdhSampler())
         {

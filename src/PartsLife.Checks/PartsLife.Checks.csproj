@@ -41,4 +41,9 @@
     <InternalsVisibleTo Include="PartsLife.Checks.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- GPU の別名の決まり。盤（PartsLife.Core）と同じソースを取り込む。Core は参照しない（補助 exe の依存を増やさない） -->
+    <Compile Include="..\Shared\GpuAliasRule.cs" Link="Shared\GpuAliasRule.cs" />
+  </ItemGroup>
+
 </Project>

@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using PartsLife.Hardware;
 
 namespace PartsLife.Sensors;
 
@@ -58,15 +59,33 @@ public sealed class PdhSampler : IDisposable
     private static readonly Regex EngTypeRe = new(@"engtype_(\w+)$", RegexOptions.Compiled);
 
     /// <summary>
-    /// LUID → 名前と総VRAM。**D3DKMT から1回だけ拾う。**
+    /// 盤に立てる GPU（名前・総VRAM・並び）。**D3DKMT から拾い、その秒のカウンタでは決めない。**
     /// レジストリの並び順で突き合わせると、外したカードの残骸に当たって別物になる
-    /// （経緯は GpuIdentity.cs を参照）。
+    /// （経緯は GpuIdentity.cs）。カウンタに出た LUID を毎秒そのまま並べると、
+    /// Basic Render や仮想ディスプレイの別名が動いた秒だけ GPU が1枚増える（経緯は Core の GpuRoster）。
     /// </summary>
-    private readonly Dictionary<string, GpuIdentity> _identity =
-        GpuIdentity_.Enumerate().ToDictionary(g => g.LuidKey, g => g);
+    private List<GpuAdapterInfo> _real = new();
+    /// <summary>D3DKMT が返した LUID 全部（除いた物も含む）。知らない LUID がカウンタに出たら引き直す。</summary>
+    private HashSet<string> _known = new();
+    private bool _enumerated;
+    private long _lastEnumerate;
+
+    /// <summary>
+    /// アダプタを引き直す。**ドライバを入れ直すと LUID が変わる**ので、知らない LUID がカウンタに出てきたら
+    /// 引き直す（ただし 1 分に 1 回まで。除いた物はもう知っているので、毎秒は走らない）。
+    /// </summary>
+    private void Enumerate()
+    {
+        var all = GpuIdentity_.Enumerate();
+        _enumerated = all.Count > 0;
+        _real = GpuRoster.Real(all);
+        _known = all.Select(a => a.LuidKey).ToHashSet();
+        _lastEnumerate = Environment.TickCount64;
+    }
 
     public PdhSampler()
     {
+        Enumerate();
         try
         {
             if (PdhOpenQuery(null, IntPtr.Zero, out _query) != 0) return;
@@ -116,26 +135,19 @@ public sealed class PdhSampler : IDisposable
             }
         }
 
-        var result = new List<GpuInfo>();
-        foreach (string k in perEngine.Keys.Union(vram.Keys))
-        {
-            double util = perEngine.TryGetValue(k, out var byType) && byType.Count > 0
-                ? byType.Values.Max() / 100.0 : 0;
-            ulong used = (ulong)Math.Max(0, vram.GetValueOrDefault(k));
-            // **LUID が一致したものだけを名乗らせる。**
-            // 見つからなければ名無しで出す。間違った型番を出すより、分からないと言う方がまだ良い。
-            var id = _identity.GetValueOrDefault(k);
-            result.Add(new GpuInfo(k, id?.Name ?? "GPU", Math.Clamp(util, 0, 1), used, id?.DedicatedBytes ?? 0));
-        }
-        // **名前も VRAM も使用率も無いものは出さない。**
-        // 実機に Quest のリンク用仮想ディスプレイが居て、「GPU  0%  0.0/0.0 GB」という
-        // 中身の無い行が並んでいた。描いていない物を GPU として数えると、
-        // 「うちは GPU 4枚なのか？」という誤解だけが残る。
-        // 一度でも動いた（使用率が出た）ものは、名前が無くても残す。
-        result.RemoveAll(g => g.Name == "GPU" && g.VramTotalBytes == 0 && g.Utilization <= 0);
+        var util = new Dictionary<string, double>();
+        foreach (var (k, byType) in perEngine)
+            if (byType.Count > 0) util[k] = byType.Values.Max() / 100.0;
 
-        // 積んでいる VRAM が多い順。主に使っているカードが GPU0 になる方が読みやすい。
-        result.Sort((a, b) => b.VramTotalBytes.CompareTo(a.VramTotalBytes));
+        if (Environment.TickCount64 - _lastEnumerate >= 60_000
+            && util.Keys.Concat(vram.Keys).Any(k => !_known.Contains(k)))
+            Enumerate();
+
+        // **顔ぶれはアダプタの一覧で決める。** 名前・VRAM の無い行や Basic Render は、そこで既に除いてある。
+        // 並びは VRAM の多い順（主に使っているカードが GPU0 になる方が読みやすい）、同じなら PCI のバス番号順
+        var result = new List<GpuInfo>();
+        foreach (var g in GpuRoster.Compose(_real, _enumerated, util, vram))
+            result.Add(new GpuInfo(g.Key, g.Name, g.Utilization, g.VramUsedBytes, g.VramTotalBytes));
 
         var perDisk = new Dictionary<uint, double>();
         foreach (var (instance, value) in ReadArray(_diskPerCounter))
