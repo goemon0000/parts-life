@@ -67,6 +67,8 @@
     起動時に exe の隣から解かれるので防げなかった。
     そこで Program.PinNativeSearch で、該当するライブラリの読み込みを System32 の絶対パスに差し替える。
     下の検査は、差し替えていないライブラリが「exe の隣も探す」読み込みを持ち込んだら発行を止める。
+    **検査できないときも止める:** 地図（map.xml）が無い・__nativemodule_ が 1 つも見つからない
+    （SDK が地図の形を変えた等）・読めない形の __nativemodule_ がある。黙って通すと、検査が効いていないことに気づけない。
   -->
   <PropertyGroup>
     <IlcGenerateMapFile>true</IlcGenerateMapFile>
@@ -84,9 +86,29 @@
       <Using Namespace="System.Text.RegularExpressions" />
       <Code Type="Fragment" Language="cs"><![CDATA[
         var pinned = new HashSet<string>(Pinned.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+        if (!File.Exists(MapFile))
+        {
+            Log.LogError("The ILC map file was not produced: " + MapFile + ". The native search check cannot run, so the publish is stopped.");
+            return false;
+        }
         var text = File.ReadAllText(MapFile);
         var seen = new HashSet<string>();
-        foreach (Match m in Regex.Matches(text, @"__nativemodule_(\w+?)__Module__(\w+?)_(\d+)"""))
+        var matches = Regex.Matches(text, @"__nativemodule_(\w+?)__Module__(\w+?)_(\d+)""");
+        // 何も見つからない = 地図の形が変わったか、地図が空。黙って通さない
+        // （この exe は kernel32 などを実行時に読むので、少なくとも 1 つは必ずある）
+        var loose = new HashSet<string>();
+        foreach (Match m in Regex.Matches(text, @"__nativemodule_[^""<>\s]*")) loose.Add(m.Value);
+        var strict = new HashSet<string>();
+        foreach (Match m in matches) strict.Add(m.Value.TrimEnd('"'));
+        if (matches.Count == 0)
+        {
+            Log.LogError("No __nativemodule_ (lazy P/Invoke) symbols were found in " + MapFile + ". The map format may have changed; the native search check cannot vouch for this build, so the publish is stopped.");
+            return false;
+        }
+        foreach (var name in loose)
+            if (!strict.Contains(name))
+                Log.LogError("Unrecognised native module symbol in the ILC map: " + name + ". Update the check in PartsLife.Check.csproj.");
+        foreach (Match m in matches)
         {
             int flags = int.Parse(m.Groups[3].Value);
             string asm = m.Groups[1].Value, dll = m.Groups[2].Value;
@@ -100,9 +122,10 @@
     </Task>
   </UsingTask>
 
-  <Target Name="CheckHelperNativeSearch" AfterTargets="IlcCompile"
-          Condition="Exists('$(NativeIntermediateOutputPath)$(TargetName).map.xml')">
-    <CheckLazyNativeModules MapFile="$(NativeIntermediateOutputPath)$(TargetName).map.xml" Pinned="$(PinnedNativeSearchAssemblies)" />
+  <!-- 地図が無い・読めない形のときは発行を止める（黙って飛ばすと、検査が効いていないことに気づけない） -->
+  <Target Name="CheckHelperNativeSearch" AfterTargets="IlcCompile">
+    <CheckLazyNativeModules MapFile="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(NativeIntermediateOutputPath), $(TargetName).map.xml))"
+                            Pinned="$(PinnedNativeSearchAssemblies)" />
   </Target>
 
 </Project>
