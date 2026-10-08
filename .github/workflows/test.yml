@@ -1,0 +1,36 @@
+name: test
+
+# 決まりの層（PartsLife.Core）の試験と、原稿の検査を Linux で回す。
+# **配布物は作らない**（それは release.yml。タグを押したときだけ Windows で作る）。
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # 原稿を組み直して、assets/ に書かれている物と一致するか。
+      # 原稿だけ直して組み上げ忘れると、配る物に入らない
+      - name: 原稿の検査と組み上げの一致
+        run: |
+          python3 tools/build-story.py --write
+          git diff --exit-code -- assets/story.json assets/adventure.json
+
+      - name: 試験
+        run: dotnet test tests/PartsLife.Core.Tests -c Release --logger "console;verbosity=normal"
+
+      # WPF のアプリも Linux から組めること（EnableWindowsTargeting）
+      - name: アプリが組めるか
+        run: dotnet build src/PartsLife/PartsLife.csproj -c Debug
