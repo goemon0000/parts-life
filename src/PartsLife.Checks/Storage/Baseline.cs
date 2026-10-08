@@ -8,6 +8,15 @@ public sealed class BaselineEntry
 {
     public DateTimeOffset At { get; set; }
     public Dictionary<string, ulong> Counters { get; set; } = new();
+
+    /// <summary>
+    /// この回は、PC の時計が前回の記録より前に戻っていたせいで比べられなかった（<see cref="BaselineState.AheadOfClock"/>）。
+    /// 次の回の**比べる相手にしない**。相手にすると、この回までに増えた分が「変わらない」に紛れる。
+    /// 別の台の記録だと分かった回（減った・時計が進んでいるのに通電時間が進み過ぎ）には付けない
+    /// （その回からが今の台の記録なので、次はそれと比べる）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Withheld { get; set; }
 }
 
 /// <summary>1台ぶんの履歴。ファイル1つに1台。</summary>
@@ -105,7 +114,12 @@ public enum BaselineState
     First,
     /// <summary>シリアルも一意な識別子も無い。同じ型番・容量の別の台と区別できないので、記録も比較もしない。</summary>
     NoIdentity,
-    /// <summary>同じ識別子の台が同時に複数あり、接続の位置でも見分けられなかった。</summary>
+    /// <summary>
+    /// 同じ識別子の台が今回複数ある、または以前に複数あった（twins.json）。**増えた・変わらないのどちらも言わない。**
+    /// 双子（安い SSD・RAID の構成員）は一緒に通電されて通電時間がほぼ同じなので、位置を入れ替えても
+    /// 通電時間では見抜けず、SATA は書き込み量も記録しない。接続の位置で分けられれば今回の値は記録する
+    /// （<see cref="BaselineOutcome.Previous"/> は null）。位置で分けられなければ記録もしない。
+    /// </summary>
     Duplicate,
     /// <summary>通電時間・書き込み量などの減らないはずの数が前回より減っている（別の台の記録の可能性）。</summary>
     Mismatch,
@@ -126,7 +140,7 @@ public static class BaselineStates
     public static string? WhyNotCompared(BaselineState s) => s switch
     {
         BaselineState.NoIdentity => L.T("比べられない（識別子なし）", "cannot compare (no identifier)"),
-        BaselineState.Duplicate => L.T("比べられない（同じ識別子の台が複数）", "cannot compare (several disks share one identifier)"),
+        BaselineState.Duplicate => L.T("比べられない（同じ識別子のディスクが複数あります）", "cannot compare (more than one disk has this identifier)"),
         BaselineState.Mismatch => L.T("比べられない（前回の記録より通電時間か書き込み量が減っている。別の台の記録の可能性）",
                                       "cannot compare (power-on hours or data written went backwards; the last record may be another disk's)"),
         BaselineState.AheadOfClock => L.T("比べられない（前回の記録から経った時間より通電時間が多く進んでいる。別の台の記録の可能性）",
@@ -198,9 +212,10 @@ public sealed record BaselineIdentity(string Key, string Label, bool Strong)
 /// ■ 置き場所は %APPDATA%\PartsLife\checks\。**本体（利用者の権限）が書く。**
 ///   管理者で動く補助 exe には書かせない。別の利用者の資格情報で昇格した場合、
 ///   補助 exe の %APPDATA% は別人の物になり、記録が迷子になるため。
-/// ■ 台の見分け方は <see cref="BaselineIdentity"/>。同じ鍵の台が同時に複数あれば接続の位置を足して分け、
-///   それでも分けられなければ比べない。一度でも重なった鍵は twins.json に覚え、以後は位置付きで引く
-///   （片方だけ繋いだ回に、もう片方の記録と比べないため）。
+/// ■ 台の見分け方は <see cref="BaselineIdentity"/>。同じ鍵の台が同時に複数あれば twins.json に覚え、
+///   その鍵は以後ずっと**比べない**（<see cref="BaselineState.Duplicate"/>）。接続の位置で分けられれば
+///   位置付きの鍵で記録だけは続ける。位置は挿し替えで入れ替わり、双子は通電時間もほぼ同じなので、
+///   位置で引いた記録が本人の物だとは言えない。
 /// ■ 数字そのものより**前回からの増え方**を見る。累計が大きくても増えていなければ過去の話。
 /// </summary>
 public sealed class BaselineStore
@@ -275,7 +290,8 @@ public sealed class BaselineStore
             {
                 var migration = id.Key.Contains("|loc=", StringComparison.Ordinal)
                     ? Migration.None : MigrateLegacy(r, id, reports, now);
-                outcomes[i] = RecordOne(r, id, now, legacyRefused: migration == Migration.Refused);
+                outcomes[i] = RecordOne(r, id, now, legacyRefused: migration == Migration.Refused,
+                                        compare: state != BaselineState.Duplicate);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -285,7 +301,10 @@ public sealed class BaselineStore
         return outcomes;
     }
 
-    /// <summary>台ごとの鍵を決める。弱い鍵・見分けられない重なりには鍵を渡さない（null）。</summary>
+    /// <summary>
+    /// 台ごとの鍵を決める。弱い鍵・見分けられない重なりには鍵を渡さない（null）。
+    /// 状態が <see cref="BaselineState.Duplicate"/> で鍵があるときは、記録するが比べない。
+    /// </summary>
     internal (BaselineIdentity? Id, BaselineState State)[] Plan(IReadOnlyList<DiskReport> reports)
     {
         var plain = reports.Select(r => BaselineIdentity.Of(r)).ToArray();
@@ -302,12 +321,11 @@ public sealed class BaselineStore
                 result[idx[0]] = (plain[idx[0]], BaselineState.First);
                 continue;
             }
-            // 重なった（今回、または過去に）鍵は接続の位置で分ける。位置が無いか同じなら比べない
+            // 重なった（今回、または過去に）鍵は比べない。位置で分けられれば記録だけは位置付きの鍵で続ける
             var located = idx.Select(i => reports[i].Location).ToList();
             bool separable = located.All(l => l.Length > 0) && located.Distinct(StringComparer.Ordinal).Count() == located.Count;
             foreach (int i in idx)
-                result[i] = separable ? (BaselineIdentity.Of(reports[i], withLocation: true), BaselineState.First)
-                                      : (null, BaselineState.Duplicate);
+                result[i] = (separable ? BaselineIdentity.Of(reports[i], withLocation: true) : null, BaselineState.Duplicate);
         }
         for (int i = 0; i < reports.Count; i++)
             if (!plain[i].Strong) result[i] = (null, BaselineState.NoIdentity);
@@ -316,25 +334,39 @@ public sealed class BaselineStore
         return result;
     }
 
-    private BaselineOutcome RecordOne(DiskReport report, BaselineIdentity id, DateTimeOffset now, bool legacyRefused = false)
+    private BaselineOutcome RecordOne(DiskReport report, BaselineIdentity id, DateTimeOffset now, bool legacyRefused = false,
+                                      bool compare = true)
     {
         var history = Load(id);
-        var previous = history.Entries.Count > 0 ? history.Entries[^1] : null;
+        // 比べる相手は、時計が戻ったせいで比べなかった回（Withheld）を飛ばした最後の記録
+        var previous = history.Entries.LastOrDefault(e => !e.Withheld);
         var current = Counters.From(report);
-        history.Model = report.Model;
-        history.Entries.Add(new BaselineEntry { At = now, Counters = current });
-        if (history.Entries.Count > MaxEntries)
-            history.Entries.RemoveRange(0, history.Entries.Count - MaxEntries);
-        Save(PathFor(id), history);
+        var entry = new BaselineEntry { At = now, Counters = current };
 
-        if (previous is null)
-            return new BaselineOutcome(legacyRefused ? BaselineState.LegacyRefused : BaselineState.First, null);
-        return CheckContinuity(previous, current, now) switch
+        BaselineOutcome outcome;
+        if (!compare) outcome = new BaselineOutcome(BaselineState.Duplicate, null);
+        else if (previous is null)
+            outcome = new BaselineOutcome(legacyRefused ? BaselineState.LegacyRefused : BaselineState.First, null);
+        else
         {
-            Continuity.WentBackwards => new BaselineOutcome(BaselineState.Mismatch, null),
-            Continuity.AheadOfClock => new BaselineOutcome(BaselineState.AheadOfClock, null),
-            _ => new BaselineOutcome(BaselineState.Compared, previous),
-        };
+            outcome = CheckContinuity(previous, current, now) switch
+            {
+                Continuity.WentBackwards => new BaselineOutcome(BaselineState.Mismatch, null),
+                Continuity.AheadOfClock => new BaselineOutcome(BaselineState.AheadOfClock, null),
+                _ => new BaselineOutcome(BaselineState.Compared, previous),
+            };
+            // 時計が前回より前に戻っていた: 経った時間が分からないだけで、別の台とは限らない
+            entry.Withheld = outcome.State == BaselineState.AheadOfClock && now < previous.At;
+        }
+
+        history.Model = report.Model;
+        history.Entries.Add(entry);
+        // 古い順に捨てる。ただし次の回の比べる相手（今回が Withheld なら前の相手）は残す
+        var keep = entry.Withheld ? previous : null;
+        while (history.Entries.Count > MaxEntries)
+            history.Entries.RemoveAt(ReferenceEquals(history.Entries[0], keep) ? 1 : 0);
+        Save(PathFor(id), history);
+        return outcome;
     }
 
     /// <summary>前回の記録が、今回読んだ台の物と言えるか。</summary>
@@ -351,10 +383,12 @@ public sealed class BaselineStore
     private static readonly string[] Monotonic = { Counters.PowerOnHours, Counters.DataUnitsWritten, Counters.Ata(9) };
 
     /// <summary>
-    /// 時間で数える数。ATA の 9 は機種によって分や秒で数える物がある（古い HDD に少数）。
-    /// その台は毎回「比べられない」になるが、**別の台の記録と比べて「増えています」と言うよりは良い**。
+    /// 時間で数えると決まっている数。**NVMe の通電時間だけ**（仕様で「時間」）。
+    /// ATA の 9 は入れない: 機種によって分・半分・秒で数える物がある（古い Maxtor・富士通・Samsung の HDD）。
+    /// 入れるとその台は毎回「時計より進んだ」になり、本物の増え（5・197・198）が二度と出なくなる。
+    /// ATA の 9 は <see cref="Monotonic"/>（減ったら別の台）にだけ使う。減るのはどの単位でもおかしい。
     /// </summary>
-    private static readonly string[] Hours = { Counters.PowerOnHours, Counters.Ata(9) };
+    private static readonly string[] Hours = { Counters.PowerOnHours };
 
     /// <summary>通電時間は整数の時間で切り捨てられ、更新も間をおいて行われるので、そのぶんの余裕。</summary>
     internal static readonly TimeSpan HoursSlack = TimeSpan.FromHours(2);
@@ -365,9 +399,10 @@ public sealed class BaselineStore
     /// <summary>
     /// 前回の記録が別の台の物ではないかを確かめる。
     /// - 減らないはずの数（通電時間・書き込み量）が減った → 別の台
-    /// - 通電時間が、前回の記録から経った時間（+ 余裕）より多く進んだ → 別の台
+    /// - NVMe の通電時間が、前回の記録から経った時間（+ 余裕）より多く進んだ → 別の台
     ///   （同じシリアルの2台が位置を入れ替えた・同じシリアルの別の台に替わった。通電時間の長い方が
-    ///   短い方の記録の位置に来ると、減ってはいないので上だけでは見抜けない）
+    ///   短い方の記録の位置に来ると、減ってはいないので上だけでは見抜けない）。
+    ///   ATA の 9 は単位が機種まちまちなので、こちらには使わない（<see cref="Hours"/>）
     /// </summary>
     internal static Continuity CheckContinuity(BaselineEntry previous, IReadOnlyDictionary<string, ulong> current, DateTimeOffset now)
     {
