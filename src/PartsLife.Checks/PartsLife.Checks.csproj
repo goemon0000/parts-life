@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    点検（負荷テスト・システムチェック・記憶媒体の精密チェック）の中身。
+    **画面を持たない。** 窓は PartsLife.CheckWindow、管理者で動く部分は PartsLife.Check。
+
+    ■ 常駐に載らない
+    本体はこのアセンブリを「点検」の窓を開いたときに初めて読み込む。
+    開かなければ、常駐中のメモリには1バイトも乗らない。
+
+    ■ 管理者権限の要る処理も、ここに「読むだけの関数」として置く
+    実際に管理者で呼ぶのは PartsLife.Check.exe だけ。本体からは呼ばない。
+
+    ■ 解析は純粋な関数
+    NVMe のログページや SMART の表は、バイト列を受け取って値を返すだけにしてある。
+    実機に管理者で触らなくても、テストで中身を確かめられるようにするため。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>PartsLife.Checks</RootNamespace>
+    <AssemblyName>PartsLife.Checks</AssemblyName>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- 管理者で動く補助 exe を NativeAOT で小さく作るため。
+         ここに AOT で動かない書き方（リフレクション頼みの JSON など）を入れない。 -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <Version>0.7.0</Version>
+    <!-- 本体の配布物（dist）に .pdb を混ぜない -->
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 本体が既に使っている物。新しい依存は増やさない -->
+    <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PartsLife.Checks.Tests" />
+  </ItemGroup>
+
+</Project>

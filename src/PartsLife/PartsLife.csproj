@@ -26,7 +26,7 @@
 
     <!-- exe の属性。**署名を受けるには中身の名乗りが要る**（SignPath の条件）。
          署名の有無に関わらず、右クリック→プロパティで何のファイルか分かる方が良い。 -->
-    <Version>0.3.1</Version>
+    <Version>0.7.0</Version>
     <Product>パーツぐらし / Parts Life</Product>
     <AssemblyTitle>パーツぐらし</AssemblyTitle>
     <Description>PCパーツのキャラクターが実機の稼働状況を姿で表す常駐アプリ</Description>
@@ -63,6 +63,12 @@
   <ItemGroup>
     <!-- SSD/HDD の判別に MSFT_PhysicalDisk を引くため -->
     <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 「点検」の窓。右クリックの献立から開いたときに初めて読み込まれる（常駐の負担は 0）。
+         管理者の要る処理は別の exe（src/PartsLife.Check）に分けてあり、ここからは参照しない。 -->
+    <ProjectReference Include="..\PartsLife.CheckWindow\PartsLife.CheckWindow.csproj" />
   </ItemGroup>
 
 </Project>

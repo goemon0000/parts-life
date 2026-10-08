@@ -2,8 +2,12 @@
   <Folder Name="/src/">
     <Project Path="src/PartsLife.Core/PartsLife.Core.csproj" />
     <Project Path="src/PartsLife/PartsLife.csproj" />
+    <Project Path="src/PartsLife.Checks/PartsLife.Checks.csproj" />
+    <Project Path="src/PartsLife.CheckWindow/PartsLife.CheckWindow.csproj" />
+    <Project Path="src/PartsLife.Check/PartsLife.Check.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PartsLife.Core.Tests/PartsLife.Core.Tests.csproj" />
+    <Project Path="tests/PartsLife.Checks.Tests/PartsLife.Checks.Tests.csproj" />
   </Folder>
 </Solution>

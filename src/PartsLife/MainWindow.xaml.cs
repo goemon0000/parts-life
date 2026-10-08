@@ -114,6 +114,11 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveState();
         Closed += (_, _) =>
         {
+            // 「閉じる」はアプリの終了。点検の窓が開いていたら先に普通に閉じる:
+            // 窓の Closing で試験を止め、管理者の補助 exe に stop を送る（補助 exe はパイプが切れても止まる）。
+            // 型で探さないのは、点検のアセンブリを開いていないのに読み込ませないため
+            foreach (var w in Application.Current.Windows.Cast<Window>().Where(w => w != this).ToList())
+                w.Close();
             _frameTimer.Stop();
             _sensorTimer.Stop();
             _hoverTip.IsOpen = false;
@@ -630,6 +635,12 @@ public partial class MainWindow : Window
         }
         menu.Items.Add(reset);
 
+        // 点検は別の窓。**この常駐窓は操作を受け付けないまま**にしておくため
+        menu.Items.Add(new Separator());
+        var checks = new MenuItem { Header = Strings.ChecksMenu };
+        checks.Click += (_, _) => OpenChecks();
+        menu.Items.Add(checks);
+
         menu.Items.Add(new Separator());
         var quit = new MenuItem { Header = Strings.Close };
         quit.Click += (_, _) => Close();
@@ -638,6 +649,15 @@ public partial class MainWindow : Window
         menu.PlacementTarget = this;
         menu.IsOpen = true;
     }
+
+    /// <summary>
+    /// 「点検」の窓を開く。**別の方法に分けてあるのは、ここを通るまで点検の
+    /// アセンブリ（PartsLife.CheckWindow / PartsLife.Checks）を読み込ませないため。**
+    /// JIT はこの方法を初めて呼ぶときに参照先を読むので、押さない限り常駐の負担は 0。
+    /// 中身は src/PartsLife.CheckWindow にある。
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void OpenChecks() => PartsLife.CheckWindow.CheckWindowHost.Open(Strings.Lang);
 
     private void ConfirmReset(string ask, Action apply)
     {

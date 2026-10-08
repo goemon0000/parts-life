@@ -1,0 +1,131 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    管理者の補助 exe。**記憶媒体の健康情報と表面検査を読むためだけ**に、UAC を経て動く。
+
+    - 本体（PartsLife.exe）は管理者を要求しない。管理者の要る処理はここに隔離する
+    - 何をするかは起動時の引数で決まる（smart / scan）。結果をパイプで返して終わる
+    - ネットワークにもファイルにも書かない。媒体にも書かない
+    - NativeAOT で単体の小さな exe にする（.NET を入れていない機械でも動く。数 MB）
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>PartsLife.Check</AssemblyName>
+    <RootNamespace>PartsLife.Check</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\PartsLife.ico</ApplicationIcon>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <StackTraceSupport>false</StackTraceSupport>
+    <!-- 使わない機能は入れない（取り込む DLL を増やさないため）。通信もしない -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+    <!-- 参照先の .pdb を配布物に混ぜない（dist に本体と並べて置くため） -->
+    <AllowedReferenceRelatedFileExtensions Condition="'$(Configuration)'=='Release'">.none</AllowedReferenceRelatedFileExtensions>
+
+    <Version>0.7.0</Version>
+    <Product>パーツぐらし / Parts Life</Product>
+    <AssemblyTitle>パーツぐらし 記憶媒体の点検（管理者）</AssemblyTitle>
+    <Description>記憶媒体の SMART と表面検査を読むだけの補助プログラム（管理者で動く）</Description>
+    <Company>web-autoai.com</Company>
+    <Copyright>Copyright (c) 2026 web-autoai.com</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PartsLife.Checks\PartsLife.Checks.csproj" />
+  </ItemGroup>
+
+  <!--
+    **隣に置かれた DLL を管理者で読み込まない。**
+    この exe は Downloads などに展開されたまま UAC で昇格する。KnownDLLs に無い DLL（bcrypt.dll など）を
+    既定の順で探すと、exe と同じフォルダに置かれた偽物を先に拾い、署名付きの確認画面の裏で管理者として動かしてしまう。
+    静的に取り込む DLL は System32 だけから探させる（LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x800）。
+    実行中に読み込む物は Program.Main の先頭の SetDefaultDllDirectories と、
+    DefaultDllImportSearchPaths(System32) で同じく System32 に限る。
+    取り込みの一覧は dumpbin /imports で確かめる（README「点検」）。
+  -->
+  <ItemGroup>
+    <LinkerArg Include="/DEPENDENTLOADFLAG:0x800" />
+  </ItemGroup>
+
+  <!--
+    .NET の標準ライブラリは、名前で呼ぶ DLL を「exe の隣 → System32」の順で探す
+    （DllImportSearchPath.AssemblyDirectory | System32）。NativeAOT ではそれが実行時の読み込みになり、
+    exe の隣に置かれた sspicli.dll などを**絶対パスで**拾ってしまう（SetDefaultDllDirectories では防げない。
+    実測: 2026-10-09、偽の sspicli.dll で確認）。import 表へ移しても、secur32 → sspicli の転送が
+    起動時に exe の隣から解かれるので防げなかった。
+    そこで Program.PinNativeSearch で、該当するライブラリの読み込みを System32 の絶対パスに差し替える。
+    下の検査は、差し替えていないライブラリが「exe の隣も探す」読み込みを持ち込んだら発行を止める。
+    **検査できないときも止める:** 地図（map.xml）が無い・__nativemodule_ が 1 つも見つからない
+    （SDK が地図の形を変えた等）・読めない形の __nativemodule_ がある。黙って通すと、検査が効いていないことに気づけない。
+  -->
+  <PropertyGroup>
+    <IlcGenerateMapFile>true</IlcGenerateMapFile>
+    <!-- Program.PinNativeSearch で差し替えているアセンブリ（名前の . は _） -->
+    <PinnedNativeSearchAssemblies>System_Security_Principal_Windows;System_Diagnostics_Process;System_Security_AccessControl;Microsoft_Win32_Registry</PinnedNativeSearchAssemblies>
+  </PropertyGroup>
+
+  <UsingTask TaskName="CheckLazyNativeModules" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <MapFile ParameterType="System.String" Required="true" />
+      <Pinned ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var pinned = new HashSet<string>(Pinned.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+        if (!File.Exists(MapFile))
+        {
+            Log.LogError("The ILC map file was not produced: " + MapFile + ". The native search check cannot run, so the publish is stopped.");
+            return false;
+        }
+        var text = File.ReadAllText(MapFile);
+        var seen = new HashSet<string>();
+        var matches = Regex.Matches(text, @"__nativemodule_(\w+?)__Module__(\w+?)_(\d+)""");
+        // 何も見つからない = 地図の形が変わったか、地図が空。黙って通さない
+        // （この exe は kernel32 などを実行時に読むので、少なくとも 1 つは必ずある）
+        var loose = new HashSet<string>();
+        foreach (Match m in Regex.Matches(text, @"__nativemodule_[^""<>\s]*")) loose.Add(m.Value);
+        var strict = new HashSet<string>();
+        foreach (Match m in matches) strict.Add(m.Value.TrimEnd('"'));
+        if (matches.Count == 0)
+        {
+            Log.LogError("No __nativemodule_ (lazy P/Invoke) symbols were found in " + MapFile + ". The map format may have changed; the native search check cannot vouch for this build, so the publish is stopped.");
+            return false;
+        }
+        foreach (var name in loose)
+            if (!strict.Contains(name))
+                Log.LogError("Unrecognised native module symbol in the ILC map: " + name + ". Update the check in PartsLife.Check.csproj.");
+        foreach (Match m in matches)
+        {
+            int flags = int.Parse(m.Groups[3].Value);
+            string asm = m.Groups[1].Value, dll = m.Groups[2].Value;
+            bool searchesExeDir = (flags & 0x2) != 0 || (flags & 0x800) == 0;
+            if (!seen.Add(asm + "/" + dll)) continue;
+            Log.LogMessage(MessageImportance.High, "  lazy native module: " + asm + " -> " + dll + " (search 0x" + flags.ToString("X") + ")");
+            if (searchesExeDir && !pinned.Contains(asm))
+                Log.LogError(asm + " loads " + dll + " at run time and searches next to the exe. Pin it to System32 in Program.PinNativeSearch and add it to PinnedNativeSearchAssemblies.");
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!-- 地図が無い・読めない形のときは発行を止める（黙って飛ばすと、検査が効いていないことに気づけない） -->
+  <Target Name="CheckHelperNativeSearch" AfterTargets="IlcCompile">
+    <CheckLazyNativeModules MapFile="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(NativeIntermediateOutputPath), $(TargetName).map.xml))"
+                            Pinned="$(PinnedNativeSearchAssemblies)" />
+  </Target>
+
+</Project>
