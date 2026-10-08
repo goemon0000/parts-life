@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    管理者の補助 exe。**記憶媒体の健康情報と表面検査を読むためだけ**に、UAC を経て動く。
+
+    - 本体（PartsLife.exe）は管理者を要求しない。管理者の要る処理はここに隔離する
+    - 何をするかは起動時の引数で決まる（smart / scan）。結果をパイプで返して終わる
+    - ネットワークにもファイルにも書かない。媒体にも書かない
+    - NativeAOT で単体の小さな exe にする（.NET を入れていない機械でも動く。数 MB）
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>PartsLife.Check</AssemblyName>
+    <RootNamespace>PartsLife.Check</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\PartsLife.ico</ApplicationIcon>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <StackTraceSupport>false</StackTraceSupport>
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+    <!-- 参照先の .pdb を配布物に混ぜない（dist に本体と並べて置くため） -->
+    <AllowedReferenceRelatedFileExtensions Condition="'$(Configuration)'=='Release'">.none</AllowedReferenceRelatedFileExtensions>
+
+    <Version>0.7.0</Version>
+    <Product>パーツぐらし / Parts Life</Product>
+    <AssemblyTitle>パーツぐらし 記憶媒体の点検（管理者）</AssemblyTitle>
+    <Description>記憶媒体の SMART と表面検査を読むだけの補助プログラム（管理者で動く）</Description>
+    <Company>web-autoai.com</Company>
+    <Copyright>Copyright (c) 2026 web-autoai.com</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PartsLife.Checks\PartsLife.Checks.csproj" />
+  </ItemGroup>
+
+</Project>
