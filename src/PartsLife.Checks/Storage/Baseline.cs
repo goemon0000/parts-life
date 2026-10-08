@@ -8,6 +8,15 @@ public sealed class BaselineEntry
 {
     public DateTimeOffset At { get; set; }
     public Dictionary<string, ulong> Counters { get; set; } = new();
+
+    /// <summary>
+    /// この回は、PC の時計が前回の記録より前に戻っていたせいで比べられなかった（<see cref="BaselineState.AheadOfClock"/>）。
+    /// 次の回の**比べる相手にしない**。相手にすると、この回までに増えた分が「変わらない」に紛れる。
+    /// 別の台の記録だと分かった回（減った・時計が進んでいるのに通電時間が進み過ぎ）には付けない
+    /// （その回からが今の台の記録なので、次はそれと比べる）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Withheld { get; set; }
 }
 
 /// <summary>1台ぶんの履歴。ファイル1つに1台。</summary>
@@ -329,23 +338,35 @@ public sealed class BaselineStore
                                       bool compare = true)
     {
         var history = Load(id);
-        var previous = history.Entries.Count > 0 ? history.Entries[^1] : null;
+        // 比べる相手は、時計が戻ったせいで比べなかった回（Withheld）を飛ばした最後の記録
+        var previous = history.Entries.LastOrDefault(e => !e.Withheld);
         var current = Counters.From(report);
-        history.Model = report.Model;
-        history.Entries.Add(new BaselineEntry { At = now, Counters = current });
-        if (history.Entries.Count > MaxEntries)
-            history.Entries.RemoveRange(0, history.Entries.Count - MaxEntries);
-        Save(PathFor(id), history);
+        var entry = new BaselineEntry { At = now, Counters = current };
 
-        if (!compare) return new BaselineOutcome(BaselineState.Duplicate, null);
-        if (previous is null)
-            return new BaselineOutcome(legacyRefused ? BaselineState.LegacyRefused : BaselineState.First, null);
-        return CheckContinuity(previous, current, now) switch
+        BaselineOutcome outcome;
+        if (!compare) outcome = new BaselineOutcome(BaselineState.Duplicate, null);
+        else if (previous is null)
+            outcome = new BaselineOutcome(legacyRefused ? BaselineState.LegacyRefused : BaselineState.First, null);
+        else
         {
-            Continuity.WentBackwards => new BaselineOutcome(BaselineState.Mismatch, null),
-            Continuity.AheadOfClock => new BaselineOutcome(BaselineState.AheadOfClock, null),
-            _ => new BaselineOutcome(BaselineState.Compared, previous),
-        };
+            outcome = CheckContinuity(previous, current, now) switch
+            {
+                Continuity.WentBackwards => new BaselineOutcome(BaselineState.Mismatch, null),
+                Continuity.AheadOfClock => new BaselineOutcome(BaselineState.AheadOfClock, null),
+                _ => new BaselineOutcome(BaselineState.Compared, previous),
+            };
+            // 時計が前回より前に戻っていた: 経った時間が分からないだけで、別の台とは限らない
+            entry.Withheld = outcome.State == BaselineState.AheadOfClock && now < previous.At;
+        }
+
+        history.Model = report.Model;
+        history.Entries.Add(entry);
+        // 古い順に捨てる。ただし次の回の比べる相手（今回が Withheld なら前の相手）は残す
+        var keep = entry.Withheld ? previous : null;
+        while (history.Entries.Count > MaxEntries)
+            history.Entries.RemoveAt(ReferenceEquals(history.Entries[0], keep) ? 1 : 0);
+        Save(PathFor(id), history);
+        return outcome;
     }
 
     /// <summary>前回の記録が、今回読んだ台の物と言えるか。</summary>

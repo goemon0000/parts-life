@@ -381,6 +381,57 @@ public class BaselineIdentityTests : IDisposable
         Assert.DoesNotContain("増えています", Media(StorageJudge.Judge(swapped, s.Previous, s.State)).Reason);
     }
 
+    [Fact]
+    public void Run_withheld_because_the_clock_went_back_does_not_hide_growth()
+    {
+        var store = new BaselineStore(_dir);
+        var disk = BaselineIdentity.Of(Nvme("CLOCK1", 0));
+        store.RecordAll(new[] { With(Nvme("CLOCK1", 0), powerOnHours: 1_000) }, T0);
+
+        // 1 日付けっぱなしで 23 件増えた。ところが PC の時計が 30 日前に戻っている → 比べられない
+        var o2 = store.RecordAll(new[] { With(Nvme("CLOCK1", 23), powerOnHours: 1_024) }, T0.AddDays(-30))[0];
+        Assert.Equal(BaselineState.AheadOfClock, o2.State);
+        Assert.True(store.Load(disk).Entries[^1].Withheld);
+        Assert.Contains("\"withheld\": true", File.ReadAllText(store.PathFor(disk)));
+
+        // 時計が直った次の回は、最後に普通に比べられた記録（1 回目）と比べる。2 回目と比べると「変わらない」になる
+        var later = With(Nvme("CLOCK1", 23), powerOnHours: 1_048);
+        var o3 = store.RecordAll(new[] { later }, T0.AddDays(2))[0];
+        Assert.Equal(BaselineState.Compared, o3.State);
+        Assert.Equal(T0, o3.Previous!.At);
+        Assert.Equal(0UL, o3.Previous.Counters[Counters.MediaErrors]);
+        var j = StorageJudge.Judge(later, o3.Previous, o3.State);
+        Assert.Equal(Verdict.Check, Media(j).Verdict);
+        Assert.Contains("(+23)", Media(j).Reason);
+        Assert.Contains("増えています", Media(j).Reason);
+        Assert.False(store.Load(disk).Entries[^1].Withheld);
+        Assert.Equal(1, File.ReadAllText(store.PathFor(disk)).Split("\"withheld\"").Length - 1);   // 付けるのは 2 回目だけ
+
+        // 別の台だと分かった回（時計は進んでいる）は飛ばさない: 次はその回の記録と比べる
+        var swapped = With(Nvme("CLOCK1", 363_278), powerOnHours: 21_345);
+        Assert.Equal(BaselineState.AheadOfClock, store.RecordAll(new[] { swapped }, T0.AddDays(3))[0].State);
+        Assert.False(store.Load(disk).Entries[^1].Withheld);
+        var o5 = store.RecordAll(new[] { With(Nvme("CLOCK1", 363_278), powerOnHours: 21_369) }, T0.AddDays(4))[0];
+        Assert.Equal(BaselineState.Compared, o5.State);
+        Assert.Equal(21_345UL, o5.Previous!.Counters[Counters.PowerOnHours]);
+    }
+
+    [Fact]
+    public void Trimming_keeps_the_comparison_base_behind_withheld_runs()
+    {
+        var store = new BaselineStore(_dir);
+        var disk = BaselineIdentity.Of(Nvme("CLOCK2", 0));
+        store.RecordAll(new[] { With(Nvme("CLOCK2", 0), powerOnHours: 1_000) }, T0);
+        // 時計が戻ったままの回が上限を超えて続いても、比べる相手（1 回目）は捨てない
+        for (int i = 1; i <= BaselineStore.MaxEntries + 5; i++)
+            Assert.Equal(BaselineState.AheadOfClock,
+                         store.RecordAll(new[] { With(Nvme("CLOCK2", 7), powerOnHours: 1_000 + 10 + (ulong)i) }, T0.AddDays(-30))[0].State);
+        var h = store.Load(disk);
+        Assert.Equal(BaselineStore.MaxEntries, h.Entries.Count);
+        Assert.Equal(T0, h.Entries[0].At);
+        Assert.False(h.Entries[0].Withheld);
+    }
+
     /// <summary>v1 のファイル（ファイル名 = シリアル）を、記録の並び（時刻・通電時間・メディアエラー）から書く。</summary>
     private static void WriteLegacy(BaselineStore store, string serial, string model, params (DateTimeOffset At, ulong? Poh, ulong Media)[] entries)
     {
