@@ -49,25 +49,37 @@ public class BaselineIdentityTests : IDisposable
         Assert.Contains("(+23)", Media(j).Reason);
     }
 
+    /// <summary>今回の値が記録されたか（位置付きの鍵のファイルの最後の記録）。</summary>
+    private static ulong? LastRecordedMedia(BaselineStore store, DiskReport r)
+    {
+        var h = store.Load(BaselineIdentity.Of(r, withLocation: true));
+        return h.Entries.Count > 0 ? h.Entries[^1].Counters[Counters.MediaErrors] : null;
+    }
+
     [Fact]
-    public void Two_disks_with_the_same_serial_are_separated_by_location()
+    public void Two_disks_with_the_same_serial_are_recorded_by_location_but_never_compared()
     {
         var store = new BaselineStore(_dir);
         // A は健康（0）、B は過去の記録が大きい。同じシリアル・型番・容量
         var a1 = Nvme("DUPSERIAL", 0, location: "0:0:0:0");
         var b1 = Nvme("DUPSERIAL", 363_278, location: "1:0:0:0");
         var first = store.RecordAll(new[] { a1, b1 }, T0);
-        Assert.All(first, o => Assert.Equal(BaselineState.First, o.State));
+        Assert.All(first, o => { Assert.Equal(BaselineState.Duplicate, o.State); Assert.Null(o.Previous); });
 
         var a2 = Nvme("DUPSERIAL", 0, location: "0:0:0:0");
-        var b2 = Nvme("DUPSERIAL", 363_278, location: "1:0:0:0");
+        var b2 = Nvme("DUPSERIAL", 363_301, location: "1:0:0:0");
         var second = store.RecordAll(new[] { a2, b2 }, T0.AddDays(1));
-        Assert.Equal(BaselineState.Compared, second[0].State);
-        Assert.Equal(0UL, second[0].Previous!.Counters[Counters.MediaErrors]);
-        Assert.Equal(363_278UL, second[1].Previous!.Counters[Counters.MediaErrors]);
-        var ja = StorageJudge.Judge(a2, second[0].Previous, second[0].State);
-        Assert.Equal(Verdict.Ok, Media(ja).Verdict);
-        Assert.DoesNotContain("増えています", Media(ja).Reason);
+        Assert.All(second, o => { Assert.Equal(BaselineState.Duplicate, o.State); Assert.Null(o.Previous); });
+        // 比べはしないが、今回の値は位置付きの鍵で残っている（黙って捨てない）
+        Assert.Equal(0UL, LastRecordedMedia(store, a2));
+        Assert.Equal(363_301UL, LastRecordedMedia(store, b2));
+        Assert.Equal(2, store.Load(BaselineIdentity.Of(b2, withLocation: true)).Entries.Count);
+
+        var jb = StorageJudge.Judge(b2, second[1].Previous, second[1].State);
+        Assert.DoesNotContain("増えています", Media(jb).Reason);
+        Assert.DoesNotContain("増えていません", Media(jb).Reason);
+        Assert.Contains("比べられない（同じ識別子のディスクが複数あります）", Media(jb).Reason);
+        Assert.Empty(jb.Deltas);
     }
 
     [Fact]
@@ -79,27 +91,81 @@ public class BaselineIdentityTests : IDisposable
         var r2 = store.RecordAll(new[] { Nvme("DUPSERIAL", 0), Nvme("DUPSERIAL", 363_278) }, T0.AddDays(1));
         Assert.All(r2, o => { Assert.Equal(BaselineState.Duplicate, o.State); Assert.Null(o.Previous); });
 
-        // 片方だけ繋いだ回も、重なったことのある鍵なので位置で引く（位置が無ければ比べない）
+        // 片方だけ繋いだ回も、重なったことのある鍵なので比べない
         var alone = store.RecordAll(new[] { Nvme("DUPSERIAL", 363_278) }, T0.AddDays(2));
         Assert.Equal(BaselineState.Duplicate, alone[0].State);
 
         var j = StorageJudge.Judge(Nvme("DUPSERIAL", 363_278), alone[0].Previous, alone[0].State);
-        Assert.Contains("比べられない（同じ識別子の台が複数）", Media(j).Reason);
+        Assert.Contains("比べられない（同じ識別子のディスクが複数あります）", Media(j).Reason);
         Assert.NotEqual(Verdict.Check, Media(j).Verdict);
     }
 
     [Fact]
-    public void Twin_seen_once_is_looked_up_by_location_when_alone()
+    public void Twin_seen_once_is_never_compared_again_even_alone()
     {
         var store = new BaselineStore(_dir);
         store.RecordAll(new[] { Nvme("DUPSERIAL", 0, "0:0:0:0"), Nvme("DUPSERIAL", 363_278, "1:0:0:0") }, T0);
-        // B だけ別の位置に繋いだ: A の記録とも B の記録とも比べない（初回扱い）
+        // B だけ別の位置に繋いだ: 比べない（記録はする）
         var o = store.RecordAll(new[] { Nvme("DUPSERIAL", 363_278, "2:0:0:0") }, T0.AddDays(1))[0];
-        Assert.Equal(BaselineState.First, o.State);
-        // A を元の位置に戻せば、A 自身の記録と比べる
+        Assert.Equal(BaselineState.Duplicate, o.State);
+        Assert.Equal(363_278UL, LastRecordedMedia(store, Nvme("DUPSERIAL", 0, "2:0:0:0")));
+        // A を元の位置に戻しても比べない（その位置にいるのが A だとは言えない）
         var back = store.RecordAll(new[] { Nvme("DUPSERIAL", 0, "0:0:0:0") }, T0.AddDays(2))[0];
-        Assert.Equal(BaselineState.Compared, back.State);
-        Assert.Equal(0UL, back.Previous!.Counters[Counters.MediaErrors]);
+        Assert.Equal(BaselineState.Duplicate, back.State);
+        Assert.Null(back.Previous);
+    }
+
+    /// <summary>
+    /// 一緒に通電されている双子（安い SSD・RAID の構成員）は通電時間がほぼ同じ。
+    /// 位置を入れ替えると、減りも進み過ぎもしないので通電時間では見抜けず、SATA は書き込み量も記録しない。
+    /// </summary>
+    [Fact]
+    public void Twins_with_nearly_equal_hours_that_swap_places_are_not_compared()
+    {
+        var store = new BaselineStore(_dir);
+        // SATA の双子。A は代替待ち 0、B は 8。通電時間は 1 時間違い
+        store.RecordAll(new[] { Sata("TWINSSD", 12_000, 0, 0, "0:0:0:0"), Sata("TWINSSD", 12_001, 0, 8, "1:0:0:0") }, T0);
+
+        // 1 日後、ケーブルを差し替えた。A が B の元の位置、B が A の元の位置に来る
+        var a = Sata("TWINSSD", 12_024, 0, 0, "1:0:0:0");
+        var b = Sata("TWINSSD", 12_025, 0, 8, "0:0:0:0");
+        var o = store.RecordAll(new[] { b, a }, T0.AddDays(1));
+        Assert.All(o, x => { Assert.Equal(BaselineState.Duplicate, x.State); Assert.Null(x.Previous); });
+        // 通電時間では見抜けないことの確認（これまでの確かめ方では「同じ台」に見えた）
+        var aRecordAtBsNewPlace = new BaselineEntry { At = T0, Counters = Counters.From(Sata("TWINSSD", 12_000, 0, 0)) };
+        Assert.Equal(BaselineStore.Continuity.Same, BaselineStore.CheckContinuity(aRecordAtBsNewPlace, Counters.From(b), T0.AddDays(1)));
+
+        var pending = StorageJudge.Judge(b, o[0].Previous, o[0].State).Findings.Single(f => f.Title == "代替待ちセクタ");
+        Assert.DoesNotContain("増えています", pending.Reason);
+        Assert.DoesNotContain("増えていません", pending.Reason);
+        Assert.Contains("比べられない（同じ識別子のディスクが複数あります）", pending.Reason);
+
+        // 片方だけ、次の回に繋いでも同じ
+        Assert.Equal(BaselineState.Duplicate, store.RecordAll(new[] { Sata("TWINSSD", 12_048, 0, 8, "0:0:0:0") }, T0.AddDays(2))[0].State);
+        // NVMe の双子でも同じ（通電時間がほぼ同じなら進み過ぎにもならない）
+        store.RecordAll(new[] { With(Nvme("TWINNV", 0, "0:0:0:0"), 5_000), With(Nvme("TWINNV", 363_278, "1:0:0:0"), 5_001) }, T0);
+        var n = store.RecordAll(new[] { With(Nvme("TWINNV", 363_278, "0:0:0:0"), 5_025), With(Nvme("TWINNV", 0, "1:0:0:0"), 5_024) }, T0.AddDays(1));
+        Assert.All(n, x => { Assert.Equal(BaselineState.Duplicate, x.State); Assert.Null(x.Previous); });
+    }
+
+    [Fact]
+    public void Lone_disk_beside_twins_is_compared_as_before()
+    {
+        var store = new BaselineStore(_dir);
+        store.RecordAll(new[]
+        {
+            Sata("TWINSSD", 12_000, 0, 0, "0:0:0:0"), Sata("TWINSSD", 12_001, 0, 8, "1:0:0:0"),
+            Sata("LONEHDD", 30_000, 10, 8, "2:0:0:0"),
+        }, T0);
+        var lone = Sata("LONEHDD", 30_024, 12, 8, "3:0:0:0");      // 位置が変わっても、一人なら比べる
+        var o = store.RecordAll(new[] { Sata("TWINSSD", 12_024, 0, 0, "0:0:0:0"), lone }, T0.AddDays(1));
+        Assert.Equal(BaselineState.Duplicate, o[0].State);
+        Assert.Equal(BaselineState.Compared, o[1].State);
+        var j = StorageJudge.Judge(lone, o[1].Previous, o[1].State);
+        var realloc = j.Findings.Single(f => f.Title == "代替処理済みセクタ");
+        Assert.Equal(Verdict.Check, realloc.Verdict);
+        Assert.Contains("(+2)", realloc.Reason);
+        Assert.Contains("増えていません", j.Findings.Single(f => f.Title == "代替待ちセクタ").Reason);
     }
 
     [Fact]
@@ -185,21 +251,18 @@ public class BaselineIdentityTests : IDisposable
         // ケーブルを差し替えた（番号の振り直しでも同じ）。A が B の元の位置に来る
         var a = A("1:0:0:0");
         var o = store.RecordAll(new[] { B("0:0:0:0"), a }, T0.AddDays(1));
-        Assert.Equal(BaselineState.Mismatch, o[0].State);          // B は A の記録より通電時間が短い
-        Assert.Equal(BaselineState.AheadOfClock, o[1].State);      // A は B の記録から 1 日で +20,145 時間
-        Assert.Null(o[1].Previous);
+        Assert.All(o, x => { Assert.Equal(BaselineState.Duplicate, x.State); Assert.Null(x.Previous); });
 
         var j = StorageJudge.Judge(a, o[1].Previous, o[1].State);
         Assert.NotEqual(Verdict.Check, Media(j).Verdict);
         Assert.DoesNotContain("増えています", Media(j).Reason);
         Assert.DoesNotContain("+363,278", Media(j).Reason);
-        Assert.Contains("比べられない（前回の記録から経った時間より通電時間が多く進んでいる", Media(j).Reason);
+        Assert.Contains("比べられない（同じ識別子のディスクが複数あります）", Media(j).Reason);
         Assert.Empty(j.Deltas);
 
-        // 位置がそのままなら、次の回からは自分の記録と比べる
+        // 位置がそのままでも、双子の鍵とは以後ずっと比べない
         var again = store.RecordAll(new[] { B("0:0:0:0"), A("1:0:0:0") }, T0.AddDays(2));
-        Assert.All(again, x => Assert.Equal(BaselineState.Compared, x.State));
-        Assert.Equal(363_278UL, again[1].Previous!.Counters[Counters.MediaErrors]);
+        Assert.All(again, x => { Assert.Equal(BaselineState.Duplicate, x.State); Assert.Null(x.Previous); });
     }
 
     [Fact]
@@ -406,8 +469,8 @@ public class BaselineIdentityTests : IDisposable
         Assert.True(File.Exists(store.LegacyPathFor("MIG1") + ".migrated"));
         Assert.False(File.Exists(store.LegacyPathFor("MIG1")));
 
-        Assert.Equal(BaselineState.First, o[1].State);
-        Assert.Equal(BaselineState.First, o[2].State);
+        Assert.Equal(BaselineState.Duplicate, o[1].State);
+        Assert.Equal(BaselineState.Duplicate, o[2].State);
         Assert.True(File.Exists(store.LegacyPathFor("DUP1")));
         Assert.Equal(BaselineState.First, o[3].State);
         Assert.True(File.Exists(store.LegacyPathFor("OTHERMODEL")));
