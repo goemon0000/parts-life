@@ -898,6 +898,18 @@ public sealed class AdventureEngine
         S.Mode == AdventureMode.Town ? CurrentTown.Name.For(lang)
         : CurrentPlace?.Name.For(lang) ?? CurrentTown.Name.For(lang);
 
+    /// <summary>
+    /// 章題の横に出す形の、いま居る所の名前。英語の行き先は文中に差し込むため小文字の冠詞から
+    /// 書いてある（"the steaming creek"）。見出しに置くと小文字で始まって見えるので、**頭の一文字だけ**大文字にする。
+    /// 日本語はそのまま。
+    /// </summary>
+    public string PlaceTitle(string lang) => HeaderForm(PlaceName(lang), lang);
+
+    public static string HeaderForm(string name, string lang) =>
+        lang == "en" && name.Length > 0 && char.IsLower(name[0])
+            ? string.Concat(char.ToUpperInvariant(name[0]).ToString(), name.AsSpan(1))
+            : name;
+
     /// <summary>その鍵の者が着けている物の名前。何も無ければ空。</summary>
     public string EquippedNames(string key, string lang)
     {

@@ -69,9 +69,10 @@
       <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
               BorderThickness="1" CornerRadius="6" Padding="9,6" x:Name="StoryPanel">
         <StackPanel>
-          <DockPanel LastChildFill="False">
-            <TextBlock x:Name="ChapterText" Foreground="{StaticResource Accent}"
-                       FontSize="10" FontWeight="SemiBold" Text="" DockPanel.Dock="Left" />
+          <!-- 章題と、いま居る所。**ボタンを先に置く**（DockPanel は先の子から幅を取る）。
+               章題を先に置くと、長い章題と行き先の名前でボタンが枠の外へ押し出されうる。
+               幅が足りなければ、まず居る所が、それでも足りなければ章題が「…」で切れる -->
+          <DockPanel LastChildFill="True">
             <Button x:Name="CloseButton" Style="{StaticResource TinyButton}" Content="✕"
                     DockPanel.Dock="Right" />
             <Button x:Name="SizeButton" Style="{StaticResource TinyButton}" Content="⤢"
@@ -80,6 +81,12 @@
                     DockPanel.Dock="Right" />
             <Button x:Name="LangButton" Style="{StaticResource TinyButton}" Content="EN"
                     DockPanel.Dock="Right" />
+            <TextBlock x:Name="ChapterText" Foreground="{StaticResource Accent}"
+                       FontSize="10" FontWeight="SemiBold" Text="" DockPanel.Dock="Left"
+                       VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="PlaceText" Foreground="{StaticResource Accent}"
+                       FontSize="10" FontWeight="SemiBold" Text="" VerticalAlignment="Center"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </DockPanel>
           <TextBlock x:Name="StoryLine1" Foreground="{StaticResource Text}" FontSize="12"
                      Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Text="" />

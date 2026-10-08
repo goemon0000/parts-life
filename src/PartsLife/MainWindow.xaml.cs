@@ -484,10 +484,11 @@ public partial class MainWindow : Window
     private void UpdateStoryText()
     {
         var log = _director.Recent;
-        // 章題の横に、いま一行が居る所（町か行き先）を小さく添える
-        string where = _director.Adventure?.PlaceName(Strings.Lang) ?? "";
-        ChapterText.Text = _director.CurrentChapter.Title.For(Strings.Lang)
-                           + (where.Length > 0 ? "  ·  " + where : "");
+        // 章題の横に、いま一行が居る所（町か行き先）を小さく添える。
+        // 英語の名前は文中に差し込む形（"the steaming creek"）なので、見出しの形に直したものを使う
+        string where = _director.Adventure?.PlaceTitle(Strings.Lang) ?? "";
+        ChapterText.Text = _director.CurrentChapter.Title.For(Strings.Lang);
+        PlaceText.Text = where.Length > 0 ? "  ·  " + where : "";
         StoryLine1.Text = log.Count > 0 ? log[0] : "";
         StoryLine2.Text = log.Count > 1 ? log[1] : "";
     }
