@@ -54,7 +54,9 @@ internal sealed class CheckWindow : Window
         MinHeight = 420;
         Background = Ui.Back;
         Foreground = Ui.Text;
-        FontFamily = new FontFamily("Yu Gothic UI, Meiryo UI, Segoe UI");
+        // 英語のときは Segoe UI を先に。和文の書体を先にすると、"F:\pagefile.sys" の「\」が「¥」で描かれる
+        // （和文が混ざれば、その字だけ後ろの書体で描かれる）
+        FontFamily = new FontFamily(L.Lang == "en" ? "Segoe UI, Yu Gothic UI, Meiryo UI" : "Yu Gothic UI, Meiryo UI, Segoe UI");
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         UseLayoutRounding = true;
 
