@@ -19,6 +19,8 @@ public enum HelperOutcome
     /// <summary>利用者が止めた / 窓が閉じられた。</summary>
     Stopped,
     Failed,
+    /// <summary>この版では記憶媒体の精密チェックを止めてある（<see cref="Features.StorageCheck"/>）。何も起こしていない。</summary>
+    Disabled,
 }
 
 /// <summary>
@@ -70,21 +72,38 @@ public static class HelperSession
     }
 
     /// <param name="job">補助 exe に渡す仕事（"smart" / "scan --disk 1 --mode sample --every 256"）。</param>
+    /// <remarks>
+    /// **補助 exe を管理者で起こすのは、ここだけ。** <see cref="Features.StorageCheck"/> が false の版では
+    /// 探しもせずに <see cref="HelperOutcome.Disabled"/> を返す（窓の側でも面を出していないが、二重に止める）。
+    /// </remarks>
     public static Task<(HelperOutcome Outcome, string? Detail)> RunAsync(
+        string job, Action<HelperMessage> onMessage, CancellationToken ct) =>
+        RunAsync(Features.StorageCheck, FindHelper, ElevatedStart, job, onMessage, ct);
+
+    /// <summary>UAC を経て補助 exe を起こす（ShellExecute の runas）。</summary>
+    private static Func<string, Process?> ElevatedStart(string exe) => args => Process.Start(new ProcessStartInfo(exe, args)
+    {
+        UseShellExecute = true,
+        Verb = "runas",          // ここで UAC が出る
+    });
+
+    /// <summary>
+    /// 上の本体。切り替え・探し方・起こし方を受け取るのは、**止めてある版で本当に何も起こさないこと**を
+    /// 昇格せずに試験で確かめるため（切り替えは定数なので、引数にしないと「起こす側」を試せない）。
+    /// </summary>
+    internal static Task<(HelperOutcome Outcome, string? Detail)> RunAsync(
+        bool enabled, Func<string?> find, Func<string, Func<string, Process?>> launcher,
         string job, Action<HelperMessage> onMessage, CancellationToken ct)
     {
-        string? exe = FindHelper();
+        if (!enabled) return Task.FromResult<(HelperOutcome, string?)>((HelperOutcome.Disabled, null));
+        string? exe = find();
         if (exe is null) return Task.FromResult<(HelperOutcome, string?)>((HelperOutcome.Missing, null));
-        return RunCoreAsync(args => Process.Start(new ProcessStartInfo(exe, args)
-        {
-            UseShellExecute = true,
-            Verb = "runas",          // ここで UAC が出る
-        }), job, onMessage, ct);
+        return RunCoreAsync(launcher(exe), job, onMessage, ct);
     }
 
     /// <summary>
     /// 本体。<paramref name="start"/> は引数の文字列を受けてプロセスを起こす。
-    /// 普段は上の RunAsync（UAC 経由）だけが使う。昇格せずにパイプの手順だけを確かめるときに差し替える。
+    /// 普段は上の RunAsync（UAC 経由。切り替えを確かめた後）だけが使う。昇格せずにパイプの手順だけを確かめるときに差し替える。
     /// </summary>
     internal static async Task<(HelperOutcome Outcome, string? Detail)> RunCoreAsync(
         Func<string, Process?> start, string job, Action<HelperMessage> onMessage, CancellationToken ct)

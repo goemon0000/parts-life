@@ -9,6 +9,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- 点検の窓（WPF）を組み立てて、この版で出す面を確かめるため（FeatureGateTests） -->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,10 +21,13 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <!-- UseWPF は暗黙の using から System.IO を外す（Shapes.Path との衝突を避けるため）。ここでは要る -->
+    <Using Include="System.IO" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PartsLife.Checks\PartsLife.Checks.csproj" />
+    <ProjectReference Include="..\..\src\PartsLife.CheckWindow\PartsLife.CheckWindow.csproj" />
   </ItemGroup>
 
 </Project>

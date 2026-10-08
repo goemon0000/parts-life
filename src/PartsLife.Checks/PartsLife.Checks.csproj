@@ -39,6 +39,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="PartsLife.Checks.Tests" />
+    <!-- 機能の切り替え（Features）を窓の側からも読むため。窓はこの版で出す面だけを組み立てる -->
+    <InternalsVisibleTo Include="PartsLife.CheckWindow" />
   </ItemGroup>
 
   <ItemGroup>

@@ -113,6 +113,8 @@ internal static class Ui
         private readonly List<(ToggleButton Button, T Value)> _items = new();
         public event Action<T>? Changed;
         public T Value { get; private set; }
+        /// <summary>並んでいる選択肢の題（試験用）。</summary>
+        public IReadOnlyList<string> Titles => _items.Select(i => (string)i.Button.Content).ToArray();
 
         public Choice(IEnumerable<(string Text, T Value)> items, T initial)
         {

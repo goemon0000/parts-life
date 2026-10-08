@@ -26,4 +26,9 @@
     <ProjectReference Include="..\PartsLife.Checks\PartsLife.Checks.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- この版で出す面・選択肢を試験で確かめるため（FeatureGateTests） -->
+    <InternalsVisibleTo Include="PartsLife.Checks.Tests" />
+  </ItemGroup>
+
 </Project>

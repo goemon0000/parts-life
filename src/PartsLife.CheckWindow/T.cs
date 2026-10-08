@@ -43,9 +43,11 @@ internal static class T
         "管理者の権限なしで読める範囲の健康診断です。OS・CPU・メモリ・GPU・ディスク・ページファイルと、直近 7 日のイベントログの件数を見ます。数秒かかります。",
         "A quick health snapshot using only what Windows shows without admin rights: OS, CPU, memory, GPU, disks, pagefile and the last 7 days of the event log. Takes a few seconds.");
     public static string SystemRun => J("調べる", "Check");
-    public static string SystemNotMeasured => J(
-        "測っていないもの: CPU の温度（カーネルドライバが要るため）。ディスクの SMART の数値は「記憶媒体の精密チェック」で（管理者の許可が要ります）。",
-        "Not measured: CPU temperature (needs a kernel driver). Disk SMART counters are in \"Storage health\" (needs admin approval).");
+    public static string SystemNotMeasured => Features.StorageCheck
+        ? J("測っていないもの: CPU の温度（カーネルドライバが要るため）。ディスクの SMART の数値は「記憶媒体の精密チェック」で（管理者の許可が要ります）。",
+            "Not measured: CPU temperature (needs a kernel driver). Disk SMART counters are in \"Storage health\" (needs admin approval).")
+        : J("測っていないもの: CPU の温度（カーネルドライバが要るため）と、ディスクの SMART の数値（管理者の許可が要るため。次の版で）。",
+            "Not measured: CPU temperature (needs a kernel driver) and disk SMART counters (need admin approval; coming in the next version).");
 
     // --- 負荷テスト ---
     public static string LoadIntro => J(
@@ -120,6 +122,7 @@ internal static class T
         HelperOutcome.Declined => J("許可されなかったので、何もしていません", "Not approved, so nothing was done"),
         HelperOutcome.Missing => HelperMissing,
         HelperOutcome.Stopped => Stopped,
+        HelperOutcome.Disabled => J("この版では記憶媒体の精密チェックを止めてあります", "Storage health is disabled in this build"),
         _ => J("補助プログラムから結果が届きませんでした", "No result came back from the helper") + (detail is null ? "" : $" ({detail})"),
     };
 }

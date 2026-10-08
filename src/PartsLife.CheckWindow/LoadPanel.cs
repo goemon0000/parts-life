@@ -8,10 +8,18 @@ using PartsLife.Checks.Load;
 
 namespace PartsLife.CheckWindow;
 
-/// <summary>負荷テスト。CPU / メモリ / GPU のどれか1つを、決めた時間だけ。</summary>
+/// <summary>
+/// 負荷テスト。CPU / メモリ / GPU のどれか1つを、決めた時間だけ。
+/// **GPU は <see cref="Features.GpuLoadTest"/> が true の版だけ選べる**（v0.7.0 は選択肢そのものを出さない）。
+/// </summary>
 internal sealed class LoadPanel : CheckPanel
 {
-    private enum Kind { Cpu, Memory, Gpu }
+    internal enum Kind { Cpu, Memory, Gpu }
+
+    /// <summary>この版で選べる種類。窓に並ぶ順。</summary>
+    internal static IReadOnlyList<Kind> Kinds { get; } =
+        new[] { (Kind.Cpu, true), (Kind.Memory, true), (Kind.Gpu, Features.GpuLoadTest) }
+            .Where(k => k.Item2).Select(k => k.Item1).ToArray();
 
     private readonly Ui.Choice<Kind> _kind;
     private readonly Ui.Choice<int> _duration;
@@ -42,7 +50,7 @@ internal sealed class LoadPanel : CheckPanel
     {
         Children.Add(Ui.Label(T.LoadIntro, 12, Ui.Sub));
 
-        _kind = new Ui.Choice<Kind>(new[] { ("CPU", Kind.Cpu), (T.Memory, Kind.Memory), ("GPU", Kind.Gpu) }, Kind.Cpu);
+        _kind = new Ui.Choice<Kind>(Kinds.Select(k => (KindTitle(k), k)), Kind.Cpu);
         Children.Add(Ui.FieldRow(T.Kind, _kind));
 
         _duration = new Ui.Choice<int>(new[] { (T.Seconds(30), 30), (T.Minutes(2), 120), (T.Minutes(5), 300) }, 30);
@@ -90,6 +98,16 @@ internal sealed class LoadPanel : CheckPanel
             if (_planned > TimeSpan.Zero) _progress.Value = Math.Min(1, _elapsed.Elapsed / _planned);
         };
     }
+
+    private static string KindTitle(Kind k) => k switch
+    {
+        Kind.Cpu => "CPU",
+        Kind.Memory => T.Memory,
+        _ => "GPU",
+    };
+
+    /// <summary>並んでいる種類の題（試験で、GPU を出していないことを確かめるため）。</summary>
+    internal IReadOnlyList<string> KindTitles => _kind.Titles;
 
     /// <summary>GPU の一覧は、GPU を選んだときに初めて引く（NVML も D3D もそれまで読み込まない）。</summary>
     private async void ListGpus()
@@ -164,7 +182,7 @@ internal sealed class LoadPanel : CheckPanel
                     _last = MemoryTest.Judge(await t);
                     break;
                 }
-                case Kind.Gpu:
+                case Kind.Gpu when Kinds.Contains(Kind.Gpu):
                 {
                     var adapter = SelectedGpu!;
                     var nvml = Nvml.TryOpen();
@@ -184,6 +202,9 @@ internal sealed class LoadPanel : CheckPanel
                     finally { nvml?.Dispose(); }
                     break;
                 }
+                default:
+                    // この版で選べない種類（GPU を止めてある版の Kind.Gpu）。選択肢に出していないので来ない
+                    throw new InvalidOperationException(kind + " is not available in this build");
             }
             _live.Text = ct.IsCancellationRequested ? T.StoppedPartial : T.Finished(_elapsed.Elapsed);
             var box = new StackPanel();

@@ -13,19 +13,25 @@ namespace PartsLife.CheckWindow;
 ///
 /// - 作り物ではなく本物の窓を組み立てて描く。system は管理者なしのシステムチェックを実際に走らせる
 /// - load は何も走らせない（待っている面）。負荷はかけない
-/// - storage は管理者の要る読み取りの前の面（ボタンと、管理者なしで読める台の一覧）。補助 exe は起こさない
+/// - storage は管理者の要る読み取りの前の面（ボタンと、管理者なしで読める台の一覧）。補助 exe は起こさない。
+///   **その面を出さない版（<see cref="Features.StorageCheck"/> が false）では描かずに <see cref="FeatureDisabledException"/>**
 /// - 保存（state.json）にも基準値の置き場（checks）にも書かない。シリアル番号は末尾 4 文字だけ見せる
 ///
 /// 本体はこの型を --shot-check のときだけ触る（常駐中は読み込まない）。
 /// </summary>
 public static class CheckWindowShot
 {
-    public static readonly string[] Tabs = { "system", "load", "storage" };
+    /// <summary>この版で書き出せる面（窓に並んでいる面）。</summary>
+    public static IReadOnlyList<string> Tabs => CheckWindow.VisibleKeys;
 
-    /// <summary>書き出して終わる。tab が知らない名前なら ArgumentException。</summary>
+    /// <summary>
+    /// 書き出して終わる。tab が知らない名前なら ArgumentException、
+    /// 知っているがこの版では出さない面なら <see cref="FeatureDisabledException"/>（どちらも何も書かない）。
+    /// </summary>
     public static async Task SaveAsync(string path, string tab, double scale, string lang, double width = 680)
     {
-        int index = Array.IndexOf(Tabs, tab);
+        int index = Tabs.ToList().IndexOf(tab);
+        if (index < 0 && CheckWindow.AllKeys.Contains(tab)) throw new FeatureDisabledException(tab);
         if (index < 0) throw new ArgumentException($"tab は {string.Join(" / ", Tabs)} のどれか: {tab}", nameof(tab));
         scale = Math.Clamp(scale, 0.5, 4);
         width = Math.Clamp(width, 640, 1600);   // 窓の MinWidth より狭い形は、実際には無い
@@ -60,5 +66,21 @@ public static class CheckWindowShot
         string s = serial.Trim();
         if (s.Length <= 4) return new string('•', s.Length);
         return new string('•', Math.Min(8, s.Length - 4)) + s[^4..];
+    }
+}
+
+/// <summary>
+/// 知っている面だが、この版では止めてある（<see cref="Features"/>）。--shot-check はこれを受けて、
+/// 描かずに 0 以外で終わる。
+/// </summary>
+public sealed class FeatureDisabledException : Exception
+{
+    public string Tab { get; }
+
+    public FeatureDisabledException(string tab)
+        : base($"--shot-check {tab}: この版では無効です（記憶媒体の精密チェックは、実機での確認のあと次の版で有効にします）。 / "
+             + $"disabled in this build (storage health will be enabled in the next version after a real-machine test).")
+    {
+        Tab = tab;
     }
 }
