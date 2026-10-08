@@ -38,6 +38,8 @@ public sealed class MemoryTestResult
 /// 既定は空きの 25%、最大でも 50%。さらに「残りの空きが 1GB か搭載量の 10% の大きい方」を
 /// 割り込まないところで確保をやめる。**ページファイルに追い出し合いを始めたら、
 /// メモリではなくディスクを試験していることになる**し、他のアプリが固まる。
+/// 確保した 64MB ごとに全ページへ書いてから次の空きを確かめる（書くまでは物理メモリが割り当てられず、
+/// 空きが減らないので、確かめても意味がない）。
 /// ■ 試験中も空きを見張る
 /// 他のアプリがメモリを欲しがったら、こちらが引く（中止して返す）。
 /// ■ 正直に
@@ -84,7 +86,8 @@ public static class MemoryTest
         var sw = Stopwatch.StartNew();
         try
         {
-            // 少しずつ確保し、そのたびに空きを確かめる
+            // 少しずつ確保し、そのたびに空きを確かめる。確保しただけでは物理メモリは減らないので、
+            // 全ページに1回書いて実際に割り当てさせてから次へ進む（でないと空きの確認が素通りになる）
             for (long got = 0; got < plan; got += BlockBytes)
             {
                 if (ct.IsCancellationRequested) { r.Stopped = true; return r; }
@@ -92,6 +95,7 @@ public static class MemoryTest
                 void* p = NativeMemory.AlignedAlloc((nuint)BlockBytes, 4096);
                 if (p is null) break;
                 blocks.Add((IntPtr)p);
+                TouchPages((byte*)p, BlockBytes);
             }
             if (blocks.Count == 0)
             {
@@ -165,6 +169,12 @@ public static class MemoryTest
             foreach (var p in blocks) NativeMemory.AlignedFree((void*)p);
             r.Seconds = sw.Elapsed.TotalSeconds;
         }
+    }
+
+    /// <summary>各ページの先頭に 0 を書き、OS に物理メモリを割り当てさせる。</summary>
+    internal static unsafe void TouchPages(byte* p, long length)
+    {
+        for (long off = 0; off < length; off += 4096) Volatile.Write(ref p[off], (byte)0);
     }
 
     public static IReadOnlyList<Finding> Judge(MemoryTestResult r)
