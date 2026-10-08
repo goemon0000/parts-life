@@ -54,6 +54,7 @@ public static class Strings
     public static string Hdd      => T("HDD", "HDD");
     public static string Drives   => T("ドライブ", "Drives");
     public static string Level    => T("Lv", "Lv");
+    public static string Gear     => T("装備", "Gear");
 
     public static string Disclaimer => T(
         "※ 規格・相性・物語はすべてお遊びです。購入や設定の判断には使えません。",

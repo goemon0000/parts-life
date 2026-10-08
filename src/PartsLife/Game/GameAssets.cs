@@ -12,6 +12,20 @@ public static class GameAssets
 {
     public static Story LoadStory() => Story.Parse(ReadResource("story.json"));
 
+    /// <summary>
+    /// 冒険の本文。**読めなければ null（冒険を回さないだけで、物語とレベルは動く）。**
+    /// 飾りの層が壊れていても、常駐物ごと落ちてはいけない。
+    /// </summary>
+    public static Adventure.AdventureBook? LoadAdventure()
+    {
+        try { return Adventure.AdventureBook.Parse(ReadResource("adventure.json")); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+            return null;
+        }
+    }
+
     private static string ReadResource(string name)
     {
         var uri = new Uri($"pack://application:,,,/Assets/{name}", UriKind.Absolute);

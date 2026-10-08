@@ -51,6 +51,8 @@
     <Resource Include="..\..\assets\atlas.json" Link="Assets\atlas.json" />
     <!-- 物語の本文。ここを書き換えるだけで場面を足せる（C# は触らない） -->
     <Resource Include="..\..\assets\story.json" Link="Assets\story.json" />
+    <!-- 冒険の町・行き先・道具・文。これも書き換えるだけで足せる -->
+    <Resource Include="..\..\assets\adventure.json" Link="Assets\adventure.json" />
   </ItemGroup>
 
   <ItemGroup>

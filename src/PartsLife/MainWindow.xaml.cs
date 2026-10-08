@@ -96,7 +96,7 @@ public partial class MainWindow : Window
             Padding = new Thickness(7, 4, 7, 5),
             Child = _hoverTipText,
         };
-        _director = new Director(GameAssets.LoadStory(), _state);
+        _director = new Director(GameAssets.LoadStory(), _state, GameAssets.LoadAdventure());
         _packages = TopologySampler.CpuPackages(_sampler.LogicalProcessorCount);
         _state.MigrateKeys();
         _labels = _state.Labels switch
@@ -479,7 +479,10 @@ public partial class MainWindow : Window
     private void UpdateStoryText()
     {
         var log = _director.Recent;
-        ChapterText.Text = _director.CurrentChapter.Title.For(Strings.Lang);
+        // 章題の横に、いま一行が居る所（町か行き先）を小さく添える
+        string where = _director.Adventure?.PlaceName(Strings.Lang) ?? "";
+        ChapterText.Text = _director.CurrentChapter.Title.For(Strings.Lang)
+                           + (where.Length > 0 ? "  ·  " + where : "");
         StoryLine1.Text = log.Count > 0 ? log[0] : "";
         StoryLine2.Text = log.Count > 1 ? log[1] : "";
     }
@@ -515,9 +518,11 @@ public partial class MainWindow : Window
         var slot = _slots[index];
         int lv = _state.Level(slot.Key);
         string detail = slot.Detail.Length > 0 ? "\n" + slot.Detail : "";
+        string gear = _director.Adventure?.EquippedNames(slot.Key, Strings.Lang) ?? "";
         _hoverTipText.Text =
             $"{Director.DisplayName(slot.CharacterId, Strings.Lang)}  {Strings.Level}{lv}\n" +
-            $"{slot.Title}  {slot.Load * 100:0}%{detail}";
+            $"{slot.Title}  {slot.Load * 100:0}%{detail}" +
+            (gear.Length > 0 ? $"\n{Strings.Gear}: {gear}" : "");
 
         _hoverTip.PlacementTarget = BoardHost;
         _hoverTip.Placement = System.Windows.Controls.Primitives.PlacementMode.Relative;
