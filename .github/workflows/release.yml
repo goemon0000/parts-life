@@ -41,6 +41,10 @@ jobs:
       # 実機で測ると 222MB / 117MB(専有) 使い、非圧縮版は 130MB / 60MB だった。
       # 資源の使用量を眺めるためのアプリが、その倍を自分で使っていては話にならない。
       # 非圧縮版は ZIP にすると 56MB で、圧縮版の exe(62MB) より小さい。
+      # 点検の中身（NVMe/SMART の解析・基準値の差・メモリ照合・止めたら止まるか）
+      - name: テスト
+        run: dotnet test tests/PartsLife.Checks.Tests -c Release
+
       - name: ビルド（直接実行できる単一exe）
         run: >
           dotnet publish src/PartsLife/PartsLife.csproj -c Release -o dist
@@ -52,12 +56,20 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -p:EnableCompressionInSingleFile=false
 
+      # 点検の「記憶媒体の精密チェック」だけが使う、管理者の補助 exe（NativeAOT・2MB）。
+      # 本体は asInvoker のまま。管理者の要る処理はこちらに閉じ込めてある。ZIP にだけ同梱する。
+      - name: ビルド（点検の補助 exe）
+        run: >
+          dotnet publish src/PartsLife.Check/PartsLife.Check.csproj -c Release -o helper
+          -p:Version=${{ steps.ver.outputs.version }}
+
       - name: 署名に出す分をまとめる
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path sign | Out-Null
           Copy-Item dist/PartsLife.exe sign/PartsLife.exe
           Copy-Item slim/PartsLife.exe sign/PartsLife-slim.exe
+          Copy-Item helper/PartsLife.Check.exe sign/PartsLife.Check.exe
 
       - uses: actions/upload-artifact@v4
         id: artifact
@@ -88,11 +100,12 @@ jobs:
         run: |
           Copy-Item signed/PartsLife.exe dist/PartsLife.exe -Force
           Copy-Item signed/PartsLife-slim.exe slim/PartsLife.exe -Force
+          Copy-Item signed/PartsLife.Check.exe helper/PartsLife.Check.exe -Force
 
       # --- 公開 -------------------------------------------------------------
       - name: ZIP に詰める
         shell: pwsh
-        run: Compress-Archive -Path slim/PartsLife.exe -DestinationPath dist/PartsLife.zip -Force
+        run: Compress-Archive -Path slim/PartsLife.exe, helper/PartsLife.Check.exe -DestinationPath dist/PartsLife.zip -Force
 
       - name: 中身の指紋を出す
         shell: pwsh

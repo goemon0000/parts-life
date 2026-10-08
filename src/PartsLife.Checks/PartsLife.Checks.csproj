@@ -28,6 +28,8 @@
          ここに AOT で動かない書き方（リフレクション頼みの JSON など）を入れない。 -->
     <IsAotCompatible>true</IsAotCompatible>
     <Version>0.7.0</Version>
+    <!-- 本体の配布物（dist）に .pdb を混ぜない -->
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>

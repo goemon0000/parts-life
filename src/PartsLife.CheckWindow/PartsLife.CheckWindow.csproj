@@ -18,6 +18,8 @@
     <AssemblyName>PartsLife.CheckWindow</AssemblyName>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Version>0.7.0</Version>
+    <!-- 本体の配布物（dist）に .pdb を混ぜない -->
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
