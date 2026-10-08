@@ -1,5 +1,3 @@
-using PartsLife.Sensors;
-
 namespace PartsLife.Game;
 
 /// <summary>実測から作った、1秒ぶんの「働き」。</summary>

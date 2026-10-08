@@ -70,7 +70,7 @@ public partial class App : System.Windows.Application
     /// </summary>
     private static void DumpStory(string path, string lang)
     {
-        var story = Game.Story.Load();
+        var story = Game.GameAssets.LoadStory();
         var sb = new System.Text.StringBuilder();
 
         // 育ち具合を変えて2通り書き出す。分岐が効いていれば違う文が出る

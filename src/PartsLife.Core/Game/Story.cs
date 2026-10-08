@@ -1,7 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows;
 
 namespace PartsLife.Game;
 
@@ -23,13 +22,13 @@ public sealed class Story
         Vignettes = f.Vignettes;
     }
 
-    public static Story Load()
+    /// <summary>
+    /// json の本文から組み立てる。**読み込み元（exe に埋めた資源か、試験用のファイルか）は呼ぶ側が決める。**
+    /// ここが WPF の資源に直接触ると、画面の無い機械で試験が回せない。
+    /// </summary>
+    public static Story Parse(string json)
     {
-        var uri = new Uri("pack://application:,,,/Assets/story.json", UriKind.Absolute);
-        using var s = Application.GetResourceStream(uri)?.Stream
-                      ?? throw new FileNotFoundException("story.json が見つかりません");
-        using var r = new StreamReader(s);
-        var file = JsonSerializer.Deserialize<StoryFile>(r.ReadToEnd(),
+        var file = JsonSerializer.Deserialize<StoryFile>(json,
                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                    ?? throw new InvalidDataException("story.json を読めませんでした");
         if (file.Version is not (1 or 2))

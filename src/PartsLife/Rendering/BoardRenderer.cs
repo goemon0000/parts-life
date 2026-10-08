@@ -17,8 +17,6 @@ public sealed record BoardSlot(
     /// <summary>湯気の位相。姿のコマ送りとは別の時計で動かす。</summary>
     int SteamTick = 0);
 
-public enum SlotKind { Socket, Dimm, Pcie, M2, Sata, Atx }
-
 /// <summary>
 /// 基板とキャラを1枚の絵に描く。
 ///

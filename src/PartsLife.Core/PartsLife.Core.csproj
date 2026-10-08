@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    物語・レベル・冒険の「決まり」だけを持つ層。**WPF を一切参照しない。**
+    画面の無い機械（Linux の CI）でも、この層だけは試験を回せるようにするため。
+    実測（Sensors）と描画（Rendering）はアプリ側に残す。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>PartsLife.Core</AssemblyName>
+    <RootNamespace>PartsLife</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

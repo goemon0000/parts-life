@@ -54,6 +54,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 物語・レベル・冒険の決まり。WPF を持たない層に分けてあり、Linux でも試験が回る -->
+    <ProjectReference Include="..\PartsLife.Core\PartsLife.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- SSD/HDD の判別に MSFT_PhysicalDisk を引くため -->
     <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>

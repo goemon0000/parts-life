@@ -96,7 +96,7 @@ public partial class MainWindow : Window
             Padding = new Thickness(7, 4, 7, 5),
             Child = _hoverTipText,
         };
-        _director = new Director(Story.Load(), _state);
+        _director = new Director(GameAssets.LoadStory(), _state);
         _packages = TopologySampler.CpuPackages(_sampler.LogicalProcessorCount);
         _state.MigrateKeys();
         _labels = _state.Labels switch
