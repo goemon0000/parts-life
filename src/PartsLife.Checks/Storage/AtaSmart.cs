@@ -27,7 +27,7 @@ public sealed record SmartAttribute(byte Id, ushort Flags, byte Current, byte Wo
     public ulong Value => Id switch
     {
         190 or 194 => Raw & 0xFF,          // 温度。上位に最低/最高温度を詰める機種が多い
-        9 => Raw & 0xFFFFFFFF,             // 通電時間。上位にミリ秒等を詰める機種がある
+        9 => Raw & 0xFFFFFFFF,             // 通電時間。上位にミリ秒等を詰める機種がある。単位は換算しない（分・秒の機種あり）
         _ => Raw,
     };
 

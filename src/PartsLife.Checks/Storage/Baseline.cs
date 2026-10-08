@@ -351,10 +351,12 @@ public sealed class BaselineStore
     private static readonly string[] Monotonic = { Counters.PowerOnHours, Counters.DataUnitsWritten, Counters.Ata(9) };
 
     /// <summary>
-    /// 時間で数える数。ATA の 9 は機種によって分や秒で数える物がある（古い HDD に少数）。
-    /// その台は毎回「比べられない」になるが、**別の台の記録と比べて「増えています」と言うよりは良い**。
+    /// 時間で数えると決まっている数。**NVMe の通電時間だけ**（仕様で「時間」）。
+    /// ATA の 9 は入れない: 機種によって分・半分・秒で数える物がある（古い Maxtor・富士通・Samsung の HDD）。
+    /// 入れるとその台は毎回「時計より進んだ」になり、本物の増え（5・197・198）が二度と出なくなる。
+    /// ATA の 9 は <see cref="Monotonic"/>（減ったら別の台）にだけ使う。減るのはどの単位でもおかしい。
     /// </summary>
-    private static readonly string[] Hours = { Counters.PowerOnHours, Counters.Ata(9) };
+    private static readonly string[] Hours = { Counters.PowerOnHours };
 
     /// <summary>通電時間は整数の時間で切り捨てられ、更新も間をおいて行われるので、そのぶんの余裕。</summary>
     internal static readonly TimeSpan HoursSlack = TimeSpan.FromHours(2);
@@ -365,9 +367,10 @@ public sealed class BaselineStore
     /// <summary>
     /// 前回の記録が別の台の物ではないかを確かめる。
     /// - 減らないはずの数（通電時間・書き込み量）が減った → 別の台
-    /// - 通電時間が、前回の記録から経った時間（+ 余裕）より多く進んだ → 別の台
+    /// - NVMe の通電時間が、前回の記録から経った時間（+ 余裕）より多く進んだ → 別の台
     ///   （同じシリアルの2台が位置を入れ替えた・同じシリアルの別の台に替わった。通電時間の長い方が
-    ///   短い方の記録の位置に来ると、減ってはいないので上だけでは見抜けない）
+    ///   短い方の記録の位置に来ると、減ってはいないので上だけでは見抜けない）。
+    ///   ATA の 9 は単位が機種まちまちなので、こちらには使わない（<see cref="Hours"/>）
     /// </summary>
     internal static Continuity CheckContinuity(BaselineEntry previous, IReadOnlyDictionary<string, ulong> current, DateTimeOffset now)
     {

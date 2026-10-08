@@ -254,12 +254,68 @@ public class BaselineIdentityTests : IDisposable
         // 時計が戻っていても（前回より前の時刻）、余裕を超えて進んだら別の台
         Assert.Equal(BaselineStore.Continuity.Same, BaselineStore.CheckContinuity(prev, Poh(103), T0.AddHours(-5)));
         Assert.Equal(BaselineStore.Continuity.AheadOfClock, BaselineStore.CheckContinuity(prev, Poh(104), T0.AddHours(-5)));
-        // ATA の通電時間（属性 9）も同じ
+        // ATA の通電時間（属性 9）は単位が機種まちまち（分・秒）なので、進み方では判断しない。減ったときだけ別の台
         var ata = new BaselineEntry { At = T0, Counters = new() { [Counters.Ata(9)] = 5_000 } };
-        Assert.Equal(BaselineStore.Continuity.AheadOfClock,
+        Assert.Equal(BaselineStore.Continuity.Same,
                      BaselineStore.CheckContinuity(ata, new Dictionary<string, ulong> { [Counters.Ata(9)] = 9_000 }, T0.AddDays(1)));
         Assert.Equal(BaselineStore.Continuity.Same,
                      BaselineStore.CheckContinuity(ata, new Dictionary<string, ulong> { [Counters.Ata(9)] = 5_020 }, T0.AddDays(1)));
+        Assert.Equal(BaselineStore.Continuity.WentBackwards,
+                     BaselineStore.CheckContinuity(ata, new Dictionary<string, ulong> { [Counters.Ata(9)] = 4_999 }, T0.AddDays(1)));
+    }
+
+    /// <summary>SATA の HDD（見本は <see cref="Fixtures.SataWithPendingSectors"/>）の生の値を、属性の番号で書き換える。</summary>
+    private static DiskReport Sata(string serial, ulong powerOn, ulong reallocated, ulong pending, string location = "")
+    {
+        var (d, t) = Fixtures.SataWithPendingSectors();
+        void Raw(byte id, ulong raw)
+        {
+            for (int off = 2; off + 12 <= 2 + 30 * 12; off += 12)
+                if (d[off] == id) { for (int i = 0; i < 6; i++) d[off + 5 + i] = (byte)(raw >> (8 * i)); return; }
+            throw new InvalidOperationException($"attribute {id} is not in the fixture");
+        }
+        Raw(9, powerOn);
+        Raw(5, reallocated);
+        Raw(197, pending);
+        return new DiskReport
+        {
+            Model = "Old HDD", Serial = serial, Bus = BusType.Sata, Protocol = "ata", SizeBytes = 80_026_361_856,
+            Location = location, AtaSmartData = d, AtaSmartThresholds = t,
+        };
+    }
+
+    [Fact]
+    public void Ata_power_on_counted_in_minutes_does_not_hide_real_growth()
+    {
+        var store = new BaselineStore(_dir);
+        // 属性 9 を分で数える古い HDD。1 日（1,440 分）付けっぱなしなら 1,440 進む
+        var first = store.RecordAll(new[] { Sata("MAXTOR1", 1_260_000, reallocated: 10, pending: 8) }, T0)[0];
+        Assert.Equal(BaselineState.First, first.State);
+
+        var later = Sata("MAXTOR1", 1_260_000 + 1_440, reallocated: 14, pending: 11);
+        var o = store.RecordAll(new[] { later }, T0.AddDays(1))[0];
+        Assert.Equal(BaselineState.Compared, o.State);
+        var j = StorageJudge.Judge(later, o.Previous, o.State);
+        var realloc = j.Findings.Single(f => f.Title == "代替処理済みセクタ");
+        Assert.Equal(Verdict.Check, realloc.Verdict);
+        Assert.Contains("(+4)", realloc.Reason);
+        Assert.Contains("増えています", realloc.Reason);
+        var pending = j.Findings.Single(f => f.Title == "代替待ちセクタ");
+        Assert.Contains("(+3)", pending.Reason);
+        Assert.Contains("増えています", pending.Reason);
+
+        // 分で数える台の属性 9 が減ったら、単位に関係なくおかしい → 比べない
+        var back = Sata("MAXTOR1", 1_000, reallocated: 99, pending: 99);
+        Assert.Equal(BaselineState.Mismatch, store.RecordAll(new[] { back }, T0.AddDays(2))[0].State);
+
+        // NVMe の通電時間（仕様で「時間」）は今まで通り: 同じシリアルの別の台に入れ替わったら比べない
+        var nvme = new BaselineStore(Path.Combine(_dir, "nvme"));
+        nvme.RecordAll(new[] { With(Nvme("SWAPN", 0), powerOnHours: 1_200) }, T0);
+        var swapped = With(Nvme("SWAPN", 363_278), powerOnHours: 21_345);
+        var s = nvme.RecordAll(new[] { swapped }, T0.AddDays(1))[0];
+        Assert.Equal(BaselineState.AheadOfClock, s.State);
+        Assert.Null(s.Previous);
+        Assert.DoesNotContain("増えています", Media(StorageJudge.Judge(swapped, s.Previous, s.State)).Reason);
     }
 
     /// <summary>v1 のファイル（ファイル名 = シリアル）を、記録の並び（時刻・通電時間・メディアエラー）から書く。</summary>
