@@ -1,3 +1,5 @@
+using PartsLife.Adventure;
+
 namespace PartsLife.Game;
 
 /// <summary>実測から作った、1秒ぶんの「働き」。</summary>
@@ -17,29 +19,51 @@ public sealed record Work(
 ///
 /// 経験値は **その子自身の仕事でしか増えない。**
 /// CPU を回しても GPU は上がらない。そこが崩れると、ただの時間経過になる。
+/// 冒険（町・遠出・装備）も経験値には触らない。勝っても負けても、レベルは仕事でしか動かない。
 /// </summary>
 public sealed class Director
 {
     private readonly Story _story;
     private readonly PartyState _state;
+    private readonly AdventureEngine? _adventure;
 
     /// <summary>待機が続いた秒数。焚き火の場面を出す判定に使う。</summary>
     private double _idleSeconds;
     private bool _bootDone;
-    private readonly Random _rnd = new();
+    private readonly Random _rnd;
+    private readonly Func<long> _clock;
 
     /// <summary>前の小話から何秒経ったか。</summary>
     private double _sinceVignette;
     private double _nextVignetteAt = 120;
 
-    public Director(Story story, PartyState state)
+    /// <summary>
+    /// 今回出た文章。**毎秒作り直さず、使い回す。**
+    /// 常駐物が毎秒ゴミを出し続けると、それだけで GC が回る。
+    /// </summary>
+    private readonly List<string> _produced = new();
+
+    // 条件判定に使う状態。顔ぶれとレベルと章が変わったときだけ作り直す
+    private WorldState? _world;
+    private int _worldSig;
+
+    /// <param name="adventure">冒険の本文。null なら冒険は回さない（物語とレベルだけ）</param>
+    /// <param name="random">乱数。試験では種を固定したものを渡す</param>
+    /// <param name="clock">いまの時刻（UNIX 秒）。試験では模擬の時計を渡す</param>
+    public Director(Story story, PartyState state, AdventureBook? adventure = null,
+                    Random? random = null, Func<long>? clock = null)
     {
         _story = story;
         _state = state;
+        _rnd = random ?? new Random();
+        _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        if (adventure is not null)
+            _adventure = new AdventureEngine(adventure, state, new Random(_rnd.Next()));
     }
 
     public PartyState State => _state;
     public Story Story => _story;
+    public AdventureEngine? Adventure => _adventure;
 
     /// <summary>いまの章。</summary>
     public Chapter CurrentChapter => _story.Chapters[Math.Clamp(_state.Chapter, 0, _story.Chapters.Count - 1)];
@@ -52,7 +76,11 @@ public sealed class Director
     // ---------------------------------------------------------------------
 
     /// <summary>1秒あたりの取得経験値。待機でも僅かに入る（点けているだけでも進む）。</summary>
-    private static double ExpRate(double load) => 0.6 + Math.Clamp(load, 0, 1) * 11.0;
+    public static double ExpRate(double load) => 0.6 + Math.Clamp(load, 0, 1) * 11.0;
+
+    /// <summary>1秒あたりの旅程。待機 0.15、全力で 1.4 前後。</summary>
+    public static double JourneyRate(Work w) =>
+        0.15 + (w.Cpu + w.Gpu + w.Memory * 0.3 + w.Disk * 0.5) * 0.62;
 
     // ---------------------------------------------------------------------
     // 進行
@@ -60,19 +88,20 @@ public sealed class Director
 
     /// <summary>
     /// dt 秒ぶん進める。呼ぶのは1秒に1回で十分。
-    /// 返り値は「今回新しく出た文章」（無ければ空）。
+    /// 返り値は「今回新しく出た文章」（無ければ空）。**次の Tick までしか有効でない**（使い回すため）。
     /// </summary>
     public IReadOnlyList<string> Tick(double dt, Work w, IReadOnlyList<PartySlot> slots, string lang)
     {
-        var produced = new List<string>();
+        var produced = _produced;
+        produced.Clear();
         _state.UptimeSeconds += dt;
-        var world = WorldOf(slots);
 
         // --- 経験値 ---
         // **その子自身の仕事でしか増えない。**
         // GPU が2枚なら、回っている方だけが育つ。ここが崩れると、ただの時間経過になる。
-        foreach (var slot in slots)
+        for (int i = 0; i < slots.Count; i++)
         {
+            var slot = slots[i];
             int before = _state.Level(slot.Key);
             _state.AddExp(slot.Key, ExpRate(slot.Load) * dt);
             int after = _state.Level(slot.Key);
@@ -84,12 +113,13 @@ public sealed class Director
                         .Replace("{name}", DisplayName(slot.CharacterId, lang)) + $"  (Lv.{after})");
             }
         }
+        var world = WorldOf(slots);
 
         // --- 旅程 ---
         // 待機 0.24/秒、全力 1.4/秒 前後。序章の1場面が 14 なので、
         // 負荷をかければ十数秒で文章が動く。放っておいても数分で動く。
-        double effort = w.Cpu + w.Gpu + w.Memory * 0.3 + w.Disk * 0.5;
-        _state.Journey += (0.15 + effort * 0.62) * dt;
+        double journey = JourneyRate(w) * dt;
+        _state.Journey += journey;
 
         // --- 章と場面 ---
         int chapter = _story.ChapterAt(_state.Journey);
@@ -98,6 +128,7 @@ public sealed class Director
             _state.Chapter = chapter;
             _state.Scene = 0;
             produced.Add("── " + CurrentChapter.Title.For(lang) + " ──");
+            world = WorldOf(slots);
         }
 
         var ch = CurrentChapter;
@@ -114,8 +145,12 @@ public sealed class Director
             produced.Add(first.For(lang));
 
         // --- 傍白 ---
-        foreach (var text in CheckEvents(dt, w, lang, world))
-            produced.Add(text);
+        CheckEvents(dt, w, lang, world, produced);
+
+        // --- 冒険 ---
+        // 本筋の場面と場面の間を埋める。進むのは同じ旅程から（実機の働きからだけ）。
+        // 本筋の文が出た秒には場面を進めない（一度に流れると読めない）。
+        _adventure?.Tick(dt, journey, w, slots, world, produced, lang);
 
         // --- 小話 ---
         // 章の進行とは別に、ふとした瞬間に1つだけ流す。
@@ -163,73 +198,87 @@ public sealed class Director
         return line;
     }
 
-    /// <summary>いまの機械と進行を、条件判定に使える形にまとめる。</summary>
+    /// <summary>
+    /// いまの機械と進行を、条件判定に使える形にまとめる。
+    /// **変わっていなければ前の物を使う。** 毎秒、辞書と集合を作り直していた。
+    /// 変わったかどうかは、顔ぶれ・レベル・章・起動回数・起動時間（分）から見る。
+    /// </summary>
     private WorldState WorldOf(IReadOnlyList<PartySlot> slots)
     {
+        int sig;
+        unchecked
+        {
+            sig = _state.Chapter * 397 ^ _state.Boots * 31 ^ (int)(_state.UptimeSeconds / 60) * 7919;
+            for (int i = 0; i < slots.Count; i++)
+                sig = (sig * 31 + slots[i].Key.GetHashCode()) * 31 + _state.Level(slots[i].Key);
+        }
+        if (_world is not null && sig == _worldSig) return _world;
+        _worldSig = sig;
+
         var levels = new Dictionary<string, int>();
         var present = new HashSet<string>();
+        int gpus = 0, cpus = 0;
         foreach (var s in slots)
         {
             present.Add(s.CharacterId);
+            if (s.CharacterId == "gpu") gpus++;
+            if (s.CharacterId == "cpu") cpus++;
             int lv = _state.Level(s.Key);
             // 同じ種類が複数あるときは、**最も育っている個体**を代表にする
             if (!levels.TryGetValue(s.CharacterId, out int cur) || lv > cur)
                 levels[s.CharacterId] = lv;
         }
-        return new WorldState(
-            levels, _state.Chapter,
-            slots.Count(s => s.CharacterId == "gpu"),
-            slots.Count(s => s.CharacterId == "cpu"),
+        return _world = new WorldState(
+            levels, _state.Chapter, gpus, cpus,
             present, _state.Boots, _state.UptimeSeconds / 3600.0);
     }
 
-    private IEnumerable<string> CheckEvents(double dt, Work w, string lang, WorldState world)
+    /// <summary>傍白。**毎秒の一覧づくりをしない**（状況が続く間、毎秒ここを通るため）。</summary>
+    private void CheckEvents(double dt, Work w, string lang, WorldState world, List<string> output)
     {
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long now = _clock();
 
         if (!_bootDone)
         {
             _bootDone = true;
             long gap = _state.LastSeenUnix == 0 ? 0 : now - _state.LastSeenUnix;
             string kind = gap > 3 * 24 * 3600 ? "long-absence" : "boot";
-            if (TryFire(kind, now, lang, world, out var boot)) yield return boot;
+            TryFire(kind, now, lang, world, output);
         }
 
         _idleSeconds = w.Cpu <= 0.05 ? _idleSeconds + dt : 0;
 
-        foreach (var kind in SituationsOf(w))
-            if (TryFire(kind, now, lang, world, out var text))
-                yield return text;
+        // いま満たしている状況の種類
+        if (w.Cpu >= 0.90) TryFire("cpu-very-high", now, lang, world, output);
+        if (w.Gpu >= 0.85) TryFire("gpu-very-high", now, lang, world, output);
+        if (w.Memory >= 0.90) TryFire("memory-tight", now, lang, world, output);
+        if (w.Disk >= 0.60) TryFire("disk-busy", now, lang, world, output);
+        if (w.DiskFullest >= 0.90) TryFire("disk-full", now, lang, world, output);
+        if (_idleSeconds >= 120) TryFire("idle-long", now, lang, world, output);
     }
 
-    /// <summary>いま満たしている状況の種類。</summary>
-    private IEnumerable<string> SituationsOf(Work w)
+    private void TryFire(string when, long now, string lang, WorldState world, List<string> output)
     {
-        if (w.Cpu >= 0.90) yield return "cpu-very-high";
-        if (w.Gpu >= 0.85) yield return "gpu-very-high";
-        if (w.Memory >= 0.90) yield return "memory-tight";
-        if (w.Disk >= 0.60) yield return "disk-busy";
-        if (w.DiskFullest >= 0.90) yield return "disk-full";
-        if (_idleSeconds >= 120) yield return "idle-long";
-    }
-
-    private bool TryFire(string when, long now, string lang, WorldState world, out string text)
-    {
-        text = "";
-        var candidates = _story.EventsFor(when).ToList();
-        if (candidates.Count == 0) return false;
-        var ev = candidates[_rnd.Next(candidates.Count)];
+        // 同じ種類の傍白は、同じ待ち時間を共有する。先に待ち時間を見て、無駄な選定をしない
+        var candidates = _story.EventsFor(when);
+        if (candidates.Count == 0) return;
+        var ev = candidates[candidates.Count == 1 ? 0 : _rnd.Next(candidates.Count)];
 
         if (_state.LastEventAt.TryGetValue(ev.When, out long last) && now - last < ev.Cooldown)
-            return false;
+            return;
 
         // 条件に当たるものだけから選ぶ。育った機械でだけ出る一行がある
-        var usable = ev.Texts.Where(t => Conditions.Match(t.When, world)).ToList();
-        if (usable.Count == 0) return false;
-
-        _state.LastEventAt[ev.When] = now;
-        text = usable[_rnd.Next(usable.Count)].For(lang);
-        return true;
+        int usable = 0;
+        foreach (var t in ev.Texts) if (Conditions.Match(t.When, world)) usable++;
+        if (usable == 0) return;
+        int k = _rnd.Next(usable);
+        foreach (var t in ev.Texts)
+        {
+            if (!Conditions.Match(t.When, world) || k-- != 0) continue;
+            _state.LastEventAt[ev.When] = now;
+            output.Add(t.For(lang));
+            return;
+        }
     }
 
     private Line Pick(StoryEvent ev) => ev.Texts[_rnd.Next(ev.Texts.Count)];
@@ -239,13 +288,13 @@ public sealed class Director
         ? id switch
         {
             "cpu" => "The CPU", "cpu-cooler" => "The cooler", "memory" => "The memory",
-            "gpu" => "The GPU", "ssd" => "The SSD", "hdd" => "The HDD",
+            "gpu" => "The GPU", "m2" => "The M.2", "ssd" => "The SSD", "hdd" => "The HDD",
             "psu" => "The PSU", "motherboard" => "The motherboard", _ => id,
         }
         : id switch
         {
             "cpu" => "CPUくん", "cpu-cooler" => "クーラーくん", "memory" => "メモリくん",
-            "gpu" => "GPUくん", "ssd" => "SSDくん", "hdd" => "HDDくん",
+            "gpu" => "GPUくん", "m2" => "M.2くん", "ssd" => "SSDくん", "hdd" => "HDDくん",
             "psu" => "電源くん", "motherboard" => "マザーボードくん", _ => id,
         };
 }

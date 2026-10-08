@@ -20,7 +20,15 @@ public sealed class Story
         Chapters = f.Chapters;
         Events = f.Events;
         Vignettes = f.Vignettes;
+        // 傍白は状況が続く間、毎秒引かれる。そのたびに一覧を作らないよう、先に分けておく
+        _eventsByWhen = f.Events.GroupBy(e => e.When)
+                         .ToDictionary(g => g.Key, g => (IReadOnlyList<StoryEvent>)g.ToArray());
+        _eventsById = f.Events.Where(e => e.Id.Length > 0)
+                       .GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.First());
     }
+
+    private readonly Dictionary<string, IReadOnlyList<StoryEvent>> _eventsByWhen;
+    private readonly Dictionary<string, StoryEvent> _eventsById;
 
     /// <summary>
     /// json の本文から組み立てる。**読み込み元（exe に埋めた資源か、試験用のファイルか）は呼ぶ側が決める。**
@@ -45,8 +53,10 @@ public sealed class Story
         return idx;
     }
 
-    public StoryEvent? EventById(string id) => Events.FirstOrDefault(e => e.Id == id);
-    public IEnumerable<StoryEvent> EventsFor(string when) => Events.Where(e => e.When == when);
+    public StoryEvent? EventById(string id) =>
+        _eventsById.TryGetValue(id, out var e) ? e : Events.FirstOrDefault(x => x.When == id);
+    public IReadOnlyList<StoryEvent> EventsFor(string when) =>
+        _eventsByWhen.TryGetValue(when, out var list) ? list : Array.Empty<StoryEvent>();
 
     /// <summary>章に属さない小話。ふとした瞬間に1つだけ流れる。</summary>
     public IReadOnlyList<Line> Vignettes { get; }

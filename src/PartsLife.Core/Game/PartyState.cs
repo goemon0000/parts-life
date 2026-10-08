@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using PartsLife.Adventure;
 
 namespace PartsLife.Game;
 
@@ -10,6 +11,19 @@ namespace PartsLife.Game;
 /// </summary>
 public sealed class PartyState
 {
+    /// <summary>
+    /// 保存の形の版。**v0.6.0 までの保存には無い（読むと 0 になる）。**
+    ///   0 … v0.6.0 まで（物語とレベルだけ）
+    ///   1 … 冒険（町・遠出・装備）を足した形
+    /// 読み込んだら必ず <see cref="Migrate"/> を通し、足りない物を既定値で埋める。
+    /// 物語の進みとレベルには一切触らない。
+    /// </summary>
+    public const int CurrentVersion = 1;
+    public int SaveVersion { get; set; }
+
+    /// <summary>冒険の進み具合。古い保存には無いので、移すときに作る。</summary>
+    public AdventureState? Adventure { get; set; } = new();
+
     /// <summary>キャラid → 経験値。**その子自身の仕事でしか増えない。**</summary>
     public Dictionary<string, double> Experience { get; set; } = new();
 
@@ -101,6 +115,30 @@ public sealed class PartyState
         }
     }
 
+    /// <summary>
+    /// 古い形の保存を今の形に揃える。**何度呼んでも同じ結果になる。**
+    /// 新しい版で書かれた保存（SaveVersion が先の版）は、分かる所だけ使い、版の数は下げない。
+    /// </summary>
+    public void Migrate()
+    {
+        Experience ??= new Dictionary<string, double>();
+        Log ??= new List<string>();
+        LastEventAt ??= new Dictionary<string, long>();
+        RecentVignettes ??= new List<string>();
+        Lang ??= "";
+        Labels ??= "level";
+
+        if (SaveVersion < 1)
+        {
+            // v0.6.0 まで → 冒険を足す。旅は最初の町から、何も持たずに始まる
+            // （持ち物は、最初に盤の上に並んだときに「ありあわせ」が配られる）
+            MigrateKeys();
+            Adventure = new AdventureState();
+        }
+        Adventure ??= new AdventureState();
+        if (SaveVersion < CurrentVersion) SaveVersion = CurrentVersion;
+    }
+
     public void AddExp(string characterId, double amount)
     {
         if (amount <= 0) return;
@@ -124,6 +162,8 @@ public sealed class PartyState
         Log.Clear();
         LastEventAt.Clear();
         RecentVignettes.Clear();
+        // 旅も最初の町から。**持ち物と金は残す**（育てた側のもので、物語ではないので）
+        Adventure?.ResetJourney();
     }
 
     /// <summary>レベルだけを最初から。物語は残す。</summary>
@@ -136,6 +176,7 @@ public sealed class PartyState
         ResetLevels();
         UptimeSeconds = 0;
         Boots = 0;
+        Adventure = new AdventureState();
     }
 
     // ---------------------------------------------------------------------
@@ -162,12 +203,23 @@ public sealed class PartyState
             string from = File.Exists(FilePath) ? FilePath
                         : File.Exists(LegacyFilePath) ? LegacyFilePath   // 「パーツパーティ」時代の進行
                         : "";
-            if (from.Length > 0)
-                return JsonSerializer.Deserialize<PartyState>(File.ReadAllText(from), Opts) ?? new PartyState();
+            if (from.Length > 0) return FromJson(File.ReadAllText(from));
         }
         catch { /* 壊れていたら作り直す。物語が消えるだけで害はない */ }
-        return new PartyState();
+        var fresh = new PartyState();
+        fresh.Migrate();
+        return fresh;
     }
+
+    /// <summary>保存の本文から読む。**必ず Migrate を通す。** 読めなければ例外。</summary>
+    public static PartyState FromJson(string json)
+    {
+        var state = JsonSerializer.Deserialize<PartyState>(json, Opts) ?? new PartyState();
+        state.Migrate();
+        return state;
+    }
+
+    public string ToJson() => JsonSerializer.Serialize(this, Opts);
 
     public void Save()
     {
@@ -176,7 +228,7 @@ public sealed class PartyState
             Directory.CreateDirectory(Dir);
             // 書き途中で電源が落ちても壊れないよう、別名で書いてから置き換える
             string tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(this, Opts));
+            File.WriteAllText(tmp, ToJson());
             File.Move(tmp, FilePath, overwrite: true);
         }
         catch { /* 保存できなくても動作は続ける */ }
