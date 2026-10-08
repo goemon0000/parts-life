@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    「点検」の窓。本体の右クリックの献立から開く。
+
+    **常駐の負担にならない形にしてある:**
+    - 本体はこのアセンブリを、献立で「点検」を押したときに初めて読み込む（それまでは 0 バイト）
+    - 窓を開いても、ボタンを押すまで何も動かない
+    - 窓を閉じたら全部止めて、確保した物を返す
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>PartsLife.CheckWindow</RootNamespace>
+    <AssemblyName>PartsLife.CheckWindow</AssemblyName>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Version>0.7.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PartsLife.Checks\PartsLife.Checks.csproj" />
+  </ItemGroup>
+
+</Project>
