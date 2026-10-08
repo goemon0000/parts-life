@@ -16,6 +16,11 @@ public sealed class GpuLoadOptions
     /// <summary>この温度に達したら即座に止める。</summary>
     public int AbortCelsius { get; init; } = 83;
     /// <summary>
+    /// 温度の読み取り1回に待つ時間。**これを超えたら「読めなかった」に数える**
+    /// （固まった読み取りを待ち続けると、負荷を止める者がいなくなる）。
+    /// </summary>
+    public TimeSpan ReadTimeout { get; init; } = TimeSpan.FromMilliseconds(1500);
+    /// <summary>
     /// 働かせる割合。**控えめに 75%。** 1回 30 ミリ秒ほど回して、10 ミリ秒休む。
     /// 修理明けのカードもあるので、全開で焼くような試験にはしない。
     /// </summary>
@@ -35,6 +40,11 @@ public sealed class GpuLoadResult
     public bool Stopped { get; set; }
     public string? AbortReason { get; set; }
     public bool AbortedForHeat { get; set; }
+    /// <summary>
+    /// 温度の読み取りが戻ってこないまま終わった。読み口（nvml.dll）の中にまだ糸がいるかもしれないので、
+    /// **呼んだ側はその DLL を解放してはいけない**（<see cref="Nvml.Dispose"/> は自分で確かめる）。
+    /// </summary>
+    public bool TemperatureReaderStuck { get; set; }
     public int? MaxTemperature { get; set; }
     public int? StartTemperature { get; set; }
     public long Mismatches { get; set; }
@@ -51,6 +61,7 @@ public sealed class GpuLoadResult
 /// - 温度が読めない GPU には負荷をかけない（NVIDIA 以外は今のところ全部これ。TODO: AMD は ADLX）
 /// - 始める前に既に 78 ℃ 以上なら始めない
 /// - 0.5 秒ごとに温度を読み、83 ℃ に達したら即座に止める。3 回続けて読めなくても止める
+///   （1.5 秒以内に戻らない読み取りも「読めなかった」に数える。固まった読み取りを待ち続けない）
 /// - 1 回の計算は 30 ミリ秒ほど。Windows が「GPU が固まった」と判断する 2 秒には遠く及ばない
 /// - 働かせるのは 75% の時間だけ
 /// ■ 答え合わせをする
@@ -71,8 +82,17 @@ public static class GpuLoadTest
                                 "this GPU's temperature cannot be watched, so no load was applied");
             return r;
         }
-        int? t0 = o.Temperature();
+        // 読み取りは専用の糸で。戻らなければ見切る（Dispose は待たない。固まった糸は放っておく）
+        using var probe = new TimedReader(o.Temperature, "PartsLife.GpuTempRead");
+        bool t0Read = probe.TryRead(o.ReadTimeout, out int? t0);
         r.StartTemperature = r.MaxTemperature = t0;
+        if (!t0Read)
+        {
+            r.TemperatureReaderStuck = probe.Busy;
+            r.AbortReason = L.T("温度の読み取りが応答しなかったので始めませんでした",
+                                "the temperature reading did not respond, so did not start");
+            return r;
+        }
         if (t0 is null)
         {
             r.AbortReason = L.T("温度が読めなかったので始めませんでした", "could not read the temperature, so did not start");
@@ -88,17 +108,23 @@ public static class GpuLoadTest
         // 温度の見張り（別スレッド）
         int latestTemp = t0.Value, misses = 0;
         string? watchAbort = null;
-        bool heat = false;
+        bool heat = false, hung = false;
         using var stopWatch = new CancellationTokenSource();
         var watcher = new Thread(() =>
         {
             while (!stopWatch.Token.WaitHandle.WaitOne(500))
             {
-                int? t = null;
-                try { t = o.Temperature(); } catch { }
-                if (t is null)
+                bool answered = probe.TryRead(o.ReadTimeout, out int? t);
+                if (!answered || t is null)
                 {
-                    if (++misses >= 3) { watchAbort = L.T("温度が読めなくなったので止めました", "stopped: temperature could not be read"); return; }
+                    hung |= !answered;
+                    if (++misses >= 3)
+                    {
+                        watchAbort = hung
+                            ? L.T("温度の読み取りが応答しなくなったので止めました", "stopped: the temperature reading stopped responding")
+                            : L.T("温度が読めなくなったので止めました", "stopped: temperature could not be read");
+                        return;
+                    }
                     continue;
                 }
                 misses = 0;
@@ -177,7 +203,10 @@ public static class GpuLoadTest
         finally
         {
             stopWatch.Cancel();
-            watcher.Join(2000);
+            // 見張りの糸は読み取りを最大 ReadTimeout しか待たないので、ここで必ず戻る
+            if (!watcher.Join(o.ReadTimeout + TimeSpan.FromSeconds(1)))
+                System.Diagnostics.Trace.TraceWarning("PartsLife: the GPU temperature watcher did not exit in time.");
+            r.TemperatureReaderStuck = probe.Busy;
         }
 
         if (watchAbort is not null) { r.AbortReason = watchAbort; r.AbortedForHeat = heat; }

@@ -179,6 +179,8 @@ internal sealed class LoadPanel : CheckPanel
                         _task = t;
                         _last = GpuLoadTest.Judge(await t);
                     }
+                    // 温度の読み取りが固まって nvml.dll の中に糸が残っていれば、Dispose は
+                    // 終了も解放もせずに手放す（Nvml.Dispose。解放した場所で糸が動き出さないように）
                     finally { nvml?.Dispose(); }
                     break;
                 }
