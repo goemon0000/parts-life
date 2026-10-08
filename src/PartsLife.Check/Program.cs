@@ -1,9 +1,7 @@
 using System.Diagnostics;
-using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using PartsLife.Checks;
 using PartsLife.Checks.Protocol;
 using PartsLife.Checks.Scan;
@@ -27,15 +25,13 @@ namespace PartsLife.Check;
 /// ■ やらないこと
 /// - 媒体・ファイル・レジストリに書かない。ネットワークに繋がない
 /// - 引数で決まった仕事以外はしない。パイプから受け付けるのは "stop" だけ
+///   （引数の読み方・パイプの確かめ方は PartsLife.Checks の HelperArgs / HelperPipe。試験もそちら）
 /// - 繋ぎ先が起動元（--parent）のパイプでなければ、何も読まずに終わる
 /// </summary>
-internal static partial class Program
+internal static class Program
 {
     private static readonly object WriteGate = new();
     private static StreamWriter? _out;
-
-    [GeneratedRegex("^PartsLife\\.Check\\.[0-9a-f]{32}$")]
-    private static partial Regex PipeName();
 
     private const uint LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800;
 
@@ -46,27 +42,21 @@ internal static partial class Program
         if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)) return 5;
         PinNativeSearch();
 
-        var a = Args.Parse(args);
+        var a = HelperArgs.Parse(args);
         if (a is null) return 2;
         L.Lang = a.Lang;
 
         using var cts = new CancellationTokenSource();
-        NamedPipeClientStream pipe;
-        try
+        // 繋いだ先が、起動元のプロセスが作ったパイプでなければ何もしない
+        switch (HelperPipe.ConnectToParent(a.Pipe, a.Parent, 10_000, out var connected))
         {
-            // Asynchronous で開く。同期の handle だと、"stop" を待つ読み取りが
-            // 結果の書き込みを塞いでしまう（同じ handle の同期 I/O は順番待ちになる）
-            pipe = new NamedPipeClientStream(".", a.Pipe, PipeDirection.InOut, PipeOptions.Asynchronous);
-            pipe.Connect(10_000);
+            case HelperPipe.Connect.NoServer: return 3;
+            case HelperPipe.Connect.WrongServer: return 4;
         }
-        catch (Exception) { return 3; }
+        var pipe = connected!;
 
         using (pipe)
         {
-            // 繋いだ相手が、起動元のプロセスが作ったパイプか
-            if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out uint server) || server != (uint)a.Parent)
-                return 4;
-
             _out = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
             Send(new HelperMessage { Type = HelperMessage.Hello, Pid = Environment.ProcessId });
 
@@ -76,12 +66,7 @@ internal static partial class Program
                 try
                 {
                     using var r = new StreamReader(pipe, new UTF8Encoding(false), false, 256, leaveOpen: true);
-                    while (true)
-                    {
-                        string? line = r.ReadLine();
-                        if (line is null) break;
-                        if (line.Trim() == HelperMessage.StopCommand) break;
-                    }
+                    HelperPipe.WaitForStop(r);
                 }
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
@@ -159,44 +144,7 @@ internal static partial class Program
         }
     }
 
-    private sealed record Args(string Pipe, int Parent, string Lang, string Job, int Disk, bool Full, int Every)
-    {
-        /// <summary>**知らない引数があれば何もせずに終わる。** 余計な解釈をしない。</summary>
-        public static Args? Parse(string[] args)
-        {
-            string? pipe = null, job = null, lang = "ja", mode = null;
-            int parent = -1, disk = -1, every = 256;
-            for (int i = 0; i < args.Length; i++)
-            {
-                string Next() => i + 1 < args.Length ? args[++i] : "";
-                switch (args[i])
-                {
-                    case "--pipe": pipe = Next(); break;
-                    case "--parent": if (!int.TryParse(Next(), out parent)) return null; break;
-                    case "--lang": lang = Next() == "en" ? "en" : "ja"; break;
-                    case "--disk": if (!int.TryParse(Next(), out disk)) return null; break;
-                    case "--mode": mode = Next(); break;
-                    case "--every": if (!int.TryParse(Next(), out every)) return null; break;
-                    case "smart" or "scan" when job is null: job = args[i]; break;
-                    default: return null;
-                }
-            }
-            if (pipe is null || !PipeName().IsMatch(pipe) || parent <= 0 || job is null) return null;
-            if (job == "scan")
-            {
-                if (disk is < 0 or >= StorageReader.MaxDisks) return null;
-                if (mode is not ("sample" or "full")) return null;
-                if (every is < 2 or > 65536) return null;
-            }
-            return new Args(pipe, parent, lang, job, disk, mode == "full", every);
-        }
-    }
-
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetDefaultDllDirectories(uint flags);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetNamedPipeServerProcessId(Microsoft.Win32.SafeHandles.SafePipeHandle pipe, out uint pid);
 }

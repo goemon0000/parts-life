@@ -27,6 +27,9 @@ public sealed class HelperMessage
     public ScanResult? ScanResult { get; set; }
 
     public const string StopCommand = "stop";
+
+    /// <summary>窓から補助 exe へ送ってよいのはこの1語だけ（前後の空白・改行は無視）。</summary>
+    public static bool IsStopCommand(string? line) => line is not null && line.Trim() == StopCommand;
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

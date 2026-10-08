@@ -176,8 +176,11 @@ public static class HelperSession
         }
     }
 
-    /// <summary>本人と Administrators だけが繋げるパイプ。</summary>
-    private static NamedPipeServerStream CreatePipe(string name)
+    /// <summary>
+    /// 本人と Administrators だけが繋げるパイプ。**同じ名前のパイプが既にあれば作らない**
+    /// （FirstPipeInstance。先回りして作られたパイプの後ろに並ばない）。
+    /// </summary>
+    internal static NamedPipeServerStream CreatePipe(string name)
     {
         var security = new PipeSecurity();
         var me = WindowsIdentity.GetCurrent().User!;
@@ -187,7 +190,7 @@ public static class HelperSession
             new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
             PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize, AccessControlType.Allow));
         return NamedPipeServerStreamAcl.Create(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous, 0, 0, security);
+            PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance, 0, 0, security);
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
