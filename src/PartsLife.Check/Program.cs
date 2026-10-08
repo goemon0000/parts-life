@@ -9,6 +9,9 @@ using PartsLife.Checks.Protocol;
 using PartsLife.Checks.Scan;
 using PartsLife.Checks.Storage;
 
+// 名前で読み込む DLL は System32 からだけ（exe の隣に置かれた同名の DLL を拾わない）
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+
 namespace PartsLife.Check;
 
 /// <summary>
@@ -34,8 +37,15 @@ internal static partial class Program
     [GeneratedRegex("^PartsLife\\.Check\\.[0-9a-f]{32}$")]
     private static partial Regex PipeName();
 
+    private const uint LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800;
+
     private static int Main(string[] args)
     {
+        // **何よりも先に。** 以後この process が読み込む DLL は System32 からだけ探す。
+        // 効かなければ（そんな Windows は無いはずだが）管理者のまま先へ進まない
+        if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)) return 5;
+        PinNativeSearch();
+
         var a = Args.Parse(args);
         if (a is null) return 2;
         L.Lang = a.Lang;
@@ -113,6 +123,32 @@ internal static partial class Program
         return 0;
     }
 
+    /// <summary>
+    /// .NET の標準ライブラリが実行時に読み込む DLL を、System32 の絶対パスからだけ読ませる。
+    /// 標準ライブラリは「exe の隣 → System32」の順で探す指定になっていて、NativeAOT では
+    /// exe の隣の同名ファイルを絶対パスで読み込む（SetDefaultDllDirectories では止まらない）。
+    /// 対象は発行時の検査（csproj の CheckHelperNativeSearch）が挙げるアセンブリ。増えたらここにも足す。
+    /// </summary>
+    private static void PinNativeSearch()
+    {
+        foreach (var asm in new[]
+        {
+            typeof(System.Security.Principal.WindowsIdentity).Assembly,      // sspicli.dll, advapi32.dll
+            typeof(Process).Assembly,                                         // ntdll.dll, kernel32.dll
+            typeof(System.Security.AccessControl.ObjectSecurity).Assembly,   // advapi32.dll
+            typeof(Microsoft.Win32.Registry).Assembly,                        // advapi32.dll
+        })
+            NativeLibrary.SetDllImportResolver(asm, FromSystem32);
+    }
+
+    private static IntPtr FromSystem32(string name, System.Reflection.Assembly asm, DllImportSearchPath? paths)
+    {
+        string file = Path.GetFileName(name);
+        if (!file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) file += ".dll";
+        // 見つからなければ例外（既定の探し方には戻さない）
+        return NativeLibrary.Load(Path.Combine(Environment.SystemDirectory, file));
+    }
+
     private static void Send(HelperMessage m)
     {
         lock (WriteGate)
@@ -155,6 +191,10 @@ internal static partial class Program
             return new Args(pipe, parent, lang, job, disk, mode == "full", every);
         }
     }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetDefaultDllDirectories(uint flags);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
