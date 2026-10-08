@@ -8,8 +8,8 @@
       { "ja": "決めるのに時間はかからなかった。", "en": "It did not take long to decide." }
     ],
     "why-fresh": [
-      { "ja": "誰も傷を負っていなかった。", "en": "No one was hurt." },
-      { "ja": "傷はまだ一つも無い。", "en": "There was not a scratch on anyone yet." },
+      { "ja": "傷らしい傷は、誰にも無かった。", "en": "No one had a wound worth the name." },
+      { "ja": "傷と呼べるものは、まだ無い。", "en": "Nothing yet was worth calling a wound." },
       { "ja": "全員、足元は確かだった。", "en": "Everyone was steady on their feet." },
       { "ja": "体はどこも欠けていない。", "en": "Nothing was chipped or loose." }
     ],
@@ -209,6 +209,11 @@
       { "ja": "{town}の灯が見えた。一行は門をくぐった。", "en": "The lights of {town} came into view. They went in." },
       { "ja": "{town}に着いた。誰も欠けていない。", "en": "They reached {town}. No one was missing." },
       { "ja": "一行は{town}に帰ってきた。宿はいつもの場所にある。", "en": "The party was back in {town}. The inn was where it always was." }
+    ],
+    "town-first": [
+      { "ja": "一行は{town}の門をくぐった。宿の場所を、まだ誰も知らない。", "en": "The party passed through the gate of {town}. No one knew where the inn was yet." },
+      { "ja": "道の先に灯が見えた。{town}という町だった。", "en": "Lights showed down the road. The town was called {town}." },
+      { "ja": "{town}に着いた。しばらくはここを拠点にする。", "en": "They reached {town}. It would be their base for a while." }
     ],
     "town-new": [
       { "ja": "一行は新しい町に着いた。{town}という。", "en": "The party reached a new town, called {town}." },

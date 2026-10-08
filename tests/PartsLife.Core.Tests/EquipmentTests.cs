@@ -1,4 +1,5 @@
 using PartsLife.Adventure;
+using PartsLife.Game;
 
 namespace PartsLife.Core.Tests;
 
@@ -47,12 +48,13 @@ public class EquipmentTests
             var rng = new Random(seed);
             var s = RandomState(rng, members);
             var stance = (Stance)(seed % 3);
-            var before = members.Select(m => Equipment.MemberScore(Book, s, m, stance)).ToArray();
+            // 着け替えを決める点（構えに依らない）で見る
+            var before = members.Select(m => Equipment.MemberScore(Book, s, m, Stance.Balanced)).ToArray();
 
             Equipment.AutoEquip(Book, s, members, stance, out _, out _);
 
             for (int i = 0; i < members.Length; i++)
-                Assert.True(Equipment.MemberScore(Book, s, members[i], stance) >= before[i],
+                Assert.True(Equipment.MemberScore(Book, s, members[i], Stance.Balanced) >= before[i],
                     $"seed {seed}: {members[i].Key} の点が下がった");
         }
     }
@@ -154,6 +156,57 @@ public class EquipmentTests
         var wrap = Book.Item("cotton-wrap")!;         // end/spd
         Assert.True(Equipment.ItemScore(spatula, "psu", Stance.Bold) > Equipment.ItemScore(spatula, "psu", Stance.Careful));
         Assert.True(Equipment.ItemScore(wrap, "psu", Stance.Careful) > Equipment.ItemScore(wrap, "psu", Stance.Bold));
+    }
+
+    [Fact]
+    public void Alternating_stances_do_not_flip_the_hdd_charm()
+    {
+        // 構えの重みで比べていた頃は、大胆と慎重が替わるたびに電池と帳面を往復した
+        var hdd = new Member("hdd", "hdd");
+        Assert.True(Equipment.ItemScore(Book.Item("catalog-notebook"), "hdd", Stance.Bold)
+                    > Equipment.ItemScore(Book.Item("spare-battery"), "hdd", Stance.Bold));
+        Assert.True(Equipment.ItemScore(Book.Item("spare-battery"), "hdd", Stance.Careful)
+                    > Equipment.ItemScore(Book.Item("catalog-notebook"), "hdd", Stance.Careful));
+
+        var s = new AdventureState();
+        s.Equipped[hdd.Key] = new[] { "", "", "spare-battery" };
+        s.Inventory.Add("catalog-notebook");
+        int swaps = 0;
+        for (int i = 0; i < 100; i++)
+            swaps += Equipment.AutoEquip(Book, s, new[] { hdd }, i % 2 == 0 ? Stance.Bold : Stance.Careful, out _, out _);
+        Assert.InRange(swaps, 0, 1);
+        // 外した方は、誰の役にも立たないので売れる
+        var spare = s.Inventory.Single();
+        Assert.False(Equipment.UsefulToAnyone(Book, s, new[] { hdd }, Book.Item(spare)!));
+    }
+
+    [Fact]
+    public void In_town_alternating_stances_give_a_bounded_number_of_swaps_and_lines()
+    {
+        var sim = new Sim(seed: 13);
+        for (int t = 0; t < 120; t++) sim.Tick(Profile.Idle);   // 一行が並ぶまで
+        var engine = sim.Director.Adventure!;
+        var a = sim.Adv;
+        a.Equipped["hdd"] = new[] { "", "", "spare-battery" };
+        a.Inventory.Clear();
+        a.Inventory.Add("catalog-notebook");
+        var world = new WorldState(new Dictionary<string, int>(), 0, 2, 1,
+                                   new HashSet<string>(Rig.Desktop.Select(d => d.Id)), 1, 1);
+
+        int swaps = 0, lines = 0;
+        string[] Charm() => a.Equipped.OrderBy(k => k.Key).Select(k => k.Value[(int)EquipSlot.Charm]).ToArray();
+        for (int i = 0; i < 100; i++)
+        {
+            a.Mode = AdventureMode.Town;
+            a.Phase = TownPhase.Equip;
+            a.Stance = i % 2 == 0 ? Stance.Bold : Stance.Careful;
+            var before = Charm();
+            string? line = engine.Step(world, "ja");
+            if (!before.SequenceEqual(Charm())) swaps++;
+            if (line is not null && (line.Contains("予備の電池") || line.Contains("目録の帳面"))) lines++;
+        }
+        Assert.InRange(swaps, 0, 2);
+        Assert.InRange(lines, 0, 2);
     }
 
     [Fact]

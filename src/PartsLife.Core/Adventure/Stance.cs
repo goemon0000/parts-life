@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace PartsLife.Adventure;
 
 /// <summary>場面ごとの構え。**選ぶのは一行自身で、利用者は選べない。**</summary>
+[JsonConverter(typeof(StanceConverter))]
 public enum Stance { Careful = 0, Balanced = 1, Bold = 2 }
 
 /// <summary>
@@ -63,6 +66,7 @@ public readonly record struct StanceResult(
 /// | ゆらぎ | ±0.25 の一様乱数 |
 ///
 /// 合計が +0.5 以上なら大胆、−0.5 以下なら慎重、その間は五分。
+/// 理由の一文は、一番効いた材料から選ぶ。ただし体力を「傷が無い」と書くのは <see cref="FreshAt"/> 以上のときだけ。
 ///
 /// **機械が熱いと慎重になり、静かだと大胆になる。** 高い負荷が続いている間は旅程が速く進むので、
 /// 一行は速く、しかし用心して歩く。放っておかれた機械では、ゆっくり、しかし思い切って歩く。
@@ -74,6 +78,8 @@ public static class StanceRules
     public const double Noise = 0.25;
     /// <summary>これより効きの弱い材料は、理由として書かない。</summary>
     public const double ReasonFloor = 0.15;
+    /// <summary>体力をこれ以上残しているときだけ、「傷が無い」を理由に書く（点には体力の分がいつも入る）。</summary>
+    public const double FreshAt = 0.95;
 
     public static double Heat(double load, double hot) =>
         Math.Clamp(Math.Max((load - 0.45) / 0.45, hot * 1.2), 0, 1);
@@ -89,14 +95,17 @@ public static class StanceRules
         Reason up = Reason.None, down = Reason.None;
         double upW = 0, downW = 0, sum = 0;
 
-        void Add(double v, Reason pos, Reason neg)
+        void Add(double v, Reason pos, Reason neg, bool posIsReason = true)
         {
             sum += v;
-            if (v > upW) { upW = v; up = pos; }
+            if (posIsReason && v > upW) { upW = v; up = pos; }
             if (-v > downW) { downW = -v; down = neg; }
         }
 
-        Add((Math.Clamp(i.Hp, 0, 1) - 0.6) * 2.0, Reason.Fresh, Reason.Hurt);
+        // 体力は 0.6 を超えた分だけ大胆に寄せるが、「傷が無い」と書くのはほぼ無傷のときだけ。
+        // （効きだけで選ぶと、体力 0.68 で「誰も傷を負っていなかった」が出た）
+        double hp = Math.Clamp(i.Hp, 0, 1);
+        Add((hp - 0.6) * 2.0, Reason.Fresh, Reason.Hurt, posIsReason: hp >= FreshAt);
         Add(-(Math.Clamp(i.Fatigue, 0, 1) - 0.3) * 1.5, Reason.Rested, Reason.Tired);
         Add(Math.Clamp(i.GearRatio - 1, -1, 1) * 1.6, Reason.GearStrong, Reason.GearWeak);
         Add(-Math.Clamp(i.LootFill, 0, 1), Reason.None, Reason.Heavy);

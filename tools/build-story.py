@@ -186,10 +186,14 @@ if d:
     for e in d["events"]:
         kind = e["when"]
         slot = events.setdefault(kind, {"when": kind, "cooldown": 900, "texts": []})
-        have = {t.get("ja") for t in slot["texts"]}
+        at = {t.get("ja"): k for k, t in enumerate(slot["texts"])}
         for i, t in enumerate(e["texts"]):
             check_line(t, f"event {kind}#{i}")
-            if t.get("ja") not in have:
+            if t.get("ja") in at:
+                # 原稿が正。既に入っている文でも、条件や英語を直したら組み上がりに効かせる
+                # （以前は日本語が同じなら飛ばしていたので、原稿に足した when が黙って効かなかった）
+                slot["texts"][at[t.get("ja")]] = t
+            else:
                 slot["texts"].append(t)
         # 条件の付いていない本文が無いと、条件を外れた機械では一度も出ない
         if not any(not t.get("when") for t in slot["texts"]):
@@ -262,7 +266,7 @@ REQUIRED = ([f"why-{r}" for r in REASONS]
                "board-bold", "board-careful", "board-balanced",
                "won", "won-item", "lost", "avoided", "side-found", "side-hurt", "side-small",
                "reach-end", "retreat", "walk-back",
-               "town-arrive", "town-new", "equip", "sell", "buy", "inn-rest", "inn-eaves", "depart"])
+               "town-first", "town-arrive", "town-new", "equip", "sell", "buy", "inn-rest", "inn-eaves", "depart"])
 HALF = 34      # 理由と行動は繋げて一文にするので、片方ずつは画面の半分に収める
 NAME_JA = "マザーボードくん"   # 差し込まれる名前の最長（幅の見積もり用）
 

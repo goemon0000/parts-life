@@ -105,13 +105,7 @@ public sealed class Director
             int before = _state.Level(slot.Key);
             _state.AddExp(slot.Key, ExpRate(slot.Load) * dt);
             int after = _state.Level(slot.Key);
-            if (after > before)
-            {
-                var t = _story.EventById("level-up");
-                if (t is { Texts.Count: > 0 })
-                    produced.Add(Pick(t).For(lang)
-                        .Replace("{name}", DisplayName(slot.CharacterId, lang)) + $"  (Lv.{after})");
-            }
+            if (after > before) NoteLevelUp(slot, after);
         }
         var world = WorldOf(slots);
 
@@ -146,6 +140,16 @@ public sealed class Director
 
         // --- 傍白 ---
         CheckEvents(dt, w, lang, world, produced);
+
+        // --- レベルが上がった ---
+        // 同じ秒・待ちの間に上がった者は一行にまとめる。本筋か傍白の文が出た秒は、次の秒へ回す
+        _sinceLevelLine += dt;
+        if (_levelUps.Count > 0 && produced.Count == 0 && _sinceLevelLine >= LevelLineGap)
+        {
+            if (LevelUpLine(world, lang) is { } up) produced.Add(up);
+            _levelUps.Clear();
+            _sinceLevelLine = 0;
+        }
 
         // --- 冒険 ---
         // 本筋の場面と場面の間を埋める。進むのは同じ旅程から（実機の働きからだけ）。
@@ -281,7 +285,81 @@ public sealed class Director
         }
     }
 
-    private Line Pick(StoryEvent ev) => ev.Texts[_rnd.Next(ev.Texts.Count)];
+    // ---------------------------------------------------------------------
+    // レベルが上がった一行
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// レベルの一行どうしの最短の間隔（秒）。**レベルの知らせで物語を押し流さない。**
+    /// 全力で回すと、一つの部品が数分で Lv2 から Lv10 まで上がる。CPU くんとクーラーくんは
+    /// 同じ負荷を見ているので同じ秒に上がる。一つずつ流すと、画面の2行がレベルの知らせだけになる。
+    /// 間に上がった分は、次の一行にまとめて書く（最後のレベルだけ）。
+    /// </summary>
+    public const double LevelLineGap = 300;
+
+    /// <summary>まだ知らせていない上がり（鍵ごとに、上がった後のレベル）。部品の数より増えない。</summary>
+    private readonly List<(PartySlot Slot, int Level)> _levelUps = new();
+    private double _sinceLevelLine = LevelLineGap;   // 最初の一回はすぐ出す
+
+    private void NoteLevelUp(PartySlot slot, int level)
+    {
+        for (int i = 0; i < _levelUps.Count; i++)
+            if (_levelUps[i].Slot.Key == slot.Key) { _levelUps[i] = (slot, level); return; }
+        _levelUps.Add((slot, level));
+    }
+
+    /// <summary>
+    /// まとめた上がりを一行にする。名を出すのは一番高くなった者で、他の者は括弧の中に添える。
+    /// <code>
+    ///   CPUくん が一段、板についてきた。  (Lv.6)
+    ///   CPUくん が一段、板についてきた。  (Lv.6・クーラーくん Lv.6)
+    ///   CPUくん が一段、板についてきた。  (Lv.6・ほか2名)
+    /// </code>
+    /// </summary>
+    private string? LevelUpLine(WorldState world, string lang)
+    {
+        var ev = _story.EventById("level-up");
+        if (ev is null) return null;
+        int lead = 0;
+        for (int i = 1; i < _levelUps.Count; i++)
+            if (_levelUps[i].Level > _levelUps[lead].Level) lead = i;
+        var (slot, level) = _levelUps[lead];
+        if (PickLevelUp(ev, world, slot.CharacterId, _rnd) is not { } text) return null;
+
+        string line = text.For(lang).Replace("{name}", DisplayName(slot.CharacterId, lang)) + $"  (Lv.{level}";
+        int others = _levelUps.Count - 1;
+        if (others == 1)
+        {
+            var (o, ol) = _levelUps[lead == 0 ? 1 : 0];
+            string name = DisplayName(o.CharacterId, lang);
+            if (lang == "en" && name.StartsWith("The ", StringComparison.Ordinal)) name = "the " + name[4..];
+            line += (lang == "en" ? ", " : "・") + name + $" Lv.{ol}";
+        }
+        else if (others > 1)
+            line += lang == "en" ? $", and {others} others" : $"・ほか{others}名";
+        return line + ")";
+    }
+
+    /// <summary>
+    /// レベルの一文を選ぶ。**条件（when）に合うものだけ**から選ぶ（傍白と同じ決まり）。
+    /// それに加えて、上がった本人を地の文で名指しする文は除く（「HDDくんが HDDくん のことを書き留めた」）。
+    /// 合うものが無ければ null。
+    /// </summary>
+    public static Line? PickLevelUp(StoryEvent ev, WorldState world, string characterId, Random rng)
+    {
+        string self = DisplayName(characterId, "ja");
+        int usable = 0;
+        foreach (var t in ev.Texts) if (Usable(t)) usable++;
+        if (usable == 0) return null;
+        int k = rng.Next(usable);
+        foreach (var t in ev.Texts)
+            if (Usable(t) && k-- == 0) return t;
+        return null;
+
+        bool Usable(Line t) =>
+            Conditions.Match(t.When, world)
+            && !t.Ja.Replace("{name}", "", StringComparison.Ordinal).Contains(self, StringComparison.Ordinal);
+    }
 
     /// <summary>物語の中で呼ぶ名。アトラス側の name とは別に持つ（文章の据わりが違うため）。</summary>
     public static string DisplayName(string id, string lang) => lang == "en"

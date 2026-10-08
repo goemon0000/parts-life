@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -21,7 +22,7 @@ public sealed class PartyState
     public const int CurrentVersion = 1;
     public int SaveVersion { get; set; }
 
-    /// <summary>冒険の進み具合。古い保存には無いので、移すときに作る。</summary>
+    /// <summary>冒険の進み具合。古い保存には無いので、移すときに作る。あれば版の数に関わらず使う。</summary>
     public AdventureState? Adventure { get; set; } = new();
 
     /// <summary>キャラid → 経験値。**その子自身の仕事でしか増えない。**</summary>
@@ -75,6 +76,13 @@ public sealed class PartyState
     /// <summary>名札の出し方 "level" / "name" / "none"。</summary>
     public string Labels { get; set; } = "level";
 
+    /// <summary>
+    /// この版が知らない欄（新しい版が書いた物）。**読んだまま書き戻す。**
+    /// 新しい版の保存を古い版で開いても、分かる所だけ使い、分からない所は消さずに残す。
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Unknown { get; set; }
+
     // ---------------------------------------------------------------------
 
     /// <summary>
@@ -118,6 +126,8 @@ public sealed class PartyState
     /// <summary>
     /// 古い形の保存を今の形に揃える。**何度呼んでも同じ結果になる。**
     /// 新しい版で書かれた保存（SaveVersion が先の版）は、分かる所だけ使い、版の数は下げない。
+    /// 分からない欄は <see cref="Unknown"/> に残して書き戻し、知らない列挙の値は安全な値に読み、
+    /// 形の変わった欄は既定値にする（<see cref="FromJson(string, out bool)"/>）。どれも例外にはしない。
     /// </summary>
     public void Migrate()
     {
@@ -128,13 +138,12 @@ public sealed class PartyState
         Lang ??= "";
         Labels ??= "level";
 
-        if (SaveVersion < 1)
-        {
-            // v0.6.0 まで → 冒険を足す。旅は最初の町から、何も持たずに始まる
-            // （持ち物は、最初に盤の上に並んだときに「ありあわせ」が配られる）
-            MigrateKeys();
-            Adventure = new AdventureState();
-        }
+        if (SaveVersion < 1) MigrateKeys();
+        // v0.6.0 まで → 冒険を足す。旅は最初の町から、何も持たずに始まる
+        // （持ち物は、最初に盤の上に並んだときに「ありあわせ」が配られる）
+        // **冒険が既にあれば、版の数に関わらず残す。** 版の数だけが無い保存（v0.6.0 は SaveVersion を
+        // 知らない。手で直した・別の道具で書き戻した等）を数だけ見て作り直すと、育てた旅が消える。
+        // 中身の怪しい値は、冒険の係を作るときに Sanitize が直す
         Adventure ??= new AdventureState();
         if (SaveVersion < CurrentVersion) SaveVersion = CurrentVersion;
     }
@@ -196,25 +205,152 @@ public sealed class PartyState
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public static PartyState Load()
+    /// <summary>壊れて読めなかった保存の控えを、いくつまで残すか。</summary>
+    public const int BadCopiesKept = 3;
+
+    /// <summary>この進みを書き戻す先。<see cref="Load(string, string?)"/> が決める。</summary>
+    private string? _path;
+
+    /// <summary>
+    /// 保存を書かない。元の保存を読めず、しかも脇へ退けることもできなかったとき（他のプログラムが掴んでいる等）。
+    /// **作り直した空の進みで、読めなかった保存を上書きしない**ため。
+    /// </summary>
+    [JsonIgnore] public bool SaveBlocked { get; private set; }
+
+    public static PartyState Load() => Load(Dir, LegacyFilePath);
+
+    /// <summary>
+    /// dir の state.json を読む（無ければ legacyFile を）。試験では一時フォルダを渡す。
+    ///
+    /// **読めない保存を黙って上書きしない。** 以前は（v0.6.0 も）読めなければ空の進みを返し、
+    /// 60秒後の保存で state.json を上書きしていた。冒険の一欄が読めないだけで、レベルも物語も消えた。
+    ///   - 一部の欄だけ読めない → その欄だけ既定値にして、残りは使う（直す前の本文は控えに写す）
+    ///   - 丸ごと読めない → state.json.bad-日時 へ退けてから、最初から始める（控えは新しい物を3つ）
+    ///   - 退けられない・読み出せない → 最初から始めるが、この回は保存しない
+    /// </summary>
+    public static PartyState Load(string dir, string? legacyFile = null)
     {
-        try
+        string path = Path.Combine(dir, "state.json");
+        string from = File.Exists(path) ? path
+                    : legacyFile is not null && File.Exists(legacyFile) ? legacyFile   // 「パーツパーティ」時代の進行
+                    : "";
+        PartyState state;
+        if (from.Length == 0)
+            state = Fresh();
+        else if (!TryReadText(from, out string text))
         {
-            string from = File.Exists(FilePath) ? FilePath
-                        : File.Exists(LegacyFilePath) ? LegacyFilePath   // 「パーツパーティ」時代の進行
-                        : "";
-            if (from.Length > 0) return FromJson(File.ReadAllText(from));
+            state = Fresh();
+            state.SaveBlocked = from == path;
         }
-        catch { /* 壊れていたら作り直す。物語が消えるだけで害はない */ }
+        else
+        {
+            try
+            {
+                state = FromJson(text, out bool repaired);
+                // 直して読んだときは、直す前の本文を控えに写しておく（読めなかった欄を後から拾えるように）
+                if (repaired && from == path) KeepBadCopy(path, move: false);
+            }
+            catch (Exception e) when (LenientJson.IsReadError(e))
+            {
+                state = Fresh();
+                // 改名前の保存先には書かないので、そちらは退けなくても上書きされない
+                if (from == path && !KeepBadCopy(path, move: true)) state.SaveBlocked = true;
+            }
+        }
+        state._path = path;
+        return state;
+    }
+
+    private static PartyState Fresh()
+    {
         var fresh = new PartyState();
         fresh.Migrate();
         return fresh;
     }
 
-    /// <summary>保存の本文から読む。**必ず Migrate を通す。** 読めなければ例外。</summary>
-    public static PartyState FromJson(string json)
+    /// <summary>読み出す。ウイルス対策ソフト等が一瞬掴んでいることがあるので、少しだけ待ってやり直す。</summary>
+    private static bool TryReadText(string path, out string text)
     {
-        var state = JsonSerializer.Deserialize<PartyState>(json, Opts) ?? new PartyState();
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                text = File.ReadAllText(path);
+                return true;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= 2) { text = ""; return false; }
+                Thread.Sleep(200);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 読めなかった保存を state.json.bad-日時 にする（move が偽なら写す）。新しい物から3つ残す。
+    /// 退けられなかったら偽。
+    /// </summary>
+    private static bool KeepBadCopy(string path, bool move)
+    {
+        try
+        {
+            string dir = Path.GetDirectoryName(path)!, name = Path.GetFileName(path);
+            // 世界時で付ける。夏時間で時計が戻ると、新しい控えの名前が古い物より前に並んで消されるため
+            string stamp = name + ".bad-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "Z";
+            // 同じ秒に二度目があれば -001 から。既にある番号より必ず大きくする（名前の順＝古い順を保つ）
+            int next = 0;
+            foreach (var f in Directory.GetFiles(dir, stamp + "*"))
+            {
+                string rest = Path.GetFileName(f)[stamp.Length..];
+                if (rest.Length == 0) next = Math.Max(next, 1);
+                else if (rest[0] == '-' && int.TryParse(rest.AsSpan(1), out int k)) next = Math.Max(next, k + 1);
+            }
+            string target = Path.Combine(dir, next == 0 ? stamp : $"{stamp}-{next:000}");
+            if (move) File.Move(path, target);
+            else File.Copy(path, target);
+
+            var stale = Directory.GetFiles(dir, name + ".bad-*")
+                                 .OrderByDescending(f => Path.GetFileName(f), StringComparer.Ordinal)
+                                 .Skip(BadCopiesKept);
+            foreach (var old in stale)
+            {
+                try { File.Delete(old); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            }
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>保存の本文から読む。**必ず Migrate を通す。** 丸ごと読めなければ例外。</summary>
+    public static PartyState FromJson(string json) => FromJson(json, out _);
+
+    /// <summary>
+    /// 保存の本文から読む。まず普通に丸ごと読み、だめなら欄ごとに読む（<see cref="LenientJson"/>）。
+    /// **冒険の一欄が読めないことで、物語の進みとレベルを捨てない。**
+    /// 欄ごとに読み直したときは repaired が真。JSON の物（{...}）として読めなければ例外。
+    /// </summary>
+    public static PartyState FromJson(string json, out bool repaired)
+    {
+        repaired = false;
+        PartyState? state;
+        try
+        {
+            state = JsonSerializer.Deserialize<PartyState>(json, Opts);
+        }
+        catch (Exception e) when (LenientJson.IsReadError(e))
+        {
+            // ここで例外なら JSON として壊れている。呼ぶ側が控えへ退ける
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                throw new JsonException("state.json の中身が物（{...}）ではない");
+            state = (PartyState)LenientJson.Read(doc.RootElement, typeof(PartyState), Opts);
+            repaired = true;
+        }
+        if (state is null) throw new JsonException("state.json の中身が null");
         state.Migrate();
         return state;
     }
@@ -223,13 +359,15 @@ public sealed class PartyState
 
     public void Save()
     {
+        if (SaveBlocked) return;   // 読めなかった保存を、空の進みで上書きしない
         try
         {
-            Directory.CreateDirectory(Dir);
+            string path = _path ?? FilePath;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             // 書き途中で電源が落ちても壊れないよう、別名で書いてから置き換える
-            string tmp = FilePath + ".tmp";
+            string tmp = path + ".tmp";
             File.WriteAllText(tmp, ToJson());
-            File.Move(tmp, FilePath, overwrite: true);
+            File.Move(tmp, path, overwrite: true);
         }
         catch { /* 保存できなくても動作は続ける */ }
     }

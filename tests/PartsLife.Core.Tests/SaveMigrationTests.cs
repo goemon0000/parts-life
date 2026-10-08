@@ -112,6 +112,29 @@ public class SaveMigrationTests
     }
 
     [Fact]
+    public void An_adventure_without_a_save_version_is_kept()
+    {
+        // 版の数だけが消えた保存（v0.6.0 は SaveVersion を知らない）。冒険を作り直さない
+        var sim = new Sim(seed: 5);
+        for (int t = 0; t < 2 * 86400; t++) sim.Tick(Profile.Gaming);
+        var node = JsonNode.Parse(sim.State.ToJson())!.AsObject();
+        Assert.True(node.Remove("SaveVersion"));
+        var a = sim.Adv;
+        Assert.True(a.Expeditions > 0);
+
+        var s = PartyState.FromJson(node.ToJsonString());
+        var b = s.Adventure!;
+        Assert.Equal(PartyState.CurrentVersion, s.SaveVersion);
+        Assert.Equal(a.Town, b.Town);
+        Assert.Equal(a.Gold, b.Gold);
+        Assert.Equal(a.Expeditions, b.Expeditions);
+        Assert.Equal(a.Inventory, b.Inventory);
+        foreach (var k in a.Equipped.Keys) Assert.Equal(a.Equipped[k], b.Equipped[k]);
+        // 冒険の無い古い保存には、これまでどおり最初の町から
+        Assert.Empty(PartyState.FromJson(TestData.Fixture("state-v0.6.0.json")).Adventure!.Equipped);
+    }
+
+    [Fact]
     public void Broken_adventure_values_are_repaired_on_load()
     {
         var node = JsonNode.Parse(TestData.Fixture("state-v0.6.0.json"))!.AsObject();

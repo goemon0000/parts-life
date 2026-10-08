@@ -946,12 +946,12 @@
     ],
     "why-fresh": [
       {
-        "ja": "誰も傷を負っていなかった。",
-        "en": "No one was hurt."
+        "ja": "傷らしい傷は、誰にも無かった。",
+        "en": "No one had a wound worth the name."
       },
       {
-        "ja": "傷はまだ一つも無い。",
-        "en": "There was not a scratch on anyone yet."
+        "ja": "傷と呼べるものは、まだ無い。",
+        "en": "Nothing yet was worth calling a wound."
       },
       {
         "ja": "全員、足元は確かだった。",
@@ -1553,6 +1553,20 @@
       {
         "ja": "一行は{town}に帰ってきた。宿はいつもの場所にある。",
         "en": "The party was back in {town}. The inn was where it always was."
+      }
+    ],
+    "town-first": [
+      {
+        "ja": "一行は{town}の門をくぐった。宿の場所を、まだ誰も知らない。",
+        "en": "The party passed through the gate of {town}. No one knew where the inn was yet."
+      },
+      {
+        "ja": "道の先に灯が見えた。{town}という町だった。",
+        "en": "Lights showed down the road. The town was called {town}."
+      },
+      {
+        "ja": "{town}に着いた。しばらくはここを拠点にする。",
+        "en": "They reached {town}. It would be their base for a while."
       }
     ],
     "town-new": [

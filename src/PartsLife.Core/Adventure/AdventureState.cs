@@ -1,17 +1,26 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using PartsLife.Game;
 
 namespace PartsLife.Adventure;
 
-[JsonConverter(typeof(JsonStringEnumConverter<AdventureMode>))]
+// 列挙は名前で保存する。**知らない名前は安全な値に読む**（新しい版の値・綴り違いで保存ごと捨てないため）
+
+[JsonConverter(typeof(AdventureModeConverter))]
 public enum AdventureMode { Town, Out, Back }
 
 /// <summary>町に居る間の段取り。上から順に進む。</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<TownPhase>))]
+[JsonConverter(typeof(TownPhaseConverter))]
 public enum TownPhase { Arrive, Equip, Sell, Shop, Rest, Board, Depart }
 
 /// <summary>決めた場面の結果待ち。結果は次の場面で出す（一度に二行流さないため）。</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<Pending>))]
+[JsonConverter(typeof(PendingConverter))]
 public enum Pending { None, Fight, Avoided, Side }
+
+public sealed class AdventureModeConverter() : TolerantEnumConverter<AdventureMode>(AdventureMode.Town);
+public sealed class TownPhaseConverter() : TolerantEnumConverter<TownPhase>(TownPhase.Arrive);
+public sealed class PendingConverter() : TolerantEnumConverter<Pending>(Pending.None);
+public sealed class StanceConverter() : TolerantEnumConverter<Stance>(Stance.Balanced);
 
 /// <summary>
 /// 冒険の進み具合。state.json の "adventure" に入る。
@@ -63,7 +72,7 @@ public sealed class AdventureState
     public int Rests { get; set; }
     public int Bought { get; set; }
 
-    /// <summary>直近に決めた構え。町での装備の選び方にも使う。</summary>
+    /// <summary>直近に決めた構え。装備では同点の候補の選び方にだけ使う（構えで持ち替えはしない）。</summary>
     public Stance Stance { get; set; } = Stance.Balanced;
 
     // 記録（数だけ）
@@ -71,6 +80,13 @@ public sealed class AdventureState
     public int Returns { get; set; }
     public int Wins { get; set; }
     public int Losses { get; set; }
+
+    /// <summary>
+    /// この版が知らない欄（新しい版が書いた物）。**読んだまま書き戻す。**
+    /// 古い版で一度開いただけで、新しい版の進みが消えないように。
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Unknown { get; set; }
 
     /// <summary>
     /// 壊れた値・手で書き換えられた値を、動ける範囲に戻す。

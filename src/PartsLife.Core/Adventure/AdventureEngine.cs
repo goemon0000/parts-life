@@ -171,8 +171,10 @@ public sealed class AdventureEngine
                 {
                     // 本筋が先へ進んでいれば、帰る先は次の町になる（物語を最初からにしたら戻る）
                     int target = _book.TownFor(_party.Chapter);
-                    // 先の町へ移ったとき・旅の一番初めは「新しい町」。それ以外（戻ったときも）は「帰った」
-                    bool moved = target > s.Town || (s.Expeditions == 0 && s.Returns == 0);
+                    // 旅の一番初めは「初めての町」（前の町が無いので、「前の町には戻らず」とは書けない）。
+                    // 先の町へ移ったときは「新しい町」。それ以外（戻ったときも）は「帰った」
+                    bool first = s.Expeditions == 0 && s.Returns == 0;
+                    bool moved = target > s.Town;
                     s.Town = target;
                     s.Mode = AdventureMode.Town;
                     s.Phase = TownPhase.Equip;
@@ -181,13 +183,12 @@ public sealed class AdventureEngine
                     s.Depth = s.Planned = s.BackSteps = 0;
                     s.Rests = s.Bought = 0;
                     s.Streak /= 2;
-                    return Say(moved ? "town-new" : "town-arrive");
+                    return Say(first ? "town-first" : moved ? "town-new" : "town-arrive");
                 }
                 case TownPhase.Equip:
                 {
                     s.Phase = TownPhase.Sell;
-                    if (Equipment.AutoEquip(_book, s, _members, s.Stance, out var who, out var what) > 0)
-                        return Say("equip", item: what, who: who);
+                    if (Equip(out var who, out var what)) return Say("equip", item: what, who: who);
                     continue;
                 }
                 case TownPhase.Sell:
@@ -235,8 +236,7 @@ public sealed class AdventureEngine
                         + (s.Stance == Stance.Bold ? 1 : 0) - (s.Stance == Stance.Careful ? 1 : 0));
                     s.LastPlace = p.Id;
                     s.Expeditions++;
-                    // 構えが変わったなら、それに合わせて持ち替える（黙って）
-                    Equipment.AutoEquip(_book, s, _members, s.Stance, out _, out _);
+                    // 構えが変わっても持ち替えない（装備の点は構えに依らない。Equipment の注を参照）
                     return Say("depart", place: p);
                 }
                 default:
@@ -340,11 +340,12 @@ public sealed class AdventureEngine
             s.Equipped.TryGetValue(m.Key, out var eq);
             for (int slot = 0; slot < Equipment.SlotCount; slot++)
             {
-                int current = Equipment.ItemScore(eq is null ? null : _book.Item(eq[slot]), m.CharacterId, s.Stance);
+                // 着け替えと同じ点で比べる。構えの点で買うと、買っても着けない物が出る
+                int current = Equipment.BaseScore(eq is null ? null : _book.Item(eq[slot]), m.CharacterId);
                 foreach (var it in stock)
                 {
                     if ((int)it.SlotValue != slot || it.Price > budget) continue;
-                    int gain = Equipment.ItemScore(it, m.CharacterId, s.Stance) - current;
+                    int gain = Equipment.BaseScore(it, m.CharacterId) - current;
                     if (gain > bestGain) { bestGain = gain; best = it; bestFor = m; }
                 }
             }
@@ -353,7 +354,7 @@ public sealed class AdventureEngine
 
         s.Gold -= best.Price;
         s.Inventory.Add(best.Id);
-        if (Equipment.AutoEquip(_book, s, _members, s.Stance, out var w2, out var i2) > 0)
+        if (Equip(out var w2, out var i2))
         {
             who = w2;
             what = i2;
@@ -364,6 +365,56 @@ public sealed class AdventureEngine
             what = best;
         }
         return true;
+    }
+
+    // ---- 着け替え ----------------------------------------------------------
+
+    /// <summary>着け替えの記録。毎回作らずに使い回す。</summary>
+    private readonly List<EquipChange> _equipLog = new();
+
+    /// <summary>
+    /// 最近外した物（鍵, 道具 id）。**一度外した物に戻しただけなら、「着けた」とは言わない。**
+    /// 保存しない（起動し直したら忘れてよい）。数で切る。
+    /// </summary>
+    private readonly List<(string Key, string Item)> _recentlyWorn = new();
+    private const int RecentlyWornCap = 24;
+
+    /// <summary>
+    /// 持ち物から着け替える。知らせてよい一件（最近外した物に戻しただけ、ではない物）があれば真。
+    /// </summary>
+    private bool Equip(out Member who, out ItemDef? what)
+    {
+        who = default;
+        what = null;
+        _equipLog.Clear();
+        if (Equipment.AutoEquip(_book, S, _members, S.Stance, out _, out _, _equipLog) == 0) return false;
+        bool found = false;
+        foreach (var c in _equipLog)
+        {
+            if (!found && !WasWorn(c.Who.Key, c.Put) && _book.Item(c.Put) is { } it)
+            {
+                who = c.Who;
+                what = it;
+                found = true;
+            }
+            if (c.Removed.Length > 0) RememberWorn(c.Who.Key, c.Removed);
+        }
+        return found;
+    }
+
+    private bool WasWorn(string key, string item)
+    {
+        foreach (var (k, i) in _recentlyWorn)
+            if (k == key && i == item) return true;
+        return false;
+    }
+
+    private void RememberWorn(string key, string item)
+    {
+        for (int i = _recentlyWorn.Count - 1; i >= 0; i--)
+            if (_recentlyWorn[i].Key == key && _recentlyWorn[i].Item == item) _recentlyWorn.RemoveAt(i);
+        if (_recentlyWorn.Count >= RecentlyWornCap) _recentlyWorn.RemoveAt(0);
+        _recentlyWorn.Add((key, item));
     }
 
     private int InnCost() => 5 + 5 * CurrentTown.Tier;
@@ -676,7 +727,7 @@ public sealed class AdventureEngine
         if (s.Inventory.Count < InventoryCap)
         {
             s.Inventory.Add(it.Id);
-            Equipment.AutoEquip(_book, s, _members, s.Stance, out _, out _);
+            Equip(out _, out _);
         }
         else
             s.Loot = (int)Math.Min(s.Loot + it.SellPrice, Capacity() * 1.5);

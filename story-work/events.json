@@ -699,6 +699,7 @@
           "en": "{name} finished today's share. It has not counted how much that was."
         },
         {
+          "when": "has:hdd",
           "ja": "HDDくんが {name} のことを書き留めた。日付と、一言だけ。",
           "en": "The HDD wrote something down about {name}. The date, and one word."
         },
@@ -729,8 +730,8 @@
         },
         {
           "when": "hours>=100",
-          "ja": "{name} の段が上がった。ここまでの時間を、HDDくんだけが覚えている。",
-          "en": "{name} went up a step. Only the HDD remembers how long it took."
+          "ja": "{name} の段が上がった。ここまでの時間は、帳面の何枚分かになっている。",
+          "en": "{name} went up a step. The time it took would fill several pages of the ledger."
         },
         {
           "when": "boots>=50",
