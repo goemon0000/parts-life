@@ -1,0 +1,157 @@
+{
+  "_note": "冒険の町・行き先・道具。数値（強さ・値段）は書かない。tools/build-story.py と PartsLife.Core が格と得意から決める。英語の道具名は文中に置くので冠詞を付ける。",
+  "towns": [
+    {
+      "id": "socket-village",
+      "name": { "ja": "受け口の村", "en": "Socket Village" },
+      "fromChapter": 0,
+      "tier": 1,
+      "places": [
+        { "id": "trace-fields", "kind": "field", "length": 4, "name": { "ja": "配線の野", "en": "the Trace Fields" } },
+        { "id": "screw-hole", "kind": "dungeon", "length": 5, "name": { "ja": "ねじ穴の底", "en": "the bottom of the screw hole" } },
+        { "id": "dust-drift", "kind": "side", "length": 3, "name": { "ja": "埃の吹き溜まり", "en": "the dust drift" } }
+      ]
+    },
+    {
+      "id": "heat-pool-inn",
+      "name": { "ja": "熱溜まりの宿", "en": "Heat Pool Inn" },
+      "fromChapter": 2,
+      "tier": 2,
+      "places": [
+        { "id": "scorched-sand", "kind": "field", "length": 4, "name": { "ja": "灼けた砂地", "en": "the scorched sand" } },
+        { "id": "behind-heatsink", "kind": "dungeon", "length": 5, "harder": 1, "name": { "ja": "放熱板の裏", "en": "the back of the heatsink" } },
+        { "id": "steam-creek", "kind": "side", "length": 3, "name": { "ja": "湯気の出る沢", "en": "the steaming creek" } }
+      ]
+    },
+    {
+      "id": "all-night-post",
+      "name": { "ja": "夜明かしの宿場", "en": "All-Night Post" },
+      "fromChapter": 4,
+      "tier": 3,
+      "places": [
+        { "id": "dark-plain", "kind": "field", "length": 4, "name": { "ja": "暗い原", "en": "the dark plain" } },
+        { "id": "battery-hollow", "kind": "dungeon", "length": 5, "name": { "ja": "電池の洞", "en": "the battery hollow" } },
+        { "id": "stopped-clock", "kind": "side", "length": 3, "name": { "ja": "止まった時計の塔", "en": "the stopped clock tower" } }
+      ]
+    },
+    {
+      "id": "gate-market",
+      "name": { "ja": "門前の市", "en": "Gate Market" },
+      "fromChapter": 5,
+      "tier": 4,
+      "places": [
+        { "id": "slope-outside", "kind": "field", "length": 4, "name": { "ja": "門の外の坂", "en": "the slope outside the gate" } },
+        { "id": "inside-lock", "kind": "dungeon", "length": 6, "harder": 1, "name": { "ja": "錠の奥", "en": "the inside of the lock" } },
+        { "id": "guest-camp", "kind": "side", "length": 3, "name": { "ja": "客人の野営地", "en": "the guests' camp" } }
+      ]
+    },
+    {
+      "id": "old-timers-hamlet",
+      "name": { "ja": "古株の里", "en": "Old-Timers' Hamlet" },
+      "fromChapter": 7,
+      "tier": 5,
+      "places": [
+        { "id": "platter-tracks", "kind": "field", "length": 5, "name": { "ja": "円盤の轍", "en": "the platter tracks" } },
+        { "id": "old-sectors", "kind": "dungeon", "length": 6, "name": { "ja": "古い区画", "en": "the old sectors" } },
+        { "id": "forgotten-shelf", "kind": "side", "length": 3, "name": { "ja": "消し忘れの棚", "en": "the forgotten shelf" } }
+      ]
+    },
+    {
+      "id": "board-edge",
+      "name": { "ja": "盤の端", "en": "The Board's Edge" },
+      "fromChapter": 10,
+      "tier": 6,
+      "places": [
+        { "id": "past-the-edge", "kind": "field", "length": 5, "name": { "ja": "端の向こうの荒れ地", "en": "the waste past the edge" } },
+        { "id": "cut-wire-trench", "kind": "dungeon", "length": 6, "harder": 1, "name": { "ja": "切れた線の溝", "en": "the cut-wire trench" } },
+        { "id": "box-from-outside", "kind": "side", "length": 3, "name": { "ja": "外から来た箱", "en": "the box from outside" } }
+      ]
+    },
+    {
+      "id": "wreck-market",
+      "name": { "ja": "残骸の市", "en": "Wreck Market" },
+      "fromChapter": 12,
+      "tier": 7,
+      "places": [
+        { "id": "mud-flat", "kind": "field", "length": 5, "name": { "ja": "泥の原", "en": "the mud flat" } },
+        { "id": "burnt-boards", "kind": "dungeon", "length": 6, "name": { "ja": "焼けた基板の山", "en": "the heap of burnt boards" } },
+        { "id": "no-current-house", "kind": "side", "length": 3, "name": { "ja": "電気の来ない家", "en": "the house with no current" } }
+      ]
+    },
+    {
+      "id": "lamp-gathering",
+      "name": { "ja": "灯の寄り合い", "en": "The Lamp Gathering" },
+      "fromChapter": 16,
+      "tier": 8,
+      "places": [
+        { "id": "far-light-road", "kind": "field", "length": 5, "name": { "ja": "遠い灯への道", "en": "the road to the far lights" } },
+        { "id": "old-board-valley", "kind": "dungeon", "length": 7, "harder": 1, "name": { "ja": "古い盤の谷", "en": "the valley of old boards" } },
+        { "id": "someones-board", "kind": "side", "length": 3, "name": { "ja": "誰かの忘れた盤", "en": "someone's forgotten board" } }
+      ]
+    }
+  ],
+  "items": [
+    { "id": "spare-screw", "slot": "hand", "tier": 0, "primary": "atk", "secondary": "spd", "starter": true, "name": { "ja": "予備のねじ", "en": "a spare screw" } },
+    { "id": "glowing-chip", "slot": "hand", "tier": 0, "primary": "mag", "secondary": "bst", "starter": true, "name": { "ja": "光る欠片", "en": "a glowing chip" } },
+    { "id": "old-label", "slot": "hand", "tier": 0, "primary": "lot", "secondary": "end", "starter": true, "name": { "ja": "古いラベル", "en": "an old label" } },
+    { "id": "thin-sheet", "slot": "body", "tier": 0, "primary": "end", "secondary": "sup", "starter": true, "name": { "ja": "薄い絶縁シート", "en": "a thin insulating sheet" } },
+    { "id": "cable-tie", "slot": "charm", "tier": 0, "primary": "cap", "secondary": "sup", "starter": true, "name": { "ja": "結束バンド", "en": "a cable tie" } },
+    { "id": "rubber-foot", "slot": "charm", "tier": 0, "primary": "end", "secondary": "lot", "starter": true, "name": { "ja": "ゴムの足", "en": "a rubber foot" } },
+
+    { "id": "copper-spatula", "slot": "hand", "tier": 1, "primary": "atk", "secondary": "spd", "name": { "ja": "銅のへら", "en": "a copper spatula" } },
+    { "id": "glowing-stone", "slot": "hand", "tier": 1, "primary": "mag", "secondary": "bst", "name": { "ja": "光る石", "en": "a glowing stone" } },
+    { "id": "anti-static-strap", "slot": "charm", "tier": 1, "primary": "sup", "secondary": "end", "name": { "ja": "静電気よけの腕輪", "en": "an anti-static strap" } },
+    { "id": "cotton-wrap", "slot": "body", "tier": 1, "primary": "end", "secondary": "spd", "name": { "ja": "綿の巻き布", "en": "a cotton wrap" } },
+    { "id": "small-pouch", "slot": "charm", "tier": 1, "primary": "cap", "secondary": "lot", "name": { "ja": "小さな袋", "en": "a small pouch" } },
+    { "id": "screw-tray", "slot": "hand", "tier": 1, "primary": "lot", "secondary": "cap", "shop": false, "name": { "ja": "ねじ受けの皿", "en": "a screw tray" } },
+
+    { "id": "steel-tweezers", "slot": "hand", "tier": 2, "primary": "atk", "secondary": "spd", "name": { "ja": "鋼のピンセット", "en": "steel tweezers" } },
+    { "id": "heat-coat", "slot": "body", "tier": 2, "primary": "end", "secondary": "sup", "name": { "ja": "放熱の上着", "en": "a heat-shedding coat" } },
+    { "id": "shifting-bead", "slot": "charm", "tier": 2, "primary": "mag", "secondary": "bst", "name": { "ja": "色の変わる玉", "en": "a color-shifting bead" } },
+    { "id": "folding-box", "slot": "charm", "tier": 2, "primary": "cap", "secondary": "lot", "name": { "ja": "折り畳みの箱", "en": "a folding box" } },
+    { "id": "thin-soles", "slot": "body", "tier": 2, "primary": "spd", "secondary": "atk", "name": { "ja": "底の薄い靴", "en": "thin-soled shoes" } },
+    { "id": "warm-stone", "slot": "charm", "tier": 2, "primary": "sup", "secondary": "end", "shop": false, "name": { "ja": "ぬくもりの石", "en": "a warm stone" } },
+
+    { "id": "precision-driver", "slot": "hand", "tier": 3, "primary": "atk", "secondary": "spd", "name": { "ja": "精密ドライバー", "en": "a precision screwdriver" } },
+    { "id": "thick-cloth", "slot": "body", "tier": 3, "primary": "end", "secondary": "cap", "name": { "ja": "厚い絶縁布", "en": "a thick insulating cloth" } },
+    { "id": "spare-battery", "slot": "charm", "tier": 3, "primary": "sup", "secondary": "end", "name": { "ja": "予備の電池", "en": "a spare battery" } },
+    { "id": "polished-mirror", "slot": "hand", "tier": 3, "primary": "mag", "secondary": "bst", "name": { "ja": "磨いた鏡", "en": "a polished mirror" } },
+    { "id": "catalog-notebook", "slot": "charm", "tier": 3, "primary": "lot", "secondary": "cap", "name": { "ja": "目録の帳面", "en": "a catalog notebook" } },
+    { "id": "wide-blade", "slot": "hand", "tier": 3, "primary": "end", "secondary": "sup", "fits": ["cpu-cooler"], "name": { "ja": "幅の広い羽根", "en": "a wide fan blade" } },
+
+    { "id": "spare-key", "slot": "hand", "tier": 4, "primary": "atk", "secondary": "lot", "name": { "ja": "合鍵", "en": "a spare key" } },
+    { "id": "gatekeeper-cloak", "slot": "body", "tier": 4, "primary": "end", "secondary": "sup", "name": { "ja": "門番の外套", "en": "a gatekeeper's cloak" } },
+    { "id": "guest-map", "slot": "charm", "tier": 4, "primary": "lot", "secondary": "spd", "name": { "ja": "客人の地図", "en": "a guest's map" } },
+    { "id": "rainbow-plate", "slot": "hand", "tier": 4, "primary": "mag", "secondary": "bst", "name": { "ja": "虹色の板", "en": "a rainbow plate" } },
+    { "id": "big-satchel", "slot": "body", "tier": 4, "primary": "cap", "secondary": "end", "name": { "ja": "大きな鞄", "en": "a big satchel" } },
+    { "id": "heat-pad", "slot": "charm", "tier": 4, "primary": "end", "secondary": "spd", "fits": ["m2", "ssd"], "shop": false, "name": { "ja": "熱を吸う板", "en": "a heat-drinking pad" } },
+
+    { "id": "reading-needle", "slot": "hand", "tier": 5, "primary": "atk", "secondary": "lot", "name": { "ja": "読み取りの針", "en": "a reading needle" } },
+    { "id": "old-magnet", "slot": "charm", "tier": 5, "primary": "lot", "secondary": "end", "name": { "ja": "古い磁石", "en": "an old magnet" } },
+    { "id": "sector-ledger", "slot": "charm", "tier": 5, "primary": "cap", "secondary": "sup", "name": { "ja": "区画の帳簿", "en": "a sector ledger" } },
+    { "id": "heavy-coat", "slot": "body", "tier": 5, "primary": "end", "secondary": "sup", "name": { "ja": "重い上着", "en": "a heavy coat" } },
+    { "id": "light-jar", "slot": "hand", "tier": 5, "primary": "mag", "secondary": "bst", "name": { "ja": "光を溜める瓶", "en": "a jar that holds light" } },
+    { "id": "quick-gloves", "slot": "body", "tier": 5, "primary": "spd", "secondary": "atk", "name": { "ja": "指の速くなる手袋", "en": "quick-fingered gloves" } },
+
+    { "id": "edge-blade", "slot": "hand", "tier": 6, "primary": "atk", "secondary": "bst", "name": { "ja": "端で拾った刃", "en": "a blade found at the edge" } },
+    { "id": "windbreak", "slot": "body", "tier": 6, "primary": "end", "secondary": "spd", "name": { "ja": "外の風よけ", "en": "a windbreak from outside" } },
+    { "id": "long-cord", "slot": "charm", "tier": 6, "primary": "sup", "secondary": "cap", "name": { "ja": "長い延長線", "en": "a long extension cord" } },
+    { "id": "waymark-stake", "slot": "hand", "tier": 6, "primary": "lot", "secondary": "spd", "name": { "ja": "道しるべの杭", "en": "a waymark stake" } },
+    { "id": "pale-lamp", "slot": "charm", "tier": 6, "primary": "mag", "secondary": "sup", "name": { "ja": "青白い灯", "en": "a pale blue lamp" } },
+    { "id": "outside-crate", "slot": "body", "tier": 6, "primary": "cap", "secondary": "lot", "shop": false, "name": { "ja": "外の木箱", "en": "a crate from outside" } },
+
+    { "id": "burnt-fragment", "slot": "hand", "tier": 7, "primary": "atk", "secondary": "mag", "name": { "ja": "焼け残りの基板片", "en": "a burnt board fragment" } },
+    { "id": "mud-cloak", "slot": "body", "tier": 7, "primary": "end", "secondary": "lot", "name": { "ja": "泥よけの外套", "en": "a mud cloak" } },
+    { "id": "wreck-gear", "slot": "charm", "tier": 7, "primary": "spd", "secondary": "atk", "name": { "ja": "残骸の歯車", "en": "a gear from the wreck" } },
+    { "id": "dry-capacitor", "slot": "charm", "tier": 7, "primary": "sup", "secondary": "end", "name": { "ja": "乾いた蓄電器", "en": "a dry capacitor" } },
+    { "id": "back-basket", "slot": "body", "tier": 7, "primary": "cap", "secondary": "lot", "name": { "ja": "大きな背負い籠", "en": "a large back basket" } },
+    { "id": "unlit-bulb", "slot": "hand", "tier": 7, "primary": "mag", "secondary": "bst", "name": { "ja": "点かない電球", "en": "a bulb that will not light" } },
+
+    { "id": "far-light-shard", "slot": "hand", "tier": 8, "primary": "mag", "secondary": "bst", "name": { "ja": "遠い灯の欠片", "en": "a shard of the far light" } },
+    { "id": "polished-heatsink", "slot": "body", "tier": 8, "primary": "end", "secondary": "sup", "name": { "ja": "磨き上げた放熱板", "en": "a polished heatsink" } },
+    { "id": "clear-crystal", "slot": "charm", "tier": 8, "primary": "atk", "secondary": "spd", "name": { "ja": "澄んだ水晶", "en": "a clear crystal" } },
+    { "id": "name-tag", "slot": "charm", "tier": 8, "primary": "lot", "secondary": "cap", "name": { "ja": "誰かの名札", "en": "someone's name tag" } },
+    { "id": "standoff", "slot": "hand", "tier": 8, "primary": "atk", "secondary": "end", "name": { "ja": "古い盤の足", "en": "an old board's standoff" } },
+    { "id": "spare-socket", "slot": "body", "tier": 8, "primary": "sup", "secondary": "cap", "shop": false, "name": { "ja": "空いた受け口", "en": "an empty socket" } }
+  ]
+}

@@ -10,6 +10,12 @@ story-work/ の原稿を検査して assets/story.json に組み上げる。
 
 require / scenePer はここで割り当てる。書き手に配分まで持たせると、
 話を足すたびに全体の進み方が壊れる。
+
+**何度流しても同じ物ができる。** 土台は既に組み上がった assets/story.json なので、
+挿し込み・第二部・傍白は「もう入っていれば入れない」ようにしてある。
+（以前は流すたびに第二部と挿し込みが二重に入った）
+
+冒険の原稿（story-work/adventure-*.json）は assets/adventure.json に組み上げる。
 """
 import json, re, sys, unicodedata
 from pathlib import Path
@@ -17,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 WORK = ROOT / "story-work"
 OUT = ROOT / "assets/story.json"
+ADV_OUT = ROOT / "assets/adventure.json"
 
 CHARS = {"cpu", "cpu-cooler", "memory", "gpu", "m2", "ssd", "hdd", "psu", "motherboard"}
 SCALARS = {"chapter", "gpus", "cpus", "boots", "hours"}
@@ -88,6 +95,11 @@ def norm_scene(sc, where):
     return dict(sc)
 
 
+def default_ja(sc):
+    """場面の既定の文（分岐なら最後の候補）。同じ場面かどうかの目印にする。"""
+    return (sc["variants"][-1] if "variants" in sc else sc).get("ja")
+
+
 def load(name):
     p = WORK / name
     if not p.exists():
@@ -122,6 +134,10 @@ if d:
             problems.append(f"branchify: 章が無い {b['chapter']}")
             continue
         i = b["index"]
+        want = [v.get("ja") for v in b["variants"]]
+        if any("variants" in sc and [v.get("ja") for v in sc["variants"][:-1]] == want
+               for sc in ch["scenes"]):
+            continue                                   # もう入っている
         if not (0 <= i < len(ch["scenes"])):
             problems.append(f"branchify {b['chapter']}#{i}: 範囲外")
             continue
@@ -140,8 +156,11 @@ if d:
             problems.append(f"insertions: 章が無い {ins['chapter']}")
             continue
         at = max(0, min(ins["after"] + 1, len(ch["scenes"])))
-        add = [norm_scene(s, f"ins {ins['chapter']}") for s in ins["scenes"]]
-        ch["scenes"][at:at] = [a for a in add if a]
+        add = [a for a in (norm_scene(s, f"ins {ins['chapter']}") for s in ins["scenes"]) if a]
+        have = {default_ja(sc) for sc in ch["scenes"]}
+        if add and all(default_ja(a) in have for a in add):
+            continue                                   # もう入っている
+        ch["scenes"][at:at] = add
 
 # ---- 第二部 ----------------------------------------------------------------
 for name in ("part2-a.json", "part2-b.json"):
@@ -149,11 +168,17 @@ for name in ("part2-a.json", "part2-b.json"):
     if not d:
         continue
     for ch in d["chapters"]:
-        chapters.append({
+        built = {
             "id": ch["id"], "title": ch["title"],
             "scenes": [s for s in (norm_scene(x, f"{ch['id']}#{i}")
                                    for i, x in enumerate(ch["scenes"])) if s],
-        })
+        }
+        # 原稿が正。既に入っている章は原稿の中身で置き換える
+        at = next((k for k, c in enumerate(chapters) if c["id"] == ch["id"]), -1)
+        if at >= 0:
+            chapters[at] = built
+        else:
+            chapters.append(built)
 
 # ---- 傍白 ------------------------------------------------------------------
 d = load("events.json")
@@ -161,9 +186,11 @@ if d:
     for e in d["events"]:
         kind = e["when"]
         slot = events.setdefault(kind, {"when": kind, "cooldown": 900, "texts": []})
+        have = {t.get("ja") for t in slot["texts"]}
         for i, t in enumerate(e["texts"]):
             check_line(t, f"event {kind}#{i}")
-            slot["texts"].append(t)
+            if t.get("ja") not in have:
+                slot["texts"].append(t)
         # 条件の付いていない本文が無いと、条件を外れた機械では一度も出ない
         if not any(not t.get("when") for t in slot["texts"]):
             problems.append(f"event {kind}: 条件無しの本文が1つも無い")
@@ -207,6 +234,158 @@ story = {
     "vignettes": vignettes,
 }
 
+# ---- 冒険 ------------------------------------------------------------------
+# 町・行き先・道具・文。数値（強さ・値段）は書かせない。PartsLife.Core が格と得意から決める。
+STATS = {"atk", "spd", "cap", "sup", "mag", "bst", "end", "lot"}
+SLOTS = {"hand", "body", "charm"}
+KINDS = {"field", "dungeon", "side"}
+HOLES = {"town", "place", "item", "name", "fighter", "keeper", "finder", "carrier"}
+# 種類ごとに使える差し込み。ここに無い差し込みは、その場面では埋まらない
+CATEGORY_HOLES = {
+    "why-": set(),
+    "do-": {"place", "fighter", "keeper", "finder", "carrier"},
+    "board-": {"place", "fighter", "keeper", "finder", "carrier"},
+    "won-item": {"item", "place", "fighter", "keeper", "finder", "carrier"},
+    "side-found": {"item", "place", "fighter", "keeper", "finder", "carrier"},
+    "equip": {"name", "item", "town", "fighter", "keeper", "finder", "carrier"},
+    "buy": {"name", "item", "town", "fighter", "keeper", "finder", "carrier"},
+    "town-": {"town", "fighter", "keeper", "finder", "carrier"},
+    "inn-": {"town", "fighter", "keeper", "finder", "carrier"},
+    "sell": {"town", "fighter", "keeper", "finder", "carrier"},
+    "depart": {"town", "place", "fighter", "keeper", "finder", "carrier"},
+    "": {"place", "fighter", "keeper", "finder", "carrier"},
+}
+REASONS = ["none", "fresh", "rested", "gear-strong", "streak-up", "calm",
+           "hurt", "tired", "gear-weak", "heavy", "streak-down", "hot"]
+REQUIRED = ([f"why-{r}" for r in REASONS]
+            + ["do-push", "do-back", "do-fight", "do-avoid", "do-side", "do-skip", "do-deeper",
+               "board-bold", "board-careful", "board-balanced",
+               "won", "won-item", "lost", "avoided", "side-found", "side-hurt", "side-small",
+               "reach-end", "retreat", "walk-back",
+               "town-arrive", "town-new", "equip", "sell", "buy", "inn-rest", "inn-eaves", "depart"])
+HALF = 34      # 理由と行動は繋げて一文にするので、片方ずつは画面の半分に収める
+NAME_JA = "マザーボードくん"   # 差し込まれる名前の最長（幅の見積もり用）
+
+
+def allowed_holes(cat):
+    for prefix, holes in CATEGORY_HOLES.items():
+        if prefix and (cat == prefix or (prefix.endswith("-") and cat.startswith(prefix))):
+            return holes
+    return CATEGORY_HOLES[""]
+
+
+def holes_of(text):
+    return set(re.findall(r"\{([a-z]+)\}", text or ""))
+
+
+adventure = None
+aw, al = load("adventure-world.json"), load("adventure-lines.json")
+if aw and al:
+    towns, items, place_ids = aw.get("towns", []), aw.get("items", []), set()
+    longest_place = max((width(p["name"]["ja"]) for t in towns for p in t.get("places", [])), default=0)
+    longest_town = max((width(t["name"]["ja"]) for t in towns), default=0)
+    longest_item = max((width(i["name"]["ja"]) for i in items), default=0)
+    fill = {"town": longest_town, "place": longest_place, "item": longest_item,
+            "name": width(NAME_JA), "fighter": width(NAME_JA), "keeper": width(NAME_JA),
+            "finder": width(NAME_JA), "carrier": width(NAME_JA)}
+
+    last = -1
+    seen_towns = set()
+    for t in towns:
+        w = f"town {t.get('id')}"
+        if t.get("id") in seen_towns:
+            problems.append(f"{w}: id が重複")
+        seen_towns.add(t.get("id"))
+        check_line(t.get("name", {}), w)
+        if not isinstance(t.get("fromChapter"), int) or t["fromChapter"] < last:
+            problems.append(f"{w}: fromChapter は章の順に並べること")
+        last = t.get("fromChapter", last)
+        if t["fromChapter"] >= len(out):
+            problems.append(f"{w}: fromChapter {t['fromChapter']} の章が無い")
+        if not isinstance(t.get("tier"), int) or t["tier"] < 1:
+            problems.append(f"{w}: tier は 1 以上の整数")
+        if not t.get("places"):
+            problems.append(f"{w}: 行き先が無い")
+        for p in t.get("places", []):
+            pw = f"{w}/{p.get('id')}"
+            if p.get("id") in place_ids:
+                problems.append(f"{pw}: id が重複")
+            place_ids.add(p.get("id"))
+            check_line(p.get("name", {}), pw)
+            if p.get("kind") not in KINDS:
+                problems.append(f"{pw}: kind は {sorted(KINDS)} のどれか")
+            if not (2 <= p.get("length", 4) <= 8):
+                problems.append(f"{pw}: length は 2..8")
+            if p.get("harder", 0) not in (0, 1):
+                problems.append(f"{pw}: harder は 0 か 1")
+    if towns and towns[0].get("fromChapter") != 0:
+        problems.append("最初の町は fromChapter 0 にすること（序章で泊まる町が無くなる）")
+
+    item_ids = set()
+    for it in items:
+        w = f"item {it.get('id')}"
+        if it.get("id") in item_ids:
+            problems.append(f"{w}: id が重複")
+        item_ids.add(it.get("id"))
+        check_line(it.get("name", {}), w)
+        if it.get("slot") not in SLOTS:
+            problems.append(f"{w}: slot は {sorted(SLOTS)} のどれか")
+        if not isinstance(it.get("tier"), int) or not (0 <= it["tier"] <= 12):
+            problems.append(f"{w}: tier は 0..12 の整数")
+        if it.get("primary") not in STATS:
+            problems.append(f"{w}: primary が不明 {it.get('primary')}")
+        if it.get("secondary") is not None and it.get("secondary") not in STATS:
+            problems.append(f"{w}: secondary が不明 {it.get('secondary')}")
+        for f in it.get("fits") or []:
+            if f not in CHARS:
+                problems.append(f"{w}: fits の相手が不明 {f}")
+    for slot in sorted(SLOTS):
+        if not any(i.get("starter") and i.get("slot") == slot for i in items):
+            problems.append(f"ありあわせ(starter)の {slot} が無い（初めの装備が配れない）")
+    top = max((t.get("tier", 1) for t in towns), default=1)
+    for tier in range(1, top + 1):
+        for slot in sorted(SLOTS):
+            if not any(i.get("tier") in (tier, tier - 1) and i.get("slot") == slot
+                       and i.get("shop", True) and not i.get("starter") for i in items):
+                warnings.append(f"格 {tier} の町の店に {slot} の品が無い")
+
+    lines_in = al.get("lines", {})
+    for cat in REQUIRED:
+        if cat not in lines_in:
+            problems.append(f"冒険の文: {cat} が無い")
+    for cat, arr in lines_in.items():
+        holes = allowed_holes(cat)
+        if not arr:
+            problems.append(f"冒険の文 {cat}: 空")
+            continue
+        if not any(not x.get("when") for x in arr):
+            problems.append(f"冒険の文 {cat}: 条件無しの文が1つも無い")
+        limit = HALF if cat.startswith(("why-", "do-", "board-")) else MAX_JA
+        for i, x in enumerate(arr):
+            w = f"冒険の文 {cat}#{i}"
+            check_line(x, w)
+            hj, he = holes_of(x.get("ja")), holes_of(x.get("en"))
+            if hj != he:
+                problems.append(f"{w}: 日本語と英語で差し込みが違う {sorted(hj)} / {sorted(he)}")
+            for h in hj | he:
+                if h not in HOLES or h not in holes:
+                    problems.append(f"{w}: この種類では使えない差し込み {{{h}}}")
+            ja = x.get("ja") or ""
+            est = width(re.sub(r"\{[a-z]+\}", "", ja)) + sum(fill.get(h, 0) for h in re.findall(r"\{([a-z]+)\}", ja))
+            if est > limit * 2:
+                (problems if cat.startswith(("why-", "do-", "board-")) else warnings).append(
+                    f"{w}: 長い（差し込み込みで {est // 2}字相当、上限 {limit}）{ja[:24]}…")
+
+    adventure = {
+        "version": 1,
+        "_note": "冒険の本文と表。tools/build-story.py が story-work/adventure-*.json から組み上げる。",
+        "towns": towns,
+        "items": items,
+        "lines": lines_in,
+    }
+    adv_lines = sum(len(v) for v in lines_in.values())
+    print(f"冒険: 町 {len(towns)} / 行き先 {len(place_ids)} / 道具 {len(items)} / 文 {adv_lines}（{len(lines_in)} 種）")
+
 lines = sum(len(s.get("variants", [s])) for c in out for s in c["scenes"]) \
         + sum(len(e["texts"]) for e in events.values()) + len(vignettes)
 
@@ -227,5 +406,8 @@ if problems:
 if "--write" in sys.argv:
     OUT.write_text(json.dumps(story, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n{OUT} に書きました")
+    if adventure is not None:
+        ADV_OUT.write_text(json.dumps(adventure, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"{ADV_OUT} に書きました")
 else:
     print("\n（--write を付けると書き込みます）")
