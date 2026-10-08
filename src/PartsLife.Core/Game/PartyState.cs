@@ -366,7 +366,15 @@ public sealed class PartyState
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             // 書き途中で電源が落ちても壊れないよう、別名で書いてから置き換える
             string tmp = path + ".tmp";
-            File.WriteAllText(tmp, ToJson());
+            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var w = new StreamWriter(fs, new System.Text.UTF8Encoding(false)))
+            {
+                w.Write(ToJson());
+                w.Flush();
+                // 置き換える前に中身を円盤まで書き切る。これが無いと、置き換えの直後に電源が落ちたとき
+                // state.json が中身の無いファイルになりうる（点検: 読めない物は退避されて最初からになる）
+                fs.Flush(flushToDisk: true);
+            }
             File.Move(tmp, path, overwrite: true);
         }
         catch { /* 保存できなくても動作は続ける */ }

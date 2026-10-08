@@ -48,7 +48,7 @@ public class AdventureTextTests
         Assert.NotEqual(Reason.Fresh, At(0.9).WhyBold);
         Assert.NotEqual(Reason.Fresh, At(0.7).WhyBold);
         // 点には体力の分がそのまま入る（理由に書かないだけ）
-        Assert.Equal(At(0.9).Score, (0.9 - 0.6) * 2.0, 6);
+        Assert.Equal((0.9 - 0.6) * 2.0, At(0.9).Score, 6);
         // 体力の他に効いている物があれば、そちらが理由になる
         var rested = StanceRules.Decide(new StanceInput(0.9, 0.0, 1, 0, 0, 0.3, 0), 0);
         Assert.Equal(Reason.Rested, rested.WhyBold);
