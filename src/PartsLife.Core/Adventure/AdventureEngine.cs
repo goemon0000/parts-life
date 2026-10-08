@@ -828,11 +828,16 @@ public sealed class AdventureEngine
         return _lang == "en" ? a + " " + b : a + b;
     }
 
+    /// <summary>直前に言った二文（理由と、した事）。続けて同じ文を選ばないため。保存しない。</summary>
+    private Line? _said1, _said2;
+
     private string? Say(string category, ItemDef? item = null, Member? who = null, PlaceDef? place = null)
     {
         if (_world is null) return null;
-        var line = _book.Pick(category, _world, _rng);
+        var line = _book.Pick(category, _world, _rng, _said1, _said2);
         if (line is null) return null;
+        _said2 = _said1;
+        _said1 = line;
         string t = line.For(_lang);
         if (t.IndexOf('{') < 0) return t;
 

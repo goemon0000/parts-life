@@ -128,13 +128,21 @@ public sealed class Director
         var ch = CurrentChapter;
         int wantScene = ch.ScenePer <= 0 ? 0 : (int)((_state.Journey - ch.Require) / ch.ScenePer);
         wantScene = Math.Min(wantScene, ch.Scenes.Count - 1);
+        bool sceneShown = false;
         while (_state.Scene < wantScene)
         {
             _state.Scene++;
-            if (ch.Scenes[_state.Scene].Pick(world) is { } line) produced.Add(line.For(lang));
+            if (ch.Scenes[_state.Scene].Pick(world) is { } line)
+            {
+                produced.Add(line.For(lang));
+                sceneShown = true;
+            }
         }
-        // 章の頭の一文は、まだ何も出していなければ出す
-        if (_state.Log.Count == 0 && ch.Scenes.Count > 0
+        // 章の頭の一文は、まだ何も出していなければ出す。
+        // **この秒に場面を出したなら出さない。** Log に入るのはこの秒の最後なので、Log だけ見ていると
+        // 「何も出していない」と読めてしまい、いま出した場面をもう一度足していた
+        // （旅程が章の途中から始まる保存で「HDDくんの荷が一番重い。」が二行続いた）
+        if (!sceneShown && _state.Log.Count == 0 && ch.Scenes.Count > 0
             && ch.Scenes[Math.Clamp(_state.Scene, 0, ch.Scenes.Count - 1)].Pick(world) is { } first)
             produced.Add(first.For(lang));
 
@@ -167,6 +175,13 @@ public sealed class Director
             if (PickVignette(world) is { } v) produced.Add(v.For(lang));
         }
 
+        // **同じ文を二行続けて流さない。** 道筋（本筋・傍白・レベル・冒険・小話）が別々に選ぶので、
+        // どれか一つが直前と同じ文を選ぶと、画面の二行が同じになる。最後の砦としてここで落とす
+        for (int i = 0; i < produced.Count; i++)
+        {
+            string previous = i > 0 ? produced[i - 1] : _state.Log.Count > 0 ? _state.Log[0] : "";
+            if (produced[i] == previous) produced.RemoveAt(i--);
+        }
         foreach (var line in produced)
         {
             _state.Log.Insert(0, line);
@@ -184,16 +199,29 @@ public sealed class Director
         var pool = _story.Vignettes.Where(v => Conditions.Match(v.When, world)).ToList();
         if (pool.Count == 0) return null;
 
+        var recent = _state.RecentVignettes;
         for (int attempt = 0; attempt < 8; attempt++)
         {
             var pick = pool[_rnd.Next(pool.Count)];
-            if (!_state.RecentVignettes.Contains(pick.Ja)) return Remember(pick);
+            if (!recent.Contains(pick.Ja)) return Remember(pick);
         }
-        return Remember(pool[_rnd.Next(pool.Count)]);
+        // 引き当てられなければ、出していない物 → 一番前に出した物の順に選ぶ。
+        // **ここで乱数に任せると、直前に出した物を引き直すことがある**（出せる話が少ない機械で続けて同じ話になる）
+        Line? oldest = null;
+        int oldestAt = int.MaxValue;
+        foreach (var v in pool)
+        {
+            int at = recent.IndexOf(v.Ja);
+            if (at < 0) return Remember(v);
+            if (at < oldestAt) { oldestAt = at; oldest = v; }
+        }
+        return Remember(oldest!);
     }
 
     private Line Remember(Line line)
     {
+        // 既に覚えている話なら、一番新しい所へ移す（同じ話を二重に数えない）
+        _state.RecentVignettes.Remove(line.Ja);
         _state.RecentVignettes.Add(line.Ja);
         // 覚えておく数は、出せる話の3割ほど。多すぎると選べる物が無くなる
         int keep = Math.Clamp(_story.Vignettes.Count / 3, 10, 120);

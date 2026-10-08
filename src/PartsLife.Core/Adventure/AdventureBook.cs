@@ -98,15 +98,31 @@ public sealed class AdventureBook
     /// 条件に合う文から1つ選ぶ。**一覧を作らずに選ぶ**（毎回の割り当てを出さないため）。
     /// 合うものが無ければ null。
     /// </summary>
-    public Line? Pick(string category, WorldState world, Random rng)
+    public Line? Pick(string category, WorldState world, Random rng) => Pick(category, world, rng, null, null);
+
+    /// <summary>
+    /// 条件に合う文から1つ選ぶ。<paramref name="avoid"/>・<paramref name="avoid2"/>（直前に言った文）は、
+    /// 他に出せる文がある限り選ばない。**同じ帰り道の一文が二場面続くと、止まって見える。**
+    /// </summary>
+    public Line? Pick(string category, WorldState world, Random rng, Line? avoid, Line? avoid2)
     {
         if (!_lines.TryGetValue(category, out var all) || all.Length == 0) return null;
-        int n = 0;
-        foreach (var l in all) if (Conditions.Match(l.When, world)) n++;
-        if (n == 0) return null;
-        int k = rng.Next(n);
+        int usable = 0, fresh = 0;
         foreach (var l in all)
-            if (Conditions.Match(l.When, world) && k-- == 0) return l;
+        {
+            if (!Conditions.Match(l.When, world)) continue;
+            usable++;
+            if (!ReferenceEquals(l, avoid) && !ReferenceEquals(l, avoid2)) fresh++;
+        }
+        if (usable == 0) return null;
+        bool skip = fresh > 0;
+        int k = rng.Next(skip ? fresh : usable);
+        foreach (var l in all)
+        {
+            if (!Conditions.Match(l.When, world)) continue;
+            if (skip && (ReferenceEquals(l, avoid) || ReferenceEquals(l, avoid2))) continue;
+            if (k-- == 0) return l;
+        }
         return null;
     }
 
