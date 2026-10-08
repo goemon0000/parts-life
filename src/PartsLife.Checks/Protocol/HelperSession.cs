@@ -37,15 +37,35 @@ public static class HelperSession
 {
     public const string ExeName = "PartsLife.Check.exe";
 
+    public const string OverrideVariable = "PARTSLIFE_CHECK_HELPER";
+
     /// <summary>
-    /// 補助 exe の置き場所。本体と同じフォルダ。
-    /// 開発中は環境変数 PARTSLIFE_CHECK_HELPER で別の場所を指せる。
+    /// 環境変数で補助 exe の場所を差し替えられるか。**Debug ビルドだけ。**
+    /// 配布物（Release）で効くと、同じ利用者の権限で動く別のプログラムが HKCU\Environment に
+    /// 書くだけで、次の点検で自分の exe を管理者で起動させられる（守りが UAC の確認画面だけになる）。
     /// </summary>
-    public static string? FindHelper()
+#if DEBUG
+    public const bool OverrideAllowed = true;
+#else
+    public const bool OverrideAllowed = false;
+#endif
+
+    /// <summary>
+    /// 補助 exe の置き場所。**本体と同じフォルダの絶対パスだけ。**
+    /// 開発中（Debug ビルド）に限り、環境変数 PARTSLIFE_CHECK_HELPER で別の場所（絶対パス）を指せる。
+    /// </summary>
+    public static string? FindHelper() =>
+        FindHelper(AppContext.BaseDirectory, Environment.GetEnvironmentVariable(OverrideVariable));
+
+    internal static string? FindHelper(string appDirectory, string? overridePath)
     {
-        var env = Environment.GetEnvironmentVariable("PARTSLIFE_CHECK_HELPER");
-        if (!string.IsNullOrEmpty(env) && File.Exists(env)) return env;
-        string here = Path.Combine(AppContext.BaseDirectory, ExeName);
+#pragma warning disable CS0162 // Release では到達しない（それが狙い）
+        if (OverrideAllowed && !string.IsNullOrEmpty(overridePath) && Path.IsPathFullyQualified(overridePath)
+            && File.Exists(overridePath))
+            return Path.GetFullPath(overridePath);
+#pragma warning restore CS0162
+        if (!Path.IsPathFullyQualified(appDirectory)) return null;
+        string here = Path.GetFullPath(Path.Combine(appDirectory, ExeName));
         return File.Exists(here) ? here : null;
     }
 
