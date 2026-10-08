@@ -3,4 +3,7 @@
     <Project Path="src/PartsLife.Core/PartsLife.Core.csproj" />
     <Project Path="src/PartsLife/PartsLife.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PartsLife.Core.Tests/PartsLife.Core.Tests.csproj" />
+  </Folder>
 </Solution>
