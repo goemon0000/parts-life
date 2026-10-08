@@ -8,8 +8,11 @@ namespace PartsLife.Checks.Storage;
 /// 物理ディスクから健康情報を**読むだけ**。管理者で動く PartsLife.Check.exe からだけ呼ぶ。
 ///
 /// ■ 開き方
-/// - 素性（型番・シリアル・接続）: アクセス権 0 で開く（問い合わせだけ。管理者でなくても通る）
-/// - NVMe のログページ: まず GENERIC_READ だけで開く。通らない機種に限り READ|WRITE で開き直す
+/// - 素性（型番・シリアル・接続・一意な識別子・接続の位置）: アクセス権 0 で開く
+///   （問い合わせだけ。管理者でなくても通る）
+/// - NVMe のログページ: GENERIC_READ だけで開く。**Windows が「権限が足りない」（ERROR_ACCESS_DENIED）
+///   と返したときに限り** READ|WRITE で開き直す（ドライバが対応していない等、ほかの理由では開き直さない）。
+///   どちらの handle でも投げるのは Get Log Page の問い合わせだけで、媒体には一切書かない
 /// - ATA の SMART: Windows が SMART_RCV_DRIVE_DATA を「読み書き権のある handle でのみ受け付ける」
 ///   と定義しているため READ|WRITE で開く。**投げる命令は SMART READ DATA / READ THRESHOLDS
 ///   の2つに固定**してあり（<see cref="StorageProtocol.BuildSmartRead"/>）、媒体には一切書かない。
@@ -27,6 +30,7 @@ public static class StorageReader
     private const uint IOCTL_STORAGE_PREDICT_FAILURE = 0x002D1100;
     private const uint SMART_RCV_DRIVE_DATA = 0x0007C088;
     private const uint IOCTL_DISK_GET_DRIVE_GEOMETRY_EX = 0x000700A0;
+    private const uint IOCTL_SCSI_GET_ADDRESS = 0x00041018;      // FILE_ANY_ACCESS
 
     private const int ERROR_FILE_NOT_FOUND = 2;
     private const int ERROR_ACCESS_DENIED = 5;
@@ -73,6 +77,11 @@ public static class StorageReader
         r.Bus = id.Bus;
         var geo = Query(info, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, Array.Empty<byte>(), 256);
         if (geo is not null) r.SizeBytes = StorageProtocol.ParseGeometryEx(geo).Size;
+        // 基準値を台ごとに分けるための識別子と位置。取れなくても読み取りは続ける
+        var ids = Query(info, IOCTL_STORAGE_QUERY_PROPERTY, StorageProtocol.BuildDeviceIdQuery(), 1024);
+        if (ids is not null) r.UniqueId = StorageProtocol.ParseDeviceUniqueId(ids);
+        var addr = Query(info, IOCTL_SCSI_GET_ADDRESS, Array.Empty<byte>(), 8);
+        if (addr is not null) r.Location = StorageProtocol.ParseScsiAddress(addr);
 
         r.Protocol = BusNames.ProtocolFor(id.Bus);
         switch (r.Protocol)
@@ -90,14 +99,26 @@ public static class StorageReader
     private static void ReadNvme(string path, DiskReport r)
     {
         byte[]? health = null, errors = null;
-        foreach (uint access in new[] { GENERIC_READ, GENERIC_READ | GENERIC_WRITE })
+        bool denied;
+        using (var h = Open(path, GENERIC_READ))
         {
-            using var h = Open(path, access);
-            if (h.IsInvalid) continue;
-            health = NvmeLog(h, StorageProtocol.NvmeLogHealthInfo, NvmeHealth.Length);
-            if (health is null) continue;
-            errors = NvmeLog(h, StorageProtocol.NvmeLogErrorInfo, NvmeErrorEntry.Length * 16);
-            break;
+            denied = h.IsInvalid && Marshal.GetLastPInvokeError() == ERROR_ACCESS_DENIED;
+            if (!h.IsInvalid)
+            {
+                health = NvmeLog(h, StorageProtocol.NvmeLogHealthInfo, NvmeHealth.Length, out int err);
+                denied = health is null && err == ERROR_ACCESS_DENIED;
+                if (health is not null) errors = NvmeLog(h, StorageProtocol.NvmeLogErrorInfo, NvmeErrorEntry.Length * 16, out _);
+            }
+        }
+        // 読み取り権だけでは Windows が受け付けなかった機種に限り、読み書き権で開き直す
+        if (health is null && denied)
+        {
+            using var h = Open(path, GENERIC_READ | GENERIC_WRITE);
+            if (!h.IsInvalid)
+            {
+                health = NvmeLog(h, StorageProtocol.NvmeLogHealthInfo, NvmeHealth.Length, out _);
+                if (health is not null) errors = NvmeLog(h, StorageProtocol.NvmeLogErrorInfo, NvmeErrorEntry.Length * 16, out _);
+            }
         }
         if (health is null)
         {
@@ -109,10 +130,10 @@ public static class StorageReader
         r.NvmeErrorPage = errors;
     }
 
-    private static byte[]? NvmeLog(SafeFileHandle h, byte page, int length)
+    private static byte[]? NvmeLog(SafeFileHandle h, byte page, int length, out int error)
     {
         var buf = StorageProtocol.BuildNvmeLogQuery(page, length);
-        var outp = Query(h, IOCTL_STORAGE_QUERY_PROPERTY, buf, buf.Length);
+        var outp = Query(h, IOCTL_STORAGE_QUERY_PROPERTY, buf, buf.Length, out error);
         return outp is null ? null : StorageProtocol.ExtractProtocolData(outp, length);
     }
 
@@ -161,15 +182,23 @@ public static class StorageReader
         CreateFileW(path, access, FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
 
     /// <summary>DeviceIoControl。失敗したら null（理由は問わない。読めなかった、で足りる）。</summary>
-    private static unsafe byte[]? Query(SafeFileHandle h, uint code, byte[] input, int outputLength, int? inputLength = null)
+    private static byte[]? Query(SafeFileHandle h, uint code, byte[] input, int outputLength, int? inputLength = null) =>
+        Query(h, code, input, outputLength, out _, inputLength);
+
+    /// <summary>同上。失敗の理由（GetLastError）も返す。開き直すかどうかの判断にだけ使う。</summary>
+    private static unsafe byte[]? Query(SafeFileHandle h, uint code, byte[] input, int outputLength, out int error, int? inputLength = null)
     {
         var output = new byte[outputLength];
         int inLen = inputLength ?? input.Length;
+        error = 0;
         fixed (byte* pi = input)
         fixed (byte* po = output)
         {
             if (!DeviceIoControl(h, code, inLen == 0 ? null : pi, inLen, po, output.Length, out int got, IntPtr.Zero))
+            {
+                error = Marshal.GetLastPInvokeError();
                 return null;
+            }
             return got <= 0 ? null : got == output.Length ? output : output.AsSpan(0, got).ToArray();
         }
     }

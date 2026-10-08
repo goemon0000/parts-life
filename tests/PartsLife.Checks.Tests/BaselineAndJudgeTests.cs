@@ -41,10 +41,10 @@ public class BaselineTests : IDisposable
         Assert.Equal(363_278UL, prev!.Counters[Counters.MediaErrors]);
         Assert.Equal(t0, prev.At);
 
-        var history = store.Load("SER-A");
+        var history = store.Load(Nvme("SER-A", 0));
         Assert.Equal(2, history.Entries.Count);
         Assert.Equal("Test NVMe", history.Model);
-        Assert.Single(store.Load("SER-B").Entries);
+        Assert.Single(store.Load(Nvme("SER-B", 0)).Entries);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class BaselineTests : IDisposable
         var store = new BaselineStore(_dir);
         var t = DateTimeOffset.Now;
         for (int i = 0; i < BaselineStore.MaxEntries + 5; i++) store.Record(Nvme("CAP", (ulong)i), t.AddMinutes(i));
-        Assert.Equal(BaselineStore.MaxEntries, store.Load("CAP").Entries.Count);
+        Assert.Equal(BaselineStore.MaxEntries, store.Load(Nvme("CAP", 0)).Entries.Count);
     }
 }
 

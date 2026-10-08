@@ -36,6 +36,71 @@ public static class StorageProtocol
         return q;
     }
 
+    // ---------------------------------------------------------------------
+    // 識別子（基準値の鍵に使う）。どちらも access 0 の handle で通る問い合わせ
+    // ---------------------------------------------------------------------
+    public const int StorageDeviceIdProperty = 2;
+
+    /// <summary>StorageDeviceIdProperty（VPD 0x83 の識別子の一覧）を聞く問い合わせ（12 バイト）。</summary>
+    public static byte[] BuildDeviceIdQuery()
+    {
+        var q = new byte[12];
+        BinaryPrimitives.WriteInt32LittleEndian(q.AsSpan(0), StorageDeviceIdProperty);
+        BinaryPrimitives.WriteInt32LittleEndian(q.AsSpan(4), PropertyStandardQuery);
+        return q;
+    }
+
+    private const int IdCodeSetBinary = 1;
+    private const int IdTypeEui64 = 2;
+    private const int IdTypeFcphName = 3;   // NAA（WWN）
+    private const int IdAssocDevice = 0;
+
+    /// <summary>
+    /// STORAGE_DEVICE_ID_DESCRIPTOR から、**機器そのもの**の一意な識別子を1つ選ぶ。
+    ///
+    ///   descriptor: 0 Version, 4 Size, 8 NumberOfIdentifiers, 12 Identifiers[]
+    ///   identifier: 0 CodeSet, 4 Type, 8 IdentifierSize(2), 10 NextOffset(2), 12 Association, 16 Identifier[]
+    ///
+    /// EUI-64 / NGUID（NVMe）を先に、無ければ NAA（SATA・SAS の WWN）。
+    /// 全部 0 や全部 FF の値は「無い」扱い（そう返す安い機器がある）。何も無ければ空文字。
+    /// </summary>
+    public static string ParseDeviceUniqueId(ReadOnlySpan<byte> d)
+    {
+        if (d.Length < 12) return "";
+        int size = (int)Math.Min((uint)d.Length, BinaryPrimitives.ReadUInt32LittleEndian(d[4..]));
+        uint count = BinaryPrimitives.ReadUInt32LittleEndian(d[8..]);
+        string eui = "", naa = "";
+        int at = 12;
+        for (uint i = 0; i < Math.Min(count, 64u) && at + 16 <= size; i++)
+        {
+            var e = d[at..size];
+            int codeSet = BinaryPrimitives.ReadInt32LittleEndian(e);
+            int type = BinaryPrimitives.ReadInt32LittleEndian(e[4..]);
+            int len = BinaryPrimitives.ReadUInt16LittleEndian(e[8..]);
+            int next = BinaryPrimitives.ReadUInt16LittleEndian(e[10..]);
+            int assoc = BinaryPrimitives.ReadInt32LittleEndian(e[12..]);
+            if (16 + len <= e.Length && codeSet == IdCodeSetBinary && assoc == IdAssocDevice)
+            {
+                var v = e.Slice(16, len);
+                bool junk = v.IndexOfAnyExcept((byte)0) < 0 || v.IndexOfAnyExcept((byte)0xFF) < 0;
+                if (!junk && type == IdTypeEui64 && len is 8 or 12 or 16 && eui.Length == 0)
+                    eui = "eui." + Convert.ToHexStringLower(v);
+                else if (!junk && type == IdTypeFcphName && len is 8 or 16 && naa.Length == 0)
+                    naa = "naa." + Convert.ToHexStringLower(v);
+            }
+            if (next < 16) break;
+            at += next;
+        }
+        return eui.Length > 0 ? eui : naa;
+    }
+
+    /// <summary>IOCTL_SCSI_GET_ADDRESS の SCSI_ADDRESS（Length(4), Port, Path, Target, Lun）。</summary>
+    public static string ParseScsiAddress(ReadOnlySpan<byte> d)
+    {
+        if (d.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(d) < 8) return "";
+        return $"{d[4]}:{d[5]}:{d[6]}:{d[7]}";
+    }
+
     /// <summary>
     /// NVMe の Get Log Page を、Windows の受け口（StorageDeviceProtocolSpecificProperty）経由で頼む。
     /// **読み出しの命令しか組み立てられない形にしてある**（ログページの番号と長さだけを受ける）。

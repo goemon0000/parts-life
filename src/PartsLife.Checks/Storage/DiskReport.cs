@@ -71,11 +71,16 @@ public sealed class DiskReport
     public bool? PredictFailure { get; set; }
 
     /// <summary>
-    /// 基準値を台ごとに分ける鍵。**シリアル番号で引く。**
-    /// 番号（PhysicalDrive0 など）は挿し替えや USB の抜き差しで入れ替わるので、鍵にならない。
+    /// 機器の一意な識別子（VPD 0x83 の EUI-64 / NGUID / NAA = WWN）。"eui.0025…" / "naa.5000…"。
+    /// 報告されなければ空。基準値の鍵の一部（<see cref="BaselineIdentity"/>）。
     /// </summary>
-    [JsonIgnore]
-    public string Key => Serial.Length > 0 ? Serial : $"{Model}-{SizeBytes}";
+    public string UniqueId { get; set; } = "";
+
+    /// <summary>
+    /// 接続の位置（IOCTL_SCSI_GET_ADDRESS の "port:path:target:lun"）。取れなければ空。
+    /// **鍵には普段使わない**（挿し替えで変わる）。同じ識別子の台が同時に複数あるときの見分けにだけ使う。
+    /// </summary>
+    public string Location { get; set; } = "";
 
     [JsonIgnore]
     public NvmeHealth? Nvme => NvmeHealthPage is { Length: >= NvmeHealth.Length } p ? NvmeHealth.Parse(p) : null;

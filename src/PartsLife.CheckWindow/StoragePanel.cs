@@ -116,18 +116,15 @@ internal sealed class StoragePanel : CheckPanel
                 return;
             }
 
-            var now = DateTimeOffset.Now;
-            foreach (var r in reports.OrderBy(r => r.Number))
+            // 全台まとめて記録する（同じ識別子の台が同時にあるかを見分けるため）
+            var ordered = reports.OrderBy(r => r.Number).ToList();
+            var outcomes = _store.RecordAll(ordered, DateTimeOffset.Now);
+            for (int i = 0; i < ordered.Count; i++)
             {
-                BaselineEntry? previous = null;
-                string? recordError = null;
-                if (r.Unavailable is null)
-                {
-                    try { previous = _store.Record(r, now); }
-                    catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { recordError = ex.Message; }
-                }
-                var j = StorageJudge.Judge(r, previous);
-                _results.Children.Add(Ui.Card(DiskCard(j, recordError)));
+                var r = ordered[i];
+                var o = outcomes[i];
+                var j = StorageJudge.Judge(r, o.Previous, o.State);
+                _results.Children.Add(Ui.Card(DiskCard(j, o.Error)));
                 _lastText.Add(new Finding($"#{r.Number} {r.Model}", j.Overall, $"{BusNames.Of(r.Bus)} {r.SizeBytes / 1e9:0} GB  S/N {r.Serial}"));
                 _lastText.AddRange(j.Findings.Select(f => f with { Title = "  " + f.Title }));
             }
@@ -170,7 +167,9 @@ internal sealed class StoragePanel : CheckPanel
                 box.Children.Add(Ui.Label("  " + d.Format(), 11, Counters.GrowthVerdict(d.Counter) is { } v && d.Grew ? Ui.VerdictBrush(v) : Ui.Sub));
             if (grew.Count == 0) box.Children.Add(Ui.Label("  " + T.NoChange, 11, Ui.Sub));
         }
-        else if (r.Unavailable is null)
+        else if (BaselineStates.WhyNotCompared(j.Baseline) is { } why)
+            box.Children.Add(Ui.Label(why, 11, Ui.Sub));
+        else if (r.Unavailable is null && j.Baseline == BaselineState.First)
             box.Children.Add(Ui.Label(T.FirstBaseline, 11, Ui.Sub));
         if (recordError is not null)
             box.Children.Add(Ui.Label(T.RecordFailed + recordError, 11, Ui.Yellow));

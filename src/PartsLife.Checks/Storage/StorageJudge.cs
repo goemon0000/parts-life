@@ -1,7 +1,8 @@
 namespace PartsLife.Checks.Storage;
 
 public sealed record DiskJudgement(DiskReport Report, IReadOnlyList<Finding> Findings,
-                                   IReadOnlyList<CounterDelta> Deltas, BaselineEntry? Previous)
+                                   IReadOnlyList<CounterDelta> Deltas, BaselineEntry? Previous,
+                                   BaselineState Baseline = BaselineState.First)
 {
     /// <summary>
     /// 一番重い判定。**測れなかった物は重さに数えない**
@@ -24,27 +25,34 @@ public sealed record DiskJudgement(DiskReport Report, IReadOnlyList<Finding> Fin
 /// - 累計の大きさより、**前回からの増え方**を重く見る
 /// - 機器自身が閾値で「故障の見込み」と言っているなら、それをそのまま伝える
 /// - 読めなかった物は「測れず」。OK にしない
+/// - 前回の記録と比べられなかった（識別子が無い・同じ識別子の台が複数）ときは、**増えたとは言わない**
 /// </summary>
 public static class StorageJudge
 {
-    public static DiskJudgement Judge(DiskReport r, BaselineEntry? previous)
+    /// <param name="state">基準値の状態（<see cref="BaselineStore.RecordAll"/> の結果）。
+    /// 省略すると、前回の記録があれば「比べた」、無ければ「初回」。</param>
+    public static DiskJudgement Judge(DiskReport r, BaselineEntry? previous, BaselineState? state = null)
     {
+        var st = state ?? (previous is not null ? BaselineState.Compared : BaselineState.First);
+        // 比べたと言えるときだけ前回の値を使う
+        if (st != BaselineState.Compared) previous = null;
         var current = Counters.From(r);
         var deltas = BaselineStore.Diff(previous, current);
         var findings = new List<Finding>();
+        string? noCompare = BaselineStates.WhyNotCompared(st);
 
         if (r.Unavailable is { } why)
         {
             findings.Add(new Finding(L.T("SMART / 健康情報", "SMART / health"), Verdict.Unavailable, why));
-            return new DiskJudgement(r, findings, deltas, previous);
+            return new DiskJudgement(r, findings, deltas, previous, st);
         }
 
-        if (r.Nvme is { } n) JudgeNvme(n, r.NvmeErrors, deltas, previous, findings);
-        else if (r.Ata.Count > 0) JudgeAta(r, deltas, previous, findings);
+        if (r.Nvme is { } n) JudgeNvme(n, r.NvmeErrors, deltas, previous, noCompare, findings);
+        else if (r.Ata.Count > 0) JudgeAta(r, deltas, previous, noCompare, findings);
         else findings.Add(new Finding(L.T("SMART / 健康情報", "SMART / health"), Verdict.Unavailable,
                                       L.T("値が返ってきませんでした", "the device returned no data")));
 
-        return new DiskJudgement(r, findings, deltas, previous);
+        return new DiskJudgement(r, findings, deltas, previous, st);
     }
 
     private static CounterDelta? DeltaOf(IReadOnlyList<CounterDelta> deltas, string key) =>
@@ -56,7 +64,7 @@ public static class StorageJudge
     // NVMe
     // ---------------------------------------------------------------------
     private static void JudgeNvme(NvmeHealth n, IReadOnlyList<NvmeErrorEntry> errors,
-                                  IReadOnlyList<CounterDelta> deltas, BaselineEntry? prev, List<Finding> f)
+                                  IReadOnlyList<CounterDelta> deltas, BaselineEntry? prev, string? noCompare, List<Finding> f)
     {
         // 重大警告
         if (n.CriticalWarning != 0)
@@ -73,8 +81,10 @@ public static class StorageJudge
                            $"{d.Format()} since {Since(prev!)}. It is growing — back up important data"),
             stable: d => L.T($"累計 {L.N(n.MediaErrors)} は過去の記録。前回（{Since(prev!)}）から増えていません",
                              $"{L.N(n.MediaErrors)} in total, not grown since {Since(prev!)}"),
-            first: L.T($"累計 {L.N(n.MediaErrors)}。増えているかは次回の点検で分かります（今回を基準に記録）",
-                       $"{L.N(n.MediaErrors)} in total. The next check will show whether it is growing (recorded as baseline)"),
+            first: noCompare is not null
+                ? L.T($"累計 {L.N(n.MediaErrors)}。", $"{L.N(n.MediaErrors)} in total; ") + noCompare
+                : L.T($"累計 {L.N(n.MediaErrors)}。増えているかは次回の点検で分かります（今回を基準に記録）",
+                      $"{L.N(n.MediaErrors)} in total. The next check will show whether it is growing (recorded as baseline)"),
             firstVerdict: Verdict.Caution, grewVerdict: Verdict.Check));
 
         // 予備領域
@@ -143,7 +153,7 @@ public static class StorageJudge
     // ---------------------------------------------------------------------
     // ATA / SATA
     // ---------------------------------------------------------------------
-    private static void JudgeAta(DiskReport r, IReadOnlyList<CounterDelta> deltas, BaselineEntry? prev, List<Finding> f)
+    private static void JudgeAta(DiskReport r, IReadOnlyList<CounterDelta> deltas, BaselineEntry? prev, string? noCompare, List<Finding> f)
     {
         var attrs = r.Ata;
         if (r.PredictFailure == true)
@@ -185,7 +195,7 @@ public static class StorageJudge
                 grew: dd => L.T($"{dd.Format()}。前回（{Since(prev!)}）から増えています", $"{dd.Format()} since {Since(prev!)} — growing"),
                 stable: dd => $"{L.N(a.Value)}" + L.T($"。前回（{Since(prev!)}）から増えていません", $", not grown since {Since(prev!)}") +
                               (nonzeroVerdict == Verdict.Check ? L.T("。ただし今も残っていること自体が問題です", ". Still, these sectors are unreadable right now") : ""),
-                first: $"{L.N(a.Value)}。" + first,
+                first: $"{L.N(a.Value)}。" + first + (noCompare is not null ? L.T("。", ". ") + noCompare : ""),
                 firstVerdict: nonzeroVerdict,
                 grewVerdict: grewVerdict,
                 // 代替待ち・訂正不能は「今まさに読めないセクタがある」ので、増えていなくても軽くしない
