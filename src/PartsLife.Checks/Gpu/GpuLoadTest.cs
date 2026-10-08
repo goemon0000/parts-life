@@ -34,6 +34,8 @@ public sealed record GpuTick(int Second, double GigaOpsPerSec, int? TemperatureC
 public sealed class GpuLoadResult
 {
     public string AdapterName { get; set; } = "";
+    /// <summary>負荷をかけたデバイスがソフトウェア（WARP）だったか。作られたデバイスから読んだ値。</summary>
+    public bool RanOnSoftware { get; set; }
     public List<GpuTick> Ticks { get; } = new();
     public double Seconds { get; set; }
     public bool Ran { get; set; }
@@ -144,6 +146,10 @@ public static class GpuLoadTest
         try
         {
             using var gpu = new D3D11Compute(o.AdapterIndex, o.Groups);
+            r.RanOnSoftware = gpu.IsSoftware;
+            // WARP を頼んだ（テスト）のに本物の GPU が来たら、1 回も流さずに止める
+            if (o.AdapterIndex is null && !gpu.IsSoftware)
+                throw new InvalidOperationException($"WARP was requested but the device is on '{gpu.DeviceAdapterName}'");
             r.Ran = true;
             uint iters = Calibrate(gpu, o.TargetBatch, () => ct.IsCancellationRequested || watchAbort is not null);
             r.Iterations = iters;

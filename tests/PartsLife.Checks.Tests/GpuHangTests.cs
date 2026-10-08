@@ -84,6 +84,7 @@ public class GpuHangTests
                 Temperature = () => { if (Interlocked.Increment(ref reads) >= 3) gate.Wait(); return 55; },
             }, null, CancellationToken.None);
             Assert.True(r.Ran);
+            Assert.True(r.RanOnSoftware);                // 負荷は WARP（CPU）。本物の GPU には触らない
             Assert.Contains("応答", r.AbortReason);
             Assert.True(r.TemperatureReaderStuck);       // 呼んだ側は nvml.dll を解放してはいけない
             Assert.True(r.Seconds < 6, $"ran {r.Seconds:0.0} s");

@@ -21,6 +21,15 @@ public sealed unsafe class D3D11Compute : IDisposable
     private IntPtr _device, _context, _shader, _buffer, _uav, _staging, _cbuffer, _query;
     public int Elements { get; }
 
+    /// <summary>実際に作られたデバイスのアダプタ名（DXGI の GetDesc1）。WARP なら "Microsoft Basic Render Driver"。</summary>
+    public string DeviceAdapterName { get; private set; } = "";
+
+    /// <summary>
+    /// 実際に作られたデバイスがソフトウェア（WARP。CPU で動く）か。DXGI_ADAPTER_FLAG_SOFTWARE を
+    /// **作られたデバイスから**読む。番号の指定（null = WARP）を信じるだけにしない。
+    /// </summary>
+    public bool IsSoftware { get; private set; }
+
     /// <summary>計算シェーダ（HLSL）。整数だけで回すので、CPU で同じ答えを作り直せる。</summary>
     public const string Hlsl = @"
 cbuffer P : register(b0) { uint seed; uint iters; uint pad0; uint pad1; };
@@ -89,6 +98,7 @@ void main(uint3 id : SV_DispatchThreadID)
             Com.Release(adapter);
             Com.Release(factory);
         }
+        Describe();
 
         // シェーダ
         var bytecode = Compile();
@@ -225,6 +235,36 @@ void main(uint3 id : SV_DispatchThreadID)
         foreach (var p in new[] { _query, _cbuffer, _staging, _uav, _buffer, _shader, _context, _device })
             Com.Release(p);
         _query = _cbuffer = _staging = _uav = _buffer = _shader = _context = _device = IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// 作られたデバイスのアダプタを引く: ID3D11Device → IDXGIDevice::GetAdapter（7）→ IDXGIAdapter1::GetDesc1（10）。
+    /// </summary>
+    private void Describe()
+    {
+        IntPtr dxgiDevice = IntPtr.Zero, adapter = IntPtr.Zero, adapter1 = IntPtr.Zero;
+        try
+        {
+            var iidDevice = new Guid("54ec77fa-1377-44e6-8c32-88fd5f44c84c");     // IID_IDXGIDevice
+            Check(((delegate* unmanaged<IntPtr, Guid*, IntPtr*, int>)Com.Slot(_device, 0))(_device, &iidDevice, &dxgiDevice),
+                  "QueryInterface(IDXGIDevice)");
+            Check(((delegate* unmanaged<IntPtr, IntPtr*, int>)Com.Slot(dxgiDevice, 7))(dxgiDevice, &adapter), "IDXGIDevice::GetAdapter");
+            var iidAdapter1 = new Guid("29038f61-3839-4626-91fd-086879011a05");   // IID_IDXGIAdapter1
+            Check(((delegate* unmanaged<IntPtr, Guid*, IntPtr*, int>)Com.Slot(adapter, 0))(adapter, &iidAdapter1, &adapter1),
+                  "QueryInterface(IDXGIAdapter1)");
+            var desc = stackalloc byte[312];
+            new Span<byte>(desc, 312).Clear();
+            Check(((delegate* unmanaged<IntPtr, byte*, int>)Com.Slot(adapter1, 10))(adapter1, desc), "IDXGIAdapter1::GetDesc1");
+            var d = GpuAdapters.ParseDesc1(new ReadOnlySpan<byte>(desc, 312));
+            DeviceAdapterName = d.Name;
+            IsSoftware = (d.Flags & GpuAdapters.DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
+        }
+        finally
+        {
+            Com.Release(adapter1);
+            Com.Release(adapter);
+            Com.Release(dxgiDevice);
+        }
     }
 
     private int CreateBuffer(BufferDesc* desc, IntPtr* buffer) =>

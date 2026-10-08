@@ -89,6 +89,8 @@ public class GpuTests
     {
         // WARP は CPU で動く D3D11。**GPU は一切使わない。** vtable の番号と答え合わせの検証用
         using var gpu = new D3D11Compute(adapterIndex: null, groups: 2);
+        // 作られたデバイスから確かめる（番号の指定を信じるだけにしない）
+        Assert.True(gpu.IsSoftware, gpu.DeviceAdapterName);
         gpu.Dispatch(seed: 777, iters: 50, TimeSpan.FromSeconds(10));
         var got = gpu.ReadBack(512);
         Assert.Equal(512, got.Length);
@@ -124,6 +126,7 @@ public class GpuTests
             Temperature = () => Interlocked.Increment(ref reads) >= 2 ? 83 : 60,
         }, null, CancellationToken.None);
         Assert.True(r.Ran);
+        Assert.True(r.RanOnSoftware);
         Assert.True(r.AbortedForHeat);
         Assert.True(r.Seconds < 5, $"ran {r.Seconds:0.0} s");
         Assert.Equal(83, r.MaxTemperature);
@@ -139,6 +142,7 @@ public class GpuTests
             AdapterIndex = null, Groups = 4, Duration = TimeSpan.FromSeconds(20), TargetBatch = TimeSpan.FromMilliseconds(5),
             Temperature = () => Interlocked.Increment(ref reads) == 1 ? 50 : null,
         }, null, CancellationToken.None);
+        Assert.True(r.RanOnSoftware);
         Assert.True(r.Seconds < 5);
         Assert.Contains("読めなく", r.AbortReason);
     }
@@ -155,6 +159,7 @@ public class GpuTests
         await Task.Delay(1500);
         cts.Cancel();
         var r = await task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.True(r.RanOnSoftware);
         Assert.True(r.Stopped);
         Assert.Equal(0, r.Mismatches);
     }

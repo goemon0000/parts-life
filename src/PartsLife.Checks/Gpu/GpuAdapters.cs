@@ -20,7 +20,7 @@ public sealed record GpuAdapter(int DxgiIndex, string Name, uint VendorId, ulong
 /// </summary>
 public static unsafe class GpuAdapters
 {
-    private const int DXGI_ADAPTER_FLAG_SOFTWARE = 2;
+    internal const int DXGI_ADAPTER_FLAG_SOFTWARE = 2;
     private const int KMTQAITYPE_ADAPTERADDRESS = 6;
 
     public static IReadOnlyList<GpuAdapter> Enumerate(Nvml? nvml)
