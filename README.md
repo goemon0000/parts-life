@@ -113,9 +113,14 @@ PartsLife.exe --shot   out.png 2            # いまの見た目そのまま1枚
 PartsLife.exe --shot   out.png 2 --collapsed
 PartsLife.exe --render out.png 1.0 3        # 負荷 1.0 の基板を6コマぶん。湯気の動きが見える
 PartsLife.exe --render server.png 0.9 3     # ファイル名に server を含めると2CPU/4GPU構成
-PartsLife.exe --probe  out.txt              # GPU・ディスクを実機がどう見ているか
+PartsLife.exe --probe  out.txt              # GPU・ディスクを実機がどう見ているか（盤に立てない物は理由つき）
 PartsLife.exe --story  out.txt              # 物語を全場面書き出す（構成違いの2通り）
+PartsLife.exe --shot-check out.png system 1 # 点検の窓の一面（system / load / storage）。--lang en・--width 680
 ```
+
+`--shot-check` は本物の点検の窓を組み立てて描きます。`system` は管理者なしのシステムチェックを
+実際に走らせた結果、`load` は何も走らせていない面、`storage` は管理者の要る読み取りの前の面です
+（補助 exe は起こしません）。保存にも `checks` にも書かず、シリアル番号は末尾 4 文字だけにします。
 
 ---
 

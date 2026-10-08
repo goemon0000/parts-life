@@ -58,17 +58,21 @@ internal sealed class StoragePanel : CheckPanel
         _scanLive = Ui.Label("", 12, Ui.Sub);
         Children.Add(_scanLive);
         Children.Add(_scanResults);
-        Children.Add(Ui.Label(T.StorageFootnote(_store.Directory), 11, Ui.Dim));
+        // 書き出しでは利用者名の入った実際の場所を出さない（配布ページに載せるため）
+        Children.Add(Ui.Label(T.StorageFootnote(Ui.ShotMode ? @"%APPDATA%\PartsLife\checks" : _store.Directory), 11, Ui.Dim));
 
         _read.Click += async (_, _) => await ReadSmartAsync();
         _copy.Click += (_, _) => { try { Clipboard.SetText(Ui.ToText(_lastText)); } catch (System.Runtime.InteropServices.COMException) { } };
         _scanStart.Click += async (_, _) => await ScanAsync();
         _scanStop.Click += (_, _) => Stop();
-        IsVisibleChanged += (_, _) => { if (IsVisible && !_disksListed) ListDisks(); };
+        IsVisibleChanged += (_, _) => { if (IsVisible && !_disksListed) _ = ListDisksAsync(); };
     }
 
+    /// <summary>書き出しでは、管理者なしで読める台の一覧までを出す（補助 exe は起こさない）。</summary>
+    public override Task PrepareShotAsync() => _disksListed ? Task.CompletedTask : ListDisksAsync();
+
     /// <summary>表面検査の対象の一覧。管理者なしで読める WMI から（開いた面が見えたときに初めて引く）。</summary>
-    private async void ListDisks()
+    private async Task ListDisksAsync()
     {
         _disksListed = true;
         _diskChoices.Children.Add(Ui.Label(T.Working, 12, Ui.Sub));
@@ -125,7 +129,7 @@ internal sealed class StoragePanel : CheckPanel
                 var o = outcomes[i];
                 var j = StorageJudge.Judge(r, o.Previous, o.State);
                 _results.Children.Add(Ui.Card(DiskCard(j, o.Error)));
-                _lastText.Add(new Finding($"#{r.Number} {r.Model}", j.Overall, $"{BusNames.Of(r.Bus)} {r.SizeBytes / 1e9:0} GB  S/N {r.Serial}"));
+                _lastText.Add(new Finding($"#{r.Number} {r.Model}", j.Overall, $"{BusNames.Of(r.Bus)} {r.SizeBytes / 1e9:0} GB  S/N {SerialShown(r.Serial)}"));
                 _lastText.AddRange(j.Findings.Select(f => f with { Title = "  " + f.Title }));
             }
             _status.Text = T.SmartDone(reports.Count);
@@ -153,7 +157,7 @@ internal sealed class StoragePanel : CheckPanel
         head.Children.Add(badge);
         head.Children.Add(Ui.Label($"#{r.Number} {r.Model}", 13, Ui.Text, bold: true, wrap: false));
         box.Children.Add(head);
-        string serial = r.Serial.Length > 0 ? $" · S/N {r.Serial}" : "";
+        string serial = r.Serial.Length > 0 ? $" · S/N {SerialShown(r.Serial)}" : "";
         string fw = r.Firmware.Length > 0 ? $" · FW {r.Firmware}" : "";
         box.Children.Add(Ui.Label($"{BusNames.Of(r.Bus)} · {r.SizeBytes / 1e9:0} GB{serial}{fw}", 11, Ui.Dim));
 
@@ -195,6 +199,9 @@ internal sealed class StoragePanel : CheckPanel
         }
         return box;
     }
+
+    /// <summary>画面にはそのまま、書き出し（--shot-check）では末尾 4 文字だけ。</summary>
+    private static string SerialShown(string serial) => Ui.ShotMode ? CheckWindowShot.MaskSerial(serial) : serial;
 
     private static string AttributeTable(IReadOnlyList<SmartAttribute> attrs)
     {

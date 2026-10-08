@@ -43,6 +43,15 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        int shotCheck = Array.FindIndex(args, a => a == "--shot-check");
+        if (shotCheck >= 0)
+        {
+            // 引数が足りなくても常駐の窓には落ちない（書き出しのつもりで保存を動かさない）
+            if (shotCheck + 2 < args.Length) ShotCheck(args, shotCheck);
+            else Shutdown(2);
+            return;
+        }
+
         int shot = Array.FindIndex(args, a => a == "--shot");
         if (shot >= 0 && shot + 1 < args.Length)
         {
@@ -113,6 +122,38 @@ public partial class App : System.Windows.Application
         }
         sb.AppendLine($"\n文章の総数 {story.LineCount}");
         File.WriteAllText(path, sb.ToString());
+    }
+
+    /// <summary>
+    /// `--shot-check <出力先.png> <system|load|storage> [拡大率] [--lang en] [--width 680]` —
+    /// **点検の窓の一面を、窓を出さずに PNG にして終わる。** 配布ページの画像用（--shot の点検版）。
+    /// system は管理者なしのシステムチェックを実際に走らせて結果を描く。load は待っている面、
+    /// storage は管理者の要る読み取りの前の面（補助 exe は起こさない）。保存にも checks にも書かない。
+    ///
+    /// **別の関数に分け、インライン化させない。** 点検のアセンブリ（PartsLife.CheckWindow / PartsLife.Checks）は、
+    /// この関数が呼ばれたときに初めて読み込まれる。OnStartup に直接書くと、常駐の起動でも読み込まれてしまう。
+    /// 失敗したら終了コード 1 で、理由を `<出力先>.error.txt` に書く。
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private async void ShotCheck(string[] args, int at)
+    {
+        string path = args[at + 1], tab = args[at + 2];
+        double scale = at + 3 < args.Length && double.TryParse(args[at + 3], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var sc) ? sc : 1.0;
+        int wAt = Array.IndexOf(args, "--width");
+        double width = wAt >= 0 && wAt + 1 < args.Length && double.TryParse(args[wAt + 1], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var wd) ? wd : 680;
+        int code = 0;
+        try
+        {
+            await PartsLife.CheckWindow.CheckWindowShot.SaveAsync(path, tab, scale, LangArg(args) ?? "ja", width);
+        }
+        catch (Exception ex)
+        {
+            code = 1;
+            try { File.WriteAllText(path + ".error.txt", ex.ToString()); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+        Shutdown(code);
     }
 
     /// <summary>`--lang en` で書き出す言語を指定する。宣材を日英ぶん作るため。</summary>

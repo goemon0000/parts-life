@@ -95,7 +95,9 @@ internal sealed class CheckWindow : Window
         Closed += async (_, _) => await ReleaseAsync();
     }
 
-    private void Select(int index)
+    internal CheckPanel Panel(int index) => _panels[index];
+
+    internal void Select(int index)
     {
         for (int i = 0; i < _tabs.Length; i++) _tabs[i].Button.IsChecked = i == index;
         _body.Content = _panels[index];

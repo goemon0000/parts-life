@@ -12,6 +12,12 @@ internal abstract class CheckPanel : StackPanel
     public abstract void Stop();
     /// <summary>止め終わるのを待つための仕事（窓を閉じた後の片付けで待つ）。</summary>
     public abstract Task Running { get; }
+
+    /// <summary>
+    /// 書き出し（--shot-check）の前に、その面が見せる物を用意する。既定では何もしない（押す前の面のまま）。
+    /// **管理者の要る物・負荷をかける物は、ここで走らせない。**
+    /// </summary>
+    public virtual Task PrepareShotAsync() => Task.CompletedTask;
 }
 
 /// <summary>システムチェック。管理者なし、数秒で終わる一覧。</summary>
@@ -79,6 +85,9 @@ internal sealed class SystemPanel : CheckPanel
             _results.Children.Add(Ui.Card(box));
         }
     }
+
+    /// <summary>書き出しでは、管理者なしのシステムチェックを本当に走らせて、その結果を描く。</summary>
+    public override Task PrepareShotAsync() => RunAsync();
 
     public override void Stop() => _cts?.Cancel();
 }

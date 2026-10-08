@@ -12,6 +12,9 @@ namespace PartsLife.CheckWindow;
 /// </summary>
 internal static class Ui
 {
+    /// <summary>--shot-check で書き出している間は真。個人を特定できる物（シリアル番号・利用者名の入った場所）を伏せる。</summary>
+    public static bool ShotMode { get; set; }
+
     public static readonly Brush Back = Frozen(0x10, 0x13, 0x19);
     public static readonly Brush Panel = Frozen(0x18, 0x1C, 0x25);
     public static readonly Brush Edge = Frozen(0x2A, 0x33, 0x44);
