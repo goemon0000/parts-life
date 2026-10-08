@@ -114,6 +114,11 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveState();
         Closed += (_, _) =>
         {
+            // 「閉じる」はアプリの終了。点検の窓が開いていたら先に普通に閉じる:
+            // 窓の Closing で試験を止め、管理者の補助 exe に stop を送る（補助 exe はパイプが切れても止まる）。
+            // 型で探さないのは、点検のアセンブリを開いていないのに読み込ませないため
+            foreach (var w in Application.Current.Windows.Cast<Window>().Where(w => w != this).ToList())
+                w.Close();
             _frameTimer.Stop();
             _sensorTimer.Stop();
             _hoverTip.IsOpen = false;

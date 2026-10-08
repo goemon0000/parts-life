@@ -56,7 +56,9 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）
         var main = new MainWindow();
+        MainWindow = main;
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];
         main.Show();
