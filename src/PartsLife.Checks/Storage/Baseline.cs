@@ -107,8 +107,15 @@ public enum BaselineState
     NoIdentity,
     /// <summary>同じ識別子の台が同時に複数あり、接続の位置でも見分けられなかった。</summary>
     Duplicate,
-    /// <summary>通電時間などの減らないはずの数が前回より減っている（別の台の記録の可能性）。</summary>
+    /// <summary>通電時間・書き込み量などの減らないはずの数が前回より減っている（別の台の記録の可能性）。</summary>
     Mismatch,
+    /// <summary>
+    /// 通電時間が、前回の記録から経った時間より多く進んでいる（別の台の記録の可能性）。
+    /// 同じシリアルの台が接続の位置を入れ替えた・同じシリアルの別の台に替わった、のどちらでも起きる。
+    /// </summary>
+    AheadOfClock,
+    /// <summary>以前の形式（v1）の記録が、この台だけの物だと確かめられなかったので引き継がなかった。v1 のファイルは残す。</summary>
+    LegacyRefused,
     /// <summary>読めなかった / 記録に失敗した。</summary>
     NotRecorded,
 }
@@ -120,8 +127,12 @@ public static class BaselineStates
     {
         BaselineState.NoIdentity => L.T("比べられない（識別子なし）", "cannot compare (no identifier)"),
         BaselineState.Duplicate => L.T("比べられない（同じ識別子の台が複数）", "cannot compare (several disks share one identifier)"),
-        BaselineState.Mismatch => L.T("比べられない（前回の記録と通電時間が合わない。別の台の記録の可能性）",
-                                      "cannot compare (power-on hours went backwards; the last record may be another disk's)"),
+        BaselineState.Mismatch => L.T("比べられない（前回の記録より通電時間か書き込み量が減っている。別の台の記録の可能性）",
+                                      "cannot compare (power-on hours or data written went backwards; the last record may be another disk's)"),
+        BaselineState.AheadOfClock => L.T("比べられない（前回の記録から経った時間より通電時間が多く進んでいる。別の台の記録の可能性）",
+                                          "cannot compare (power-on hours advanced more than the time since the last record; the last record may be another disk's)"),
+        BaselineState.LegacyRefused => L.T("比べられない（以前の記録に別の台の分が混ざっている可能性があるので引き継がなかった）",
+                                           "cannot compare (the old record may include another disk's entries, so it was not carried over)"),
         _ => null,
     };
 }
@@ -262,8 +273,9 @@ public sealed class BaselineStore
             if (id is null) { outcomes[i] = new BaselineOutcome(state, null); continue; }
             try
             {
-                if (!id.Key.Contains("|loc=", StringComparison.Ordinal)) MigrateLegacy(r, id, reports);
-                outcomes[i] = RecordOne(r, id, now);
+                var migration = id.Key.Contains("|loc=", StringComparison.Ordinal)
+                    ? Migration.None : MigrateLegacy(r, id, reports, now);
+                outcomes[i] = RecordOne(r, id, now, legacyRefused: migration == Migration.Refused);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -304,7 +316,7 @@ public sealed class BaselineStore
         return result;
     }
 
-    private BaselineOutcome RecordOne(DiskReport report, BaselineIdentity id, DateTimeOffset now)
+    private BaselineOutcome RecordOne(DiskReport report, BaselineIdentity id, DateTimeOffset now, bool legacyRefused = false)
     {
         var history = Load(id);
         var previous = history.Entries.Count > 0 ? history.Entries[^1] : null;
@@ -315,40 +327,113 @@ public sealed class BaselineStore
             history.Entries.RemoveRange(0, history.Entries.Count - MaxEntries);
         Save(PathFor(id), history);
 
-        if (previous is null) return new BaselineOutcome(BaselineState.First, null);
-        if (WentBackwards(previous, current)) return new BaselineOutcome(BaselineState.Mismatch, null);
-        return new BaselineOutcome(BaselineState.Compared, previous);
+        if (previous is null)
+            return new BaselineOutcome(legacyRefused ? BaselineState.LegacyRefused : BaselineState.First, null);
+        return CheckContinuity(previous, current, now) switch
+        {
+            Continuity.WentBackwards => new BaselineOutcome(BaselineState.Mismatch, null),
+            Continuity.AheadOfClock => new BaselineOutcome(BaselineState.AheadOfClock, null),
+            _ => new BaselineOutcome(BaselineState.Compared, previous),
+        };
     }
 
-    /// <summary>減らないはずの数（通電時間・書き込み量）が減っていたら、前回の記録は別の台の物かもしれない。</summary>
-    internal static bool WentBackwards(BaselineEntry previous, IReadOnlyDictionary<string, ulong> current)
+    /// <summary>前回の記録が、今回読んだ台の物と言えるか。</summary>
+    internal enum Continuity
     {
-        foreach (var k in new[] { Counters.PowerOnHours, Counters.DataUnitsWritten, Counters.Ata(9) })
-            if (previous.Counters.TryGetValue(k, out var before) && current.TryGetValue(k, out var now) && now < before)
-                return true;
-        return false;
+        Same,
+        /// <summary>減らないはずの数が減った。</summary>
+        WentBackwards,
+        /// <summary>通電時間が、記録の間に経った時間より多く進んだ。</summary>
+        AheadOfClock,
     }
+
+    /// <summary>減らないはずの数（通電時間・書き込み量）。</summary>
+    private static readonly string[] Monotonic = { Counters.PowerOnHours, Counters.DataUnitsWritten, Counters.Ata(9) };
+
+    /// <summary>
+    /// 時間で数える数。ATA の 9 は機種によって分や秒で数える物がある（古い HDD に少数）。
+    /// その台は毎回「比べられない」になるが、**別の台の記録と比べて「増えています」と言うよりは良い**。
+    /// </summary>
+    private static readonly string[] Hours = { Counters.PowerOnHours, Counters.Ata(9) };
+
+    /// <summary>通電時間は整数の時間で切り捨てられ、更新も間をおいて行われるので、そのぶんの余裕。</summary>
+    internal static readonly TimeSpan HoursSlack = TimeSpan.FromHours(2);
+
+    /// <summary>時計のずれの余裕（記録した時刻はこの機械の時計。起動時や NTP の補正で前後する）。</summary>
+    internal static readonly TimeSpan ClockSkew = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// 前回の記録が別の台の物ではないかを確かめる。
+    /// - 減らないはずの数（通電時間・書き込み量）が減った → 別の台
+    /// - 通電時間が、前回の記録から経った時間（+ 余裕）より多く進んだ → 別の台
+    ///   （同じシリアルの2台が位置を入れ替えた・同じシリアルの別の台に替わった。通電時間の長い方が
+    ///   短い方の記録の位置に来ると、減ってはいないので上だけでは見抜けない）
+    /// </summary>
+    internal static Continuity CheckContinuity(BaselineEntry previous, IReadOnlyDictionary<string, ulong> current, DateTimeOffset now)
+    {
+        foreach (var k in Monotonic)
+            if (previous.Counters.TryGetValue(k, out var before) && current.TryGetValue(k, out var after) && after < before)
+                return Continuity.WentBackwards;
+
+        double elapsed = Math.Max(0, (now - previous.At).TotalHours);
+        double allowed = elapsed + HoursSlack.TotalHours + ClockSkew.TotalHours;
+        foreach (var k in Hours)
+            if (previous.Counters.TryGetValue(k, out var before) && current.TryGetValue(k, out var after) && after - before > allowed)
+                return Continuity.AheadOfClock;
+        return Continuity.Same;
+    }
+
+    /// <summary>2つの記録に、同じ台かを確かめられる数（通電時間・書き込み量）が共通してあるか。</summary>
+    private static bool CanTell(IReadOnlyDictionary<string, ulong> a, IReadOnlyDictionary<string, ulong> b) =>
+        Monotonic.Any(k => a.ContainsKey(k) && b.ContainsKey(k));
+
+    /// <summary>
+    /// 履歴が1台だけの物に見えるか。隣り合う記録どうしが <see cref="CheckContinuity"/> で食い違わず、
+    /// 確かめられる数が共通してあること。v1 では同じシリアルの2台の記録が交互に混ざっていることがある。
+    /// </summary>
+    internal static bool LooksLikeOneDisk(IReadOnlyList<BaselineEntry> entries)
+    {
+        for (int i = 1; i < entries.Count; i++)
+        {
+            if (!CanTell(entries[i - 1].Counters, entries[i].Counters)) return false;
+            if (CheckContinuity(entries[i - 1], entries[i].Counters, entries[i].At) != Continuity.Same) return false;
+        }
+        return true;
+    }
+
+    private enum Migration { None, Migrated, Refused }
 
     /// <summary>
     /// v1 の記録（ファイル名 = シリアル）を新しい鍵へ移す。**確かに同じ台だと言えるときだけ:**
     /// シリアルが使える値で、今回そのシリアル（とファイル名の潰れ方）が1台だけ、
     /// 中身の鍵と型番が一致し、新しい鍵の記録がまだ無い。移した元は .migrated に改名して残す。
+    /// さらに、v1 の履歴の中で通電時間・書き込み量が食い違わず（<see cref="LooksLikeOneDisk"/>）、
+    /// 今回の値がその最後の記録に続いていること。v1 では同じシリアルの2台の記録が交互に混ざっていることがあり、
+    /// 片方だけ繋いだ回に移すと、最後の記録がもう片方の物かもしれない。
+    /// そのときは**移さない**（Refused）。v1 のファイルはそのまま残し、新しい鍵の記録は今回から始める。
     /// </summary>
-    private void MigrateLegacy(DiskReport r, BaselineIdentity id, IReadOnlyList<DiskReport> all)
+    private Migration MigrateLegacy(DiskReport r, BaselineIdentity id, IReadOnlyList<DiskReport> all, DateTimeOffset now)
     {
         string serial = r.Serial;
-        if (!BaselineIdentity.UsableSerial(serial)) return;
+        if (!BaselineIdentity.UsableSerial(serial)) return Migration.None;
         string target = PathFor(id);
-        if (File.Exists(target)) return;
+        if (File.Exists(target)) return Migration.None;
         string legacy = LegacyPathFor(serial);
-        if (!File.Exists(legacy)) return;
+        if (!File.Exists(legacy)) return Migration.None;
         string safe = SafeName(serial);
-        if (all.Count(o => SafeName(o.Serial) == safe) != 1) return;
+        if (all.Count(o => SafeName(o.Serial) == safe) != 1) return Migration.None;
         var old = TryRead(legacy);
-        if (old is null || old.Key != serial || old.Model != r.Model || old.Entries.Count == 0) return;
+        if (old is null || old.Key != serial || old.Model != r.Model || old.Entries.Count == 0) return Migration.None;
+
+        var current = Counters.From(r);
+        if (!LooksLikeOneDisk(old.Entries)
+            || !CanTell(old.Entries[^1].Counters, current)
+            || CheckContinuity(old.Entries[^1], current, now) != Continuity.Same)
+            return Migration.Refused;
 
         Save(target, new BaselineHistory { Key = id.Key, Model = old.Model, Entries = old.Entries });
         File.Move(legacy, legacy + ".migrated", overwrite: true);
+        return Migration.Migrated;
     }
 
     private HashSet<string> LoadTwins()

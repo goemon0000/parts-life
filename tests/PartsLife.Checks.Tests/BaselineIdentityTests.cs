@@ -26,6 +26,14 @@ public class BaselineIdentityTests : IDisposable
 
     private static Finding Media(DiskJudgement j) => j.Findings.Single(f => f.Title == "メディアエラー");
 
+    /// <summary>通電時間（NVMe 2.0 Figure 207: 128）と書き込み量（48）を書き換える。</summary>
+    private static DiskReport With(DiskReport r, ulong powerOnHours, ulong? dataUnitsWritten = null)
+    {
+        BinaryPrimitives.WriteUInt64LittleEndian(r.NvmeHealthPage.AsSpan(128), powerOnHours);
+        if (dataUnitsWritten is { } w) BinaryPrimitives.WriteUInt64LittleEndian(r.NvmeHealthPage.AsSpan(48), w);
+        return r;
+    }
+
     [Fact]
     public void Single_disk_growth_is_still_detected()
     {
@@ -166,18 +174,170 @@ public class BaselineIdentityTests : IDisposable
     }
 
     [Fact]
+    public void Swapped_same_serial_disks_are_not_compared_with_each_others_records()
+    {
+        var store = new BaselineStore(_dir);
+        // 同じシリアル・一意な識別子なし。A は通電時間が長くメディアエラー 363,278、B は短く 0 件
+        DiskReport A(string loc) => With(Nvme("DUPSERIAL", 363_278, loc), powerOnHours: 21_345);
+        DiskReport B(string loc) => With(Nvme("DUPSERIAL", 0, loc), powerOnHours: 1_200, dataUnitsWritten: 900_000);
+        store.RecordAll(new[] { A("0:0:0:0"), B("1:0:0:0") }, T0);
+
+        // ケーブルを差し替えた（番号の振り直しでも同じ）。A が B の元の位置に来る
+        var a = A("1:0:0:0");
+        var o = store.RecordAll(new[] { B("0:0:0:0"), a }, T0.AddDays(1));
+        Assert.Equal(BaselineState.Mismatch, o[0].State);          // B は A の記録より通電時間が短い
+        Assert.Equal(BaselineState.AheadOfClock, o[1].State);      // A は B の記録から 1 日で +20,145 時間
+        Assert.Null(o[1].Previous);
+
+        var j = StorageJudge.Judge(a, o[1].Previous, o[1].State);
+        Assert.NotEqual(Verdict.Check, Media(j).Verdict);
+        Assert.DoesNotContain("増えています", Media(j).Reason);
+        Assert.DoesNotContain("+363,278", Media(j).Reason);
+        Assert.Contains("比べられない（前回の記録から経った時間より通電時間が多く進んでいる", Media(j).Reason);
+        Assert.Empty(j.Deltas);
+
+        // 位置がそのままなら、次の回からは自分の記録と比べる
+        var again = store.RecordAll(new[] { B("0:0:0:0"), A("1:0:0:0") }, T0.AddDays(2));
+        Assert.All(again, x => Assert.Equal(BaselineState.Compared, x.State));
+        Assert.Equal(363_278UL, again[1].Previous!.Counters[Counters.MediaErrors]);
+    }
+
+    [Fact]
+    public void Same_serial_replacement_unit_is_not_compared_with_the_old_units_record()
+    {
+        var store = new BaselineStore(_dir);
+        store.RecordAll(new[] { With(Nvme("REPL1", 0), powerOnHours: 1_000) }, T0);
+        // 3 日後、同じシリアルを返す別の台（通電時間が長く、エラーの多い中古品）に替わった
+        var replacement = With(Nvme("REPL1", 363_278), powerOnHours: 21_345);
+        var o = store.RecordAll(new[] { replacement }, T0.AddDays(3))[0];
+        Assert.Equal(BaselineState.AheadOfClock, o.State);
+        var j = StorageJudge.Judge(replacement, o.Previous, o.State);
+        Assert.NotEqual(Verdict.Check, Media(j).Verdict);
+        Assert.DoesNotContain("増えています", Media(j).Reason);
+        Assert.Contains("比べられない", Media(j).Reason);
+
+        // 書き込み量が減った（通電時間は辻褄が合う）だけでも、別の台として扱う
+        var store2 = new BaselineStore(Path.Combine(_dir, "w"));
+        store2.RecordAll(new[] { With(Nvme("REPL2", 0), powerOnHours: 1_000, dataUnitsWritten: 5_000_000) }, T0);
+        var other = With(Nvme("REPL2", 363_278), powerOnHours: 1_010, dataUnitsWritten: 4_000_000);
+        Assert.Equal(BaselineState.Mismatch, store2.RecordAll(new[] { other }, T0.AddDays(1))[0].State);
+    }
+
+    [Fact]
+    public void Genuine_growth_with_hours_that_fit_the_clock_is_still_detected()
+    {
+        var store = new BaselineStore(_dir);
+        store.RecordAll(new[] { With(Nvme("REAL1", 363_278), powerOnHours: 21_345, dataUnitsWritten: 48_000_000) }, T0);
+        // 8 日（192 時間）で 150 時間ついていた。書き込みも増えた
+        var later = With(Nvme("REAL1", 363_301), powerOnHours: 21_495, dataUnitsWritten: 48_500_000);
+        var o = store.RecordAll(new[] { later }, T0.AddDays(8))[0];
+        Assert.Equal(BaselineState.Compared, o.State);
+        var j = StorageJudge.Judge(later, o.Previous, o.State);
+        Assert.Equal(Verdict.Check, Media(j).Verdict);
+        Assert.Contains("(+23)", Media(j).Reason);
+        Assert.Contains("増えています", Media(j).Reason);
+
+        // 付けっぱなし（経った時間ぶんそのまま）でも、切り捨てのぶん 1 時間多くても比べる
+        var on = With(Nvme("REAL1", 363_301), powerOnHours: 21_495 + 49);
+        Assert.Equal(BaselineState.Compared, store.RecordAll(new[] { on }, T0.AddDays(10))[0].State);
+    }
+
+    [Fact]
+    public void Hours_ahead_of_the_clock_allow_only_the_stated_slack()
+    {
+        var prev = new BaselineEntry { At = T0, Counters = new() { [Counters.PowerOnHours] = 100 } };
+        Dictionary<string, ulong> Poh(ulong h) => new() { [Counters.PowerOnHours] = h };
+        double slack = BaselineStore.HoursSlack.TotalHours + BaselineStore.ClockSkew.TotalHours;
+        Assert.Equal(3, slack);
+        Assert.Equal(BaselineStore.Continuity.Same, BaselineStore.CheckContinuity(prev, Poh(113), T0.AddHours(10)));
+        Assert.Equal(BaselineStore.Continuity.AheadOfClock, BaselineStore.CheckContinuity(prev, Poh(114), T0.AddHours(10)));
+        // 時計が戻っていても（前回より前の時刻）、余裕を超えて進んだら別の台
+        Assert.Equal(BaselineStore.Continuity.Same, BaselineStore.CheckContinuity(prev, Poh(103), T0.AddHours(-5)));
+        Assert.Equal(BaselineStore.Continuity.AheadOfClock, BaselineStore.CheckContinuity(prev, Poh(104), T0.AddHours(-5)));
+        // ATA の通電時間（属性 9）も同じ
+        var ata = new BaselineEntry { At = T0, Counters = new() { [Counters.Ata(9)] = 5_000 } };
+        Assert.Equal(BaselineStore.Continuity.AheadOfClock,
+                     BaselineStore.CheckContinuity(ata, new Dictionary<string, ulong> { [Counters.Ata(9)] = 9_000 }, T0.AddDays(1)));
+        Assert.Equal(BaselineStore.Continuity.Same,
+                     BaselineStore.CheckContinuity(ata, new Dictionary<string, ulong> { [Counters.Ata(9)] = 5_020 }, T0.AddDays(1)));
+    }
+
+    /// <summary>v1 のファイル（ファイル名 = シリアル）を、記録の並び（時刻・通電時間・メディアエラー）から書く。</summary>
+    private static void WriteLegacy(BaselineStore store, string serial, string model, params (DateTimeOffset At, ulong? Poh, ulong Media)[] entries)
+    {
+        Directory.CreateDirectory(store.Directory);
+        var list = string.Join(",", entries.Select(e =>
+        {
+            string poh = e.Poh is { } h ? $",\"nvme.power_on_hours\":{h}" : "";
+            return $"{{\"at\":\"{e.At:O}\",\"counters\":{{\"nvme.media_errors\":{e.Media}{poh}}}}}";
+        }));
+        File.WriteAllText(store.LegacyPathFor(serial), $"{{\"key\":\"{serial}\",\"model\":\"{model}\",\"entries\":[{list}]}}");
+    }
+
+    [Fact]
+    public void Legacy_history_mixing_two_same_serial_disks_is_not_migrated()
+    {
+        var store = new BaselineStore(_dir);
+        var d = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(9));
+        // 旧い版が、同じシリアルの2台（A: 21,345 時間・363,278 件 / B: 1,200 時間・0 件）を交互に書いていた
+        WriteLegacy(store, "MIXED1", "Test NVMe",
+            (d, 21_300, 363_278), (d.AddMinutes(1), 1_180, 0),
+            (d.AddDays(7), 21_330, 363_278), (d.AddDays(7).AddMinutes(1), 1_190, 0));
+
+        // 今回は A だけを繋いでいる。最後の記録は B の物 → 移さない
+        var a = With(Nvme("MIXED1", 363_278), powerOnHours: 21_345);
+        var o = store.RecordAll(new[] { a }, T0)[0];
+        Assert.Equal(BaselineState.LegacyRefused, o.State);
+        Assert.Null(o.Previous);
+        var j = StorageJudge.Judge(a, o.Previous, o.State);
+        Assert.NotEqual(Verdict.Check, Media(j).Verdict);
+        Assert.Contains("比べられない（以前の記録", Media(j).Reason);
+        Assert.DoesNotContain("増えています", Media(j).Reason);
+        // 旧いファイルは消さず、改名もしない
+        Assert.True(File.Exists(store.LegacyPathFor("MIXED1")));
+        Assert.False(File.Exists(store.LegacyPathFor("MIXED1") + ".migrated"));
+
+        // 次の回は、今回から始めた記録と比べる
+        var next = store.RecordAll(new[] { With(Nvme("MIXED1", 363_278), powerOnHours: 21_369) }, T0.AddDays(1))[0];
+        Assert.Equal(BaselineState.Compared, next.State);
+        Assert.Equal(21_345UL, next.Previous!.Counters[Counters.PowerOnHours]);
+        Assert.True(File.Exists(store.LegacyPathFor("MIXED1")));
+    }
+
+    [Fact]
+    public void Legacy_history_is_not_migrated_when_hours_jump_or_cannot_be_checked()
+    {
+        var store = new BaselineStore(_dir);
+        var d = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(9));
+        // 隣り合う記録で、1 日に 20,000 時間進んでいる（B の後に A が来た）。減ってはいない
+        WriteLegacy(store, "JUMP1", "Test NVMe", (d, 1_200, 0), (d.AddDays(1), 21_300, 363_278));
+        // 通電時間の無い記録が2件以上（同じ台か確かめようがない）
+        WriteLegacy(store, "NOPOH1", "Test NVMe", (d, null, 0), (d.AddDays(1), null, 363_278));
+        // v1 の中は辻褄が合うが、今回の値が最後の記録に続かない（1 か月で +20,000 時間）
+        WriteLegacy(store, "TAIL1", "Test NVMe", (d, 1_200, 0), (d.AddDays(1), 1_220, 0));
+
+        var o = store.RecordAll(new[]
+        {
+            With(Nvme("JUMP1", 363_278), powerOnHours: 21_345),
+            With(Nvme("NOPOH1", 363_278), powerOnHours: 21_345),
+            With(Nvme("TAIL1", 363_278), powerOnHours: 21_345),
+        }, T0);
+        Assert.All(o, x => { Assert.Equal(BaselineState.LegacyRefused, x.State); Assert.Null(x.Previous); });
+        foreach (var s in new[] { "JUMP1", "NOPOH1", "TAIL1" })
+            Assert.True(File.Exists(store.LegacyPathFor(s)), s);
+    }
+
+    [Fact]
     public void Legacy_file_is_migrated_only_when_it_is_safe()
     {
-        Directory.CreateDirectory(_dir);
         var store = new BaselineStore(_dir);
-        void WriteLegacy(string serial, string model, ulong media)
-        {
-            File.WriteAllText(store.LegacyPathFor(serial),
-                $$$"""{"key":"{{{serial}}}","model":"{{{model}}}","entries":[{"at":"2026-09-01T00:00:00+09:00","counters":{"nvme.media_errors":{{{media}}}}}]}""");
-        }
-        WriteLegacy("MIG1", "Test NVMe", 100);
-        WriteLegacy("DUP1", "Test NVMe", 100);
-        WriteLegacy("OTHERMODEL", "Some Other Disk", 100);
+        var d = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(9));
+        // v1 も通電時間を記録していた（Counters.From は当時から同じ）。見本の台は 21,345 時間
+        void Legacy(string serial, string model, ulong media) =>
+            WriteLegacy(store, serial, model, (d.AddDays(-7), 21_200, media), (d, 21_345, media));
+        Legacy("MIG1", "Test NVMe", 100);
+        Legacy("DUP1", "Test NVMe", 100);
+        Legacy("OTHERMODEL", "Some Other Disk", 100);
 
         var o = store.RecordAll(new[]
         {
