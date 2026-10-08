@@ -30,6 +30,7 @@ public static class Strings
     public static string LabelNone         => T("出さない", "Hide");
 
     public static string ResetMenu    => T("最初から", "Start over");
+    public static string ChecksMenu   => T("点検…（負荷テスト・システムチェック）", "Checkup… (load test, system check)");
     public static string ResetStory   => T("物語だけ最初から", "Story only");
     public static string ResetLevels  => T("レベルだけ最初から", "Levels only");
     public static string ResetAll     => T("両方とも最初から", "Both");

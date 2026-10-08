@@ -58,4 +58,10 @@
     <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 「点検」の窓。右クリックの献立から開いたときに初めて読み込まれる（常駐の負担は 0）。
+         管理者の要る処理は別の exe（src/PartsLife.Check）に分けてあり、ここからは参照しない。 -->
+    <ProjectReference Include="..\PartsLife.CheckWindow\PartsLife.CheckWindow.csproj" />
+  </ItemGroup>
+
 </Project>
