@@ -50,24 +50,35 @@ public static class HelperSession
     }
 
     /// <param name="job">補助 exe に渡す仕事（"smart" / "scan --disk 1 --mode sample --every 256"）。</param>
-    public static async Task<(HelperOutcome Outcome, string? Detail)> RunAsync(
+    public static Task<(HelperOutcome Outcome, string? Detail)> RunAsync(
         string job, Action<HelperMessage> onMessage, CancellationToken ct)
     {
         string? exe = FindHelper();
-        if (exe is null) return (HelperOutcome.Missing, null);
+        if (exe is null) return Task.FromResult<(HelperOutcome, string?)>((HelperOutcome.Missing, null));
+        return RunCoreAsync(args => Process.Start(new ProcessStartInfo(exe, args)
+        {
+            UseShellExecute = true,
+            Verb = "runas",          // ここで UAC が出る
+        }), job, onMessage, ct);
+    }
 
+    /// <summary>
+    /// 本体。<paramref name="start"/> は引数の文字列を受けてプロセスを起こす。
+    /// 普段は上の RunAsync（UAC 経由）だけが使う。昇格せずにパイプの手順だけを確かめるときに差し替える。
+    /// </summary>
+    internal static async Task<(HelperOutcome Outcome, string? Detail)> RunCoreAsync(
+        Func<string, Process?> start, string job, Action<HelperMessage> onMessage, CancellationToken ct)
+    {
         string name = "PartsLife.Check." + Guid.NewGuid().ToString("N");
         using var pipe = CreatePipe(name);
 
         Process? proc;
         try
         {
-            proc = Process.Start(new ProcessStartInfo(exe,
-                $"--pipe {name} --parent {Environment.ProcessId} {job}")
-            {
-                UseShellExecute = true,
-                Verb = "runas",          // ここで UAC が出る
-            });
+            // UAC の確認が出ている間 Process.Start は戻らない。画面の糸で呼ぶと、その間
+            // 常駐の窓まで止まるので、別の糸で待つ（.NET は STA の糸を立てて ShellExecuteEx を呼ぶ）
+            string args = $"--pipe {name} --parent {Environment.ProcessId} {job}";
+            proc = await Task.Run(() => start(args), CancellationToken.None);
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)   // ERROR_CANCELLED
         {
@@ -154,7 +165,7 @@ public static class HelperSession
         // 標準ユーザーが別の管理者の資格情報で昇格した場合、補助 exe は別人として動く
         security.AddAccessRule(new PipeAccessRule(
             new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-            PipeAccessRights.ReadWrite, AccessControlType.Allow));
+            PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize, AccessControlType.Allow));
         return NamedPipeServerStreamAcl.Create(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous, 0, 0, security);
     }
