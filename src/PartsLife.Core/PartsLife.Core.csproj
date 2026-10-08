@@ -15,4 +15,9 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
+  <!-- 配布物（単一 exe）の横に .pdb を残さない。アプリ側と揃える -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
 </Project>
