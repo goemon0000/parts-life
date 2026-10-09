@@ -10,7 +10,7 @@ namespace PartsLife.CheckWindow;
 
 /// <summary>
 /// 負荷テスト。CPU / メモリ / GPU のどれか1つを、決めた時間だけ。
-/// **GPU は <see cref="Features.GpuLoadTest"/> が true の版だけ選べる**（v0.7.0 は選択肢そのものを出さない）。
+/// **GPU は <see cref="Features.GpuLoadTest"/> が true の版だけ選べる**（v0.7.0・v0.7.1 は選択肢そのものを出さない。実機での確認がまだのため）。
 /// </summary>
 internal sealed class LoadPanel : CheckPanel
 {

@@ -77,8 +77,19 @@ public static class HelperSession
     /// 探しもせずに <see cref="HelperOutcome.Disabled"/> を返す（窓の側でも面を出していないが、二重に止める）。
     /// </remarks>
     public static Task<(HelperOutcome Outcome, string? Detail)> RunAsync(
-        string job, Action<HelperMessage> onMessage, CancellationToken ct) =>
-        RunAsync(Features.StorageCheck, FindHelper, ElevatedStart, job, onMessage, ct);
+        string job, Action<HelperMessage> onMessage, CancellationToken ct)
+    {
+        Interlocked.Increment(ref _publicRuns);
+        return RunAsync(Features.StorageCheck, FindHelper, ElevatedStart, job, onMessage, ct);
+    }
+
+    private static int _publicRuns;
+
+    /// <summary>
+    /// 上の入口（補助 exe を管理者で起こす唯一の道）が呼ばれた回数。試験で、
+    /// **--shot-check storage がこの道に一度も入らないこと**を確かめるため。
+    /// </summary>
+    internal static int PublicRuns => Volatile.Read(ref _publicRuns);
 
     /// <summary>UAC を経て補助 exe を起こす（ShellExecute の runas）。</summary>
     private static Func<string, Process?> ElevatedStart(string exe) => args => Process.Start(new ProcessStartInfo(exe, args)

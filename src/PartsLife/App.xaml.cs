@@ -129,7 +129,8 @@ public partial class App : System.Windows.Application
     /// **点検の窓の一面を、窓を出さずに PNG にして終わる。** 配布ページの画像用（--shot の点検版）。
     /// system は管理者なしのシステムチェックを実際に走らせて結果を描く。load は待っている面、
     /// storage は管理者の要る読み取りの前の面（補助 exe は起こさない）。保存にも checks にも書かない。
-    /// **この版で止めてある面（v0.7.0 の storage）は描かない。** 理由を標準エラーと `<出力先>.error.txt` に出し、終了コード 3。
+    /// **この版で止めてある面（Features で false の面）は描かない。** 理由を標準エラーと `<出力先>.error.txt` に出し、終了コード 3
+    /// （v0.7.0 の storage がそうだった。v0.7.1 で storage は描けるようになった。補助 exe は今も起こさない）。
     ///
     /// **別の関数に分け、インライン化させない。** 点検のアセンブリ（PartsLife.CheckWindow / PartsLife.Checks）は、
     /// この関数が呼ばれたときに初めて読み込まれる。OnStartup に直接書くと、常駐の起動でも読み込まれてしまう。

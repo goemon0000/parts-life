@@ -13,7 +13,8 @@ namespace PartsLife.CheckWindow;
 ///
 /// - 作り物ではなく本物の窓を組み立てて描く。system は管理者なしのシステムチェックを実際に走らせる
 /// - load は何も走らせない（待っている面）。負荷はかけない
-/// - storage は管理者の要る読み取りの前の面（ボタンと、管理者なしで読める台の一覧）。補助 exe は起こさない。
+/// - storage は管理者の要る読み取りの前の面（ボタンと、管理者なしで読める台の一覧）。**補助 exe は起こさない**
+///   （面が用意するのは WMI の台の一覧だけ。押した後の読み取り・表面検査も、書き出しの間は StoragePanel が断る）。
 ///   **その面を出さない版（<see cref="Features.StorageCheck"/> が false）では描かずに <see cref="FeatureDisabledException"/>**
 /// - 保存（state.json）にも基準値の置き場（checks）にも書かない。シリアル番号は末尾 4 文字だけ見せる
 ///
@@ -78,8 +79,8 @@ public sealed class FeatureDisabledException : Exception
     public string Tab { get; }
 
     public FeatureDisabledException(string tab)
-        : base($"--shot-check {tab}: この版では無効です（記憶媒体の精密チェックは、実機での確認のあと次の版で有効にします）。 / "
-             + $"disabled in this build (storage health will be enabled in the next version after a real-machine test).")
+        : base($"--shot-check {tab}: この版では無効です（実機での確認のあと、次の版で有効にします）。 / "
+             + $"disabled in this build (it will be enabled in a later version after a real-machine test).")
     {
         Tab = tab;
     }

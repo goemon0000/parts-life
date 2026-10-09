@@ -97,6 +97,7 @@ internal sealed class StoragePanel : CheckPanel
     // ---------------------------------------------------------------------
     private async Task ReadSmartAsync()
     {
+        if (Ui.ShotMode) return;   // 書き出し（--shot-check）の間は補助 exe を起こさない
         if (HelperSession.FindHelper() is null) { _status.Text = T.HelperMissing; return; }
         _read.IsEnabled = _scanStart.IsEnabled = _copy.IsEnabled = false;
         _results.Children.Clear();
@@ -217,7 +218,7 @@ internal sealed class StoragePanel : CheckPanel
     // ---------------------------------------------------------------------
     private async Task ScanAsync()
     {
-        if (_disk is null) return;
+        if (_disk is null || Ui.ShotMode) return;   // 書き出しの間は補助 exe を起こさない
         if (HelperSession.FindHelper() is null) { _scanLive.Text = T.HelperMissing; return; }
         int disk = _disk.Value;
         bool full = _mode.Value;
