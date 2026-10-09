@@ -42,7 +42,7 @@ jobs:
       # 資源の使用量を眺めるためのアプリが、その倍を自分で使っていては話にならない。
       # 非圧縮版は ZIP にすると 56MB で、圧縮版の exe(62MB) より小さい。
       # 冒険の決まり（保存の引き継ぎ・装備・構え・30日の模擬）と、
-      # 点検の中身（NVMe/SMART の解析・基準値の差・メモリ照合・止めたら止まるか・この版で止めてある機能が出ていないか）。
+      # 点検の中身（NVMe/SMART の解析・基準値の差・メモリ照合・止めたら止まるか・この版で出す機能と止める機能が揃っているか）。
       # どちらかが落ちたら出さない
       - name: テスト（冒険）
         run: dotnet test tests/PartsLife.Core.Tests -c Release
@@ -60,22 +60,18 @@ jobs:
           -p:Version=${{ steps.ver.outputs.version }}
           -p:EnableCompressionInSingleFile=false
 
-      # --- 点検の補助 exe（PartsLife.Check.exe）は v0.7.0 では作らない・署名しない・配らない ---
-      # 「記憶媒体の精密チェック」を、実機での付き添い試験まで止めて出すため
-      # （src/PartsLife.Checks/Features.cs の StorageCheck = false。本体は補助 exe を起こさない）。
-      # 発行時の DLL の検査（PartsLife.Check.csproj の CheckHelperNativeSearch）は、この発行の中で
-      # 動く物なので、補助 exe を作らなければ一緒に動かない。別の job は持っていない。
-      #
-      # v0.7.1 で戻すときは、Features.StorageCheck を true にしたうえで、次の3か所を戻す:
-      #   1. ここに発行の手順を足す（検査も一緒に戻る。地図が無い・読めないときは発行が止まる）
-      #        - name: ビルド（点検の補助 exe）
-      #          run: >
-      #            dotnet publish src/PartsLife.Check/PartsLife.Check.csproj -c Release -o helper
-      #            -p:Version=${{ steps.ver.outputs.version }}
-      #   2. 署名に出す分と、署名済みに差し替える分に PartsLife.Check.exe を足す
-      #        Copy-Item helper/PartsLife.Check.exe sign/PartsLife.Check.exe
-      #        Copy-Item signed/PartsLife.Check.exe helper/PartsLife.Check.exe -Force
-      #   3. ZIP に helper/PartsLife.Check.exe を足す（SIGNING.md・README の「何を配っているか」も）
+      # 点検の「記憶媒体の精密チェック」だけが使う、管理者の補助 exe（NativeAOT・2MB）。
+      # 本体は asInvoker のまま。管理者の要る処理はこちらに閉じ込めてある。ZIP にだけ同梱する
+      # （単体の exe 版には付かないので、そちらでは記憶媒体の精密チェックだけが使えない）。
+      # v0.7.0 は止めて出し（作らない・署名しない・配らない）、2026-10-09 の実機の付き添い試験のあと
+      # v0.7.1 で戻した（src/PartsLife.Checks/Features.cs の StorageCheck = true）。
+      # 発行時の DLL の検査（PartsLife.Check.csproj の CheckHelperNativeSearch）はこの発行の中で動く。
+      # exe の隣も探す読み込みが紛れ込んでいたら発行が止まる（検査に使う地図 map.xml が無い・読めないときも止まる）。
+      # StorageCheck を false に戻すなら、この発行・下の署名の 2 か所・ZIP の中身と検査を一緒に外す
+      - name: ビルド（点検の補助 exe）
+        run: >
+          dotnet publish src/PartsLife.Check/PartsLife.Check.csproj -c Release -o helper
+          -p:Version=${{ steps.ver.outputs.version }}
 
       - name: 署名に出す分をまとめる
         shell: pwsh
@@ -83,6 +79,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path sign | Out-Null
           Copy-Item dist/PartsLife.exe sign/PartsLife.exe
           Copy-Item slim/PartsLife.exe sign/PartsLife-slim.exe
+          Copy-Item helper/PartsLife.Check.exe sign/PartsLife.Check.exe
 
       - uses: actions/upload-artifact@v4
         id: artifact
@@ -113,18 +110,20 @@ jobs:
         run: |
           Copy-Item signed/PartsLife.exe dist/PartsLife.exe -Force
           Copy-Item signed/PartsLife-slim.exe slim/PartsLife.exe -Force
+          Copy-Item signed/PartsLife.Check.exe helper/PartsLife.Check.exe -Force
 
       # --- 公開 -------------------------------------------------------------
-      # ZIP の中身は占有の小さい PartsLife.exe 1つだけ。ほかの物（補助 exe など）が紛れ込んでいたら止める
+      # ZIP の中身は、占有の小さい PartsLife.exe と点検の補助 PartsLife.Check.exe の 2 つだけ。
+      # 足りない・ほかの物が紛れ込んでいる・入れ子になっている、のどれでも止める
       - name: ZIP に詰める
         shell: pwsh
         run: |
-          Compress-Archive -Path slim/PartsLife.exe -DestinationPath dist/PartsLife.zip -Force
+          Compress-Archive -Path slim/PartsLife.exe, helper/PartsLife.Check.exe -DestinationPath dist/PartsLife.zip -Force
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $z = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path dist/PartsLife.zip).Path)
           try { $names = @($z.Entries | ForEach-Object { $_.FullName }) } finally { $z.Dispose() }
           "ZIP: $($names -join ', ')"
-          if (($names -join ',') -ne 'PartsLife.exe') { throw "unexpected ZIP contents: $($names -join ', ')" }
+          if ((($names | Sort-Object) -join ',') -cne 'PartsLife.Check.exe,PartsLife.exe') { throw "unexpected ZIP contents: $($names -join ', ')" }
 
       # 指紋は公開する物（下の files）のうち SHA256.txt 以外の全部。files を変えたらここも揃える
       - name: 中身の指紋を出す
