@@ -1,4 +1,5 @@
 using PartsLife.Checks;
+using PartsLife.Checks.Build;
 using PartsLife.Checks.Protocol;
 using PartsLife.Checks.Scan;
 
@@ -48,6 +49,32 @@ internal static class T
             "Not measured: CPU temperature (needs a kernel driver). Disk SMART counters are in \"Storage health\" (needs admin approval).")
         : J("測っていないもの: CPU の温度（カーネルドライバが要るため）と、ディスクの SMART の数値（管理者の許可が要るため。次の版で）。",
             "Not measured: CPU temperature (needs a kernel driver) and disk SMART counters (need admin approval; coming in the next version).");
+
+    // --- 構成コード（web-autoai.com のマイPC） ---
+    public static string BuildHeading => J("構成コード（web-autoai.com のマイPCに登録）", "Build code (register as My PC on web-autoai.com)");
+    public static string BuildIntro => J(
+        "この PC の部品の型番（CPU・GPU・マザーボード・メモリ・SSD・HDD・モニター）を、貼り付けられる文字列にします。シリアル番号・PC の名前・利用者名・ドライブの中身は入りません。このアプリは送信しません。コピーするかファイルに保存して、web-autoai.com の マイPC登録 に貼り付けてください。",
+        "Turns this PC's part models (CPU, GPU, motherboard, memory, SSD, HDD, monitors) into a string you can paste. No serial numbers, PC name, user name or drive contents are included. This app sends nothing: copy it or save it to a file, then paste it into My PC on web-autoai.com.");
+    public static string BuildCopy => J("構成コードをコピー", "Copy build code");
+    public static string BuildSave => J("構成をJSONで保存", "Save build as JSON");
+    public static string BuildShow => J("中身を見る", "Show contents");
+    public static string BuildHide => J("中身を隠す", "Hide contents");
+    public static string BuildReading => J("部品を読んでいます…", "Reading parts…");
+    public static string BuildNothing => J("部品を読み取れませんでした", "No parts could be read");
+    public static string BuildClipboardFailed => J("クリップボードに書けませんでした。もう一度押してください", "Could not write to the clipboard. Please try again");
+    public static string BuildSaveTitle => J("構成を保存", "Save build");
+    public static string BuildCopied(string summary) => J(
+        $"{summary} をコピーしました。web-autoai.com の マイPC登録 に貼り付けてください",
+        $"Copied {summary}. Paste it into My PC on web-autoai.com");
+    public static string BuildSaved(string file) => J($"保存しました: {file}", $"Saved: {file}");
+    public static string BuildCodeLabel => J("コード（これをコピーします）", "Code (this is what is copied)");
+    public static string BuildJsonLabel => J("中身（同じ物を読める形で）", "Contents (the same, readable)");
+
+    /// <summary>「CPU 1・GPU 1・マザーボード 1・メモリ 2枚・SSD 1」。枚数は q を足した数。</summary>
+    public static string BuildSummary(BuildConfig c) => string.Join(J("・", ", "),
+        c.NonEmpty.Select(cat => cat == "ram"
+            ? J($"メモリ {c.Count(cat)}枚", $"memory {c.Count(cat)} module(s)")
+            : $"{BuildCode.CategoryName(cat)} {c.Count(cat)}"));
 
     // --- 負荷テスト ---
     public static string LoadIntro => J(
