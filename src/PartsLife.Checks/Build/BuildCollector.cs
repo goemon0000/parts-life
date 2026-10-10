@@ -86,25 +86,29 @@ internal static class WindowsReaders
 
     public static IEnumerable<RawMemory> Memory()
     {
-        var list = new List<RawMemory>();
-        // SMBIOSMemoryType は Windows 10 から。無い古い機械では WMI がクエリごと断るので、そのときは無しで読み直す
-        string[] queries =
+        // SMBIOSMemoryType・ConfiguredClockSpeed は新しい Windows から。無い古い機械では WMI がクエリごと断るので、
+        // そのときは無い欄を外して読み直す（最後の形は Windows 7 にもある欄だけ）
+        const string Base = "PartNumber, Manufacturer, Capacity, Speed, MemoryType";
+        var queries = new (string Sql, bool Smbios, bool Configured)[]
         {
-            "SELECT PartNumber, Manufacturer, Capacity, Speed, SMBIOSMemoryType, MemoryType FROM Win32_PhysicalMemory",
-            "SELECT PartNumber, Manufacturer, Capacity, Speed, MemoryType FROM Win32_PhysicalMemory",
+            ($"SELECT {Base}, SMBIOSMemoryType, ConfiguredClockSpeed FROM Win32_PhysicalMemory", true, true),
+            ($"SELECT {Base}, SMBIOSMemoryType FROM Win32_PhysicalMemory", true, false),
+            ($"SELECT {Base} FROM Win32_PhysicalMemory", false, false),
         };
-        foreach (var sql in queries)
+        var list = new List<RawMemory>();
+        for (int i = 0; i < queries.Length; i++)
         {
+            var (sql, smbios, configured) = queries[i];
             try
             {
                 using var q = new ManagementObjectSearcher(sql);
                 foreach (ManagementObject o in q.Get())
                     list.Add(new RawMemory(o["PartNumber"] as string ?? "", o["Manufacturer"] as string ?? "", ToULong(o["Capacity"]),
-                                           (uint)ToInt(o["Speed"]), sql.Contains("SMBIOS") ? ToInt(o["SMBIOSMemoryType"]) : 0,
-                                           ToInt(o["MemoryType"])));
+                                           (uint)ToInt(o["Speed"]), smbios ? ToInt(o["SMBIOSMemoryType"]) : 0, ToInt(o["MemoryType"]),
+                                           configured ? (uint)ToInt(o["ConfiguredClockSpeed"]) : 0));
                 return list;
             }
-            catch (ManagementException) when (sql.Contains("SMBIOS")) { list.Clear(); }
+            catch (ManagementException) when (i < queries.Length - 1) { list.Clear(); }
         }
         return list;
     }

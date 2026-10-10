@@ -174,7 +174,7 @@ Windows がそれを求める問い合わせだけです（SATA の SMART は常
 
 - **このアプリは送信しません。** 写す（または「構成をJSONで保存」で `parts-life-build.json` に保存する）だけで、
   貼るかどうかは使う人が決めます。「中身を見る」で、渡す物をそのまま確かめられます
-- 入るのは **型番と数字だけ**: CPU・GPU（VRAM）・マザーボード・メモリ（1 枚の容量・定格の速さ・DDR4/DDR5 など・メーカー・枚数）・
+- 入るのは **型番と数字だけ**: CPU・GPU（VRAM）・マザーボード・メモリ（1 枚の容量・速さ（XMP/EXPO で定格より速く動いていればその速さ）・DDR4/DDR5 など・メーカー・枚数）・
   SSD / HDD（容量・NVMe/SATA）・モニター・光学ドライブ
 - **入らない物**: シリアル番号・PC の名前・利用者名・プロダクトキー・MAC アドレス・SMART の数値・ドライブ文字やパス。
   型番の代わりにシリアル番号を返す機種に備えて、シリアルに見える文字列は落とします
@@ -189,7 +189,7 @@ Windows がそれを求める問い合わせだけです（SATA の SMART は常
 { "v": 1, "src": "parts-life", "p": {
   "cpu": [{ "n": "AMD Ryzen 9 7950X 16-Core Processor" }],
   "gpu": [{ "n": "NVIDIA GeForce RTX 3080 Ti", "vram": 12 }],
-  "ram": [{ "n": "CMK64GX5M2B5600Z40", "cap": 32, "spd": 4800, "t": "DDR5", "mfr": "Corsair", "q": 2 }],
+  "ram": [{ "n": "CMK64GX5M2B5600Z40", "cap": 32, "spd": 5600, "t": "DDR5", "mfr": "Corsair", "q": 2 }],
   "ssd": [{ "n": "Corsair MP600 PRO LPX", "cap": 2000, "t": "nvme" }]
 }}
 ```

@@ -4,7 +4,10 @@ using System.Text.RegularExpressions;
 namespace PartsLife.Checks.Build;
 
 /// <summary>Win32_PhysicalMemory の1枚（取ってきたままの値）。</summary>
-public sealed record RawMemory(string PartNumber, string Manufacturer, ulong Capacity, uint Speed, int SmbiosType, int MemoryType);
+/// <param name="Speed">Speed（モジュールの定格。XMP/EXPO の速さではない）。</param>
+/// <param name="ConfiguredSpeed">ConfiguredClockSpeed（いま動いている速さ）。読めなければ 0。</param>
+public sealed record RawMemory(string PartNumber, string Manufacturer, ulong Capacity, uint Speed, int SmbiosType, int MemoryType,
+                               uint ConfiguredSpeed = 0);
 
 /// <summary>GPU 1枚。DXGI（VRAM が正しく取れる）か、取れなければ Win32_VideoController。</summary>
 /// <param name="OnPciBus">PCI の番地がある（＝本物の板）。仮想ディスプレイ・リモートの GPU には無い。</param>
@@ -168,6 +171,17 @@ public static class BuildRules
     }
 
     /// <summary>
+    /// `spd` に書く速さ。いま動いている速さが定格より速ければ（XMP/EXPO を使っている）そちら、それ以外は定格。
+    /// 定格（Speed）は JEDEC の値なので、DDR5-5600 の XMP キットでも 4800 と報告される。
+    /// 定格より遅く動いている（設定で落としている）ときは、部品の性能として定格を書く。
+    /// </summary>
+    public static int? RamSpeed(uint rated, uint configured)
+    {
+        uint v = configured > rated ? configured : rated;
+        return v > 0 ? (int)v : null;
+    }
+
+    /// <summary>
     /// 1枚ずつ部品にする（同じ物をまとめるのは <see cref="BuildCode"/> の側）。
     /// 型番が読めない・シリアルに見えるときは「DDR4 16GB」の形で名前を作る（容量も無ければ出さない）。
     /// </summary>
@@ -185,7 +199,7 @@ public static class BuildRules
                 if (cap is null) continue;
                 name = $"{type ?? "RAM"} {cap}GB".Trim();
             }
-            list.Add(new BuildPart(name, Cap: cap, Speed: m.Speed > 0 ? (int)m.Speed : null, Type: type, Mfr: RamManufacturer(m.Manufacturer)));
+            list.Add(new BuildPart(name, Cap: cap, Speed: RamSpeed(m.Speed, m.ConfiguredSpeed), Type: type, Mfr: RamManufacturer(m.Manufacturer)));
         }
         return list;
     }

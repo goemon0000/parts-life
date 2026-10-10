@@ -268,6 +268,24 @@ public class BuildRuleTests
     [InlineData("", null)]
     public void Ram_manufacturer(string raw, string? expected) => Assert.Equal(expected, BuildRules.RamManufacturer(raw));
 
+    [Theory]
+    [InlineData(4800u, 5600u, 5600)]   // XMP/EXPO で定格より速く動いている → 動いている速さ
+    [InlineData(3200u, 0u, 3200)]      // ConfiguredClockSpeed が読めない → 定格
+    [InlineData(3200u, 2133u, 3200)]   // 定格より遅く動いている → 定格
+    [InlineData(3200u, 3200u, 3200)]
+    [InlineData(0u, 2666u, 2666)]      // 定格が報告されない
+    [InlineData(0u, 0u, null)]
+    public void Ram_speed_prefers_configured_only_when_faster(uint rated, uint configured, int? expected) =>
+        Assert.Equal(expected, BuildRules.RamSpeed(rated, configured));
+
+    [Fact]
+    public void Xmp_kit_reports_its_running_speed()
+    {
+        // 実機（2026-10-11）: CMK64GX5M2B5600Z40 は Speed=4800・ConfiguredClockSpeed=5600
+        var p = Assert.Single(BuildRules.Ram(new[] { new RawMemory("CMK64GX5M2B5600Z40", "Corsair", 34359738368, 4800, 34, 0, 5600) }));
+        Assert.Equal(5600, p.Speed);
+    }
+
     [Fact]
     public void Ram_module_maps_capacity_speed_type_and_maker()
     {
