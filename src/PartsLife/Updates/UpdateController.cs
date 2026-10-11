@@ -58,9 +58,20 @@ internal sealed class UpdateController
     /// <summary>窓が出たら呼ぶ。</summary>
     public void Start()
     {
-        if (_justUpdated is not null) _healthy.Start();
-        else ShowRollbackNotice();
+        // 確かめの途中（入れ替えた新しい版）・諦めて手で戻してもらう状態のときは、しばらく無事に動いたら記録を片付ける
+        if (_justUpdated is not null || _boot.GiveUp is not null) _healthy.Start();
+        ShowBootNotice();
         _first.Start();
+        _poll.Start();
+    }
+
+    /// <summary>
+    /// 見届けで新しい版がだめだったが、戻し切れず起こし直しもできない（またはもう諦めた）。この古い版のまま窓を戻して知らせる。
+    /// </summary>
+    public void ResumeAfterRollback(string notice)
+    {
+        _host.ResumeAfterFailedUpdate();
+        _host.ShowNotice(notice, null, null);
         _poll.Start();
     }
 
@@ -197,7 +208,7 @@ internal sealed class UpdateController
             return;
         }
         Stop();
-        _ = UpdateApply.WatchAsync(_rt, s.Child, s.Record, () => Application.Current.Shutdown());
+        _ = UpdateApply.WatchAsync(_rt, s.Child, s.Record, () => Application.Current.Shutdown(), ResumeAfterRollback);
     }
 
     /// <summary>
@@ -205,6 +216,12 @@ internal sealed class UpdateController
     /// </summary>
     private void ConfirmStarted()
     {
+        if (_boot.GiveUp is not null && _justUpdated is null)
+        {
+            // 諦めた後、いまの版が無事に動いた。記録を消す（次の起動から .old の片付けに戻る）
+            if (_rt.Store.LoadSwap() is { } stuck && stuck.RollbackAttempts >= SwapBoot.MaxRollbackAttempts) _rt.Store.DeleteSwap();
+            return;
+        }
         var rec = _rt.Store.LoadSwap();
         _justUpdated = null;
         if (rec is null || rec.To != _rt.Current.ToString()) return;
@@ -228,23 +245,17 @@ internal sealed class UpdateController
         });
     }
 
-    private void ShowRollbackNotice()
+    private void ShowBootNotice()
     {
-        if (_boot.GaveUp is { } g)
-        {
-            _host.ShowNotice(Strings.UpdateGaveUp(g), null, null);
-            return;
-        }
         var st = _rt.Store.LoadState();
-        // 覚え書きを書けなかったときは、起こし直すときの引数（--update-rolled-back）で知る
-        string? v = st.RolledBackVersion ?? _boot.RolledBack;
-        if (v is null) return;
-        if (st.RolledBackVersion is not null)
+        string? n = _boot.Notice;
+        if (st.RolledBackVersion is { } v)
         {
-            st.RolledBackVersion = null;
+            n ??= Strings.UpdateRolledBack(v, _rt.Current.ToString());
+            st.RolledBackVersion = null;   // 一度だけ
             _rt.Store.SaveState(st);
         }
-        _host.ShowNotice(Strings.UpdateRolledBack(v, _rt.Current.ToString()), null, null, TimeSpan.FromMinutes(10));
+        if (n is not null) _host.ShowNotice(n, null, null, _boot.GiveUp is null ? TimeSpan.FromMinutes(10) : null);
     }
 
     // -----------------------------------------------------------------------

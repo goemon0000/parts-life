@@ -87,6 +87,13 @@ public static class Strings
     public static string UpdateGaveUp(string v) =>
         T($"v{v} から元の版に戻せませんでした。PartsLife.exe.old を PartsLife.exe に戻してください",
           $"Couldn't go back from v{v}. Please rename PartsLife.exe.old to PartsLife.exe");
+    public static string UpdateRestored =>
+        T("更新を途中で止めたので、元の版のまま動いています（次の確認でやり直します）", "The update was interrupted; still on the previous version (will retry later)");
+    public static string UpdateStuck(string why) =>
+        T($"更新を元に戻し切れませんでした（{why}）。このまま動きます。PartsLife.exe.old があれば PartsLife.exe に戻してください",
+          $"Couldn't finish undoing the update ({why}). Running as is; if PartsLife.exe.old exists, rename it to PartsLife.exe");
+    public static string UpdateBusy =>
+        T("更新の途中です。少し待ってからもう一度起動してください", "An update is in progress. Please wait a moment and start again.");
     public static string UpdateSwapFailed(string why) => T($"入れ替えられませんでした: {why}", $"Couldn't install the update: {why}");
 
     internal static string CannotReplace(Updates.ReplaceBlock b) => b switch

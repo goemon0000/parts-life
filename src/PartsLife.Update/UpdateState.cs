@@ -122,7 +122,7 @@ internal partial class UpdateJson : JsonSerializerContext { }
 /// 覚え書きの読み書き。**読めなければ空から始める**（更新の覚え書きが壊れても、アプリは困らない）。
 /// 書くときは別名に書いてから置き換える（書きかけで電源が落ちても、壊れた物を読まない）。
 /// </summary>
-public sealed class UpdateStore
+public class UpdateStore
 {
     public string Root { get; }
     public string StatePath => Path.Combine(Root, "update-state.json");
@@ -151,7 +151,7 @@ public sealed class UpdateStore
     /// 入れ替えの記録を書き、**読み戻して同じであることまで確かめる**。書けなければ偽
     /// （呼ぶ側は、偽なら名前の付け替えを始めない。記録の無い入れ替えは、落ちたときに戻せない）。
     /// </summary>
-    public bool SaveSwap(SwapRecord r)
+    public virtual bool SaveSwap(SwapRecord r)
     {
         string json = JsonSerializer.Serialize(r, UpdateJson.Default.SwapRecord);
         if (!Write(SwapPath, json)) return false;
@@ -160,7 +160,7 @@ public sealed class UpdateStore
     }
 
     /// <returns>消えたか（もともと無ければ真）。</returns>
-    public bool DeleteSwap()
+    public virtual bool DeleteSwap()
     {
         try { File.Delete(SwapPath); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         return !File.Exists(SwapPath);

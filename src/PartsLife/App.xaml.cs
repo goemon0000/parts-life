@@ -69,18 +69,61 @@ public partial class App : System.Windows.Application
         // 入れ替えて起こし直すときは、ここで終わる（新しい版が窓を出す）。--updated-from <版> はそのとき付く印、
         // --update-rolled-back <版> は元に戻して起こし直したときの印。入れ替えの最中に別に起動されたときも、ここで終わる
         var state = Updates.AppData.LoadState();
+        SetLanguage(state);
         var rt = Updates.UpdateRuntime.Create();
-        Updates.BootResult boot = new(null, null, null);
-        if (rt is not null && Updates.UpdateBoot.Run(rt, state, args, () => Shutdown(), out boot)) return;
-        if (rt is not null) Updates.AppData.CrashForTest(rt.Current);   // Debug ビルドの試験用だけ（Release では呼び出しごと消える）
+        Updates.BootResult boot = new();
+        if (rt is not null)
+        {
+            // stayHere: 窓を出す前に入れ替えて見届けたが、戻し切れず起こし直しもできなかったとき。この版のまま窓を出して知らせる
+            bool handled = Updates.UpdateBoot.Run(rt, state, args, () => Shutdown(),
+                notice => StartMain(state, rt, new Updates.BootResult(Notice: notice), args), out boot);
+            if (boot.Busy) { ShowBusyNotice(); return; }
+            if (handled) return;
+            Updates.AppData.CrashForTest(rt.Current);   // Debug ビルドの試験用だけ（Release では呼び出しごと消える）
+        }
+        StartMain(state, rt, boot, args);
+    }
 
-        // 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）
+    /// <summary>常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）</summary>
+    private void StartMain(Game.PartyState state, Updates.UpdateRuntime? rt, Updates.BootResult boot, string[] args)
+    {
         var main = new MainWindow(state);
         if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, boot);
         MainWindow = main;
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];
         main.Show();
+    }
+
+    private static void SetLanguage(Game.PartyState state) =>
+        I18n.Strings.Lang = state.Lang.Length > 0 ? state.Lang : I18n.Strings.DetectDefault();
+
+    /// <summary>
+    /// 入れ替えの最中に別に起動された。**黙って消えない。** 小さな窓で数秒だけ知らせて終わる
+    /// （入れ替えている側が、終われば窓を出す）。待っている間も画面のスレッドは止めない。
+    /// </summary>
+    private void ShowBusyNotice()
+    {
+        var w = new Window
+        {
+            Title = "パーツぐらし",
+            WindowStyle = WindowStyle.ToolWindow,
+            ResizeMode = ResizeMode.NoResize,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            Topmost = true,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = new System.Windows.Controls.TextBlock
+            {
+                Text = I18n.Strings.UpdateBusy,
+                Margin = new Thickness(18, 14, 18, 14),
+                FontSize = 13,
+            },
+        };
+        MainWindow = w;   // 閉じたらアプリごと終わる
+        var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        t.Tick += (_, _) => { t.Stop(); w.Close(); };
+        w.Show();
+        t.Start();
     }
 
     /// <summary>

@@ -85,12 +85,9 @@ internal static class UpdateApply
         var child = rt.Launch("--updated-from", rt.Current.ToString());
         if (child is null)
         {
-            error = "新しい版を起動できなかったので元に戻しました";
-            if (Swapper.Rollback(rt.AppDir, record.Files) is null) rt.Store.DeleteSwap();
-            else MarkRollbackPending(rt, record);
-            st.MarkFailed(p.Version);
-            st.LastError = error;
-            rt.Store.SaveState(st);
+            var r = SwapRecovery.Rollback(rt.Store, rt.AppDir, record);
+            error = r.Kind == RecoveryKind.Restored ? "新しい版を起動できなかったので元に戻しました"
+                  : "新しい版を起動できず、元にも戻し切れませんでした（次の起動で戻し直します）: " + r.Error;
             return null;
         }
         return (child, record);
@@ -108,8 +105,9 @@ internal static class UpdateApply
     /// 新しい版が「起動できた」（swap.json の Confirmed）と書くのを待つ。書いたら shutdown（この古い版は終わる）。
     /// 新しい版が先に終わった・<see cref="SwapBoot.WatchTimeout"/> 待っても書かない → 止めて、**必ず戻してから**元の版を起こし直す。
     /// swap.json が読めなくなっても、手元の記録で戻す（読めないことを理由に戻さず消える、をしない）。
+    /// 戻し切れず、起こし直しもさせられないときは stayHere（この古い版のまま窓を出して知らせる）。
     /// </summary>
-    public static async Task WatchAsync(UpdateRuntime rt, Process child, SwapRecord record, Action shutdown)
+    public static async Task WatchAsync(UpdateRuntime rt, Process child, SwapRecord record, Action shutdown, Action<string> stayHere)
     {
         var until = DateTime.UtcNow + SwapBoot.WatchTimeout;
         while (DateTime.UtcNow < until)
@@ -128,44 +126,30 @@ internal static class UpdateApply
             }
         }
         catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception) { }
-        RollbackAndRelaunch(rt, rt.Store.LoadSwap() ?? record, shutdown);
-    }
 
-    /// <summary>
-    /// 新しい版を退けて元の版に戻し、その版を起こして、自分は終わる。戻した版は二度と入れない。
-    /// 戻し切れなければ記録を残し（次の起動でもう一度戻す。<see cref="SwapBoot.MaxRollbackAttempts"/> 回まで）、
-    /// いま置いてある物を起こす（Swapper は PartsLife.exe が無い状態では終わらない）。
-    /// </summary>
-    public static void RollbackAndRelaunch(UpdateRuntime rt, SwapRecord rec, Action shutdown)
-    {
-        MarkRollbackPending(rt, rec);
-        string? error = Swapper.Rollback(rt.AppDir, rec.Files);
+        var rec = rt.Store.LoadSwap() ?? record;
+        var r = SwapRecovery.Rollback(rt.Store, rt.AppDir, rec);
         rt.Lock.Release();   // 起こし直す版が待たずに印を握れるように
-        var st = rt.Store.LoadState();
-        st.MarkFailed(rec.To);
-        st.LastError = error;
-        if (error is null)
+        switch (r.Kind)
         {
-            st.RolledBackVersion = rec.To;
-            rt.Store.SaveState(st);
-            rt.Store.DeleteSwap();
-            rt.Store.DeleteVersionDir(rec.To);
-            // 覚え書きを書けなかったときのために、知らせる版を引数でも渡す
-            rt.Launch("--update-rolled-back", rec.To);
+            case RecoveryKind.Restored:
+            case RecoveryKind.NothingToRollBack:
+                // 戻した元の版を起こす（覚え書きを書けなかったときのために、知らせる版を引数でも渡す）
+                if (r.MarkedFailed) rt.Launch("--update-rolled-back", rec.To);
+                else rt.Launch("--update-restored");
+                shutdown();
+                break;
+            case RecoveryKind.RetryRelaunch:
+                rt.Launch();   // 置いてある物を起こす。その起動が戻し直す（回数は記録に残してある）
+                shutdown();
+                break;
+            case RecoveryKind.GaveUp:
+                stayHere(I18n.Strings.UpdateGaveUp(rec.To));
+                break;
+            default:
+                stayHere(I18n.Strings.UpdateStuck(r.Error ?? ""));
+                break;
         }
-        else
-        {
-            rt.Store.SaveState(st);
-            rt.Launch();
-        }
-        shutdown();
-    }
-
-    private static void MarkRollbackPending(UpdateRuntime rt, SwapRecord rec)
-    {
-        rec.RollbackRequested = true;
-        rec.RollbackAttempts++;
-        rt.Store.SaveSwap(rec);
     }
 
     /// <summary>用意を捨てる（置き場も消す）。</summary>
@@ -178,7 +162,11 @@ internal static class UpdateApply
 }
 
 /// <summary>起動の最初に決まったこと（窓に渡す）。</summary>
-internal sealed record BootResult(SwapRecord? JustUpdated, string? RolledBack, string? GaveUp);
+/// <param name="JustUpdated">入れ替えた新しい版として起動した（しばらく無事なら確かめ済みにする）。</param>
+/// <param name="GiveUp">戻し切れず、手で戻してもらう状態（その版）。しばらく無事なら記録を消す。</param>
+/// <param name="Notice">窓に出すお知らせ。</param>
+/// <param name="Busy">入れ替えの最中に別に起動された（窓を出さず、短いお知らせだけ出して終わる）。</param>
+internal sealed record BootResult(SwapRecord? JustUpdated = null, string? GiveUp = null, string? Notice = null, bool Busy = false);
 
 /// <summary>
 /// 起動の最初（窓を出す前）にやること。
@@ -189,27 +177,35 @@ internal sealed record BootResult(SwapRecord? JustUpdated, string? RolledBack, s
 /// </summary>
 internal static class UpdateBoot
 {
-    /// <summary>入れ替えの最中に別に起動されたとき、印が空くのを待つ長さ（入れ替える側が終わるまでの数秒を待つ）。</summary>
-    public static readonly TimeSpan LockWait = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// 入れ替えの印が空くのを待つ長さ。**画面のスレッドで待つので短く。** 入れ替える側は、起こし直す前に印を放してある。
+    /// 空かなければ（入れ替えの最中）、短いお知らせを出して終わる。
+    /// </summary>
+    public static readonly TimeSpan LockWait = TimeSpan.FromMilliseconds(500);
 
     /// <returns>この起動はここで終わる（入れ替え・戻しのために起こし直す・入れ替えの最中）なら true。</returns>
-    public static bool Run(UpdateRuntime rt, PartyState state, string[] args, Action shutdown, out BootResult result)
+    public static bool Run(UpdateRuntime rt, PartyState state, string[] args, Action shutdown, Action<string> stayHere, out BootResult result)
     {
         int at = Array.IndexOf(args, "--update-rolled-back");
         string? rolledBack = at >= 0 && at + 1 < args.Length && AppVersion.TryParse(args[at + 1], out _) ? args[at + 1] : null;
+        bool restored = rolledBack is not null || Array.IndexOf(args, "--update-restored") >= 0;
         bool spawnedByUpdate = Array.IndexOf(args, "--updated-from") >= 0;
-        result = new BootResult(null, rolledBack, null);
+        result = new BootResult(Notice: rolledBack is not null ? I18n.Strings.UpdateRolledBack(rolledBack, rt.Current.ToString()) : null);
 
         var rec = rt.Store.LoadSwap();
-        var action = SwapBoot.Decide(rec, rt.Current);
+        var action = SwapBoot.Decide(rec, rt.Current, restored);
 
         // 入れ替えで起こされた新しい版が「確かめ」をするときだけは印を待たない（古い版が握ったまま見届けている）。
         // それ以外は印を握ってから。握れなければ、何にも触らずに終わる（起動の回数にも戻しにも触らない）
         if (!(spawnedByUpdate && action == BootAction.Verify))
         {
-            if (!rt.Lock.TryAcquire(LockWait)) { shutdown(); return true; }
+            if (!rt.Lock.TryAcquire(LockWait))
+            {
+                result = new BootResult(Busy: true);
+                return true;
+            }
             rec = rt.Store.LoadSwap();   // 待っている間に変わったかもしれない
-            action = SwapBoot.Decide(rec, rt.Current);
+            action = SwapBoot.Decide(rec, rt.Current, restored);
         }
 
         try
@@ -217,12 +213,44 @@ internal static class UpdateBoot
             switch (action)
             {
                 case BootAction.Rollback:
-                    UpdateApply.RollbackAndRelaunch(rt, rec!, shutdown);
-                    return true;
-                case BootAction.GiveUp:
-                    rt.Store.DeleteSwap();   // .old は残す（手で戻せるように）
-                    result = result with { GaveUp = rec!.To };
+                {
+                    var r = SwapRecovery.Rollback(rt.Store, rt.AppDir, rec!);
+                    rt.Lock.Release();
+                    bool iAmOld = rt.Current.ToString() == rec!.From;
+                    switch (r.Kind)
+                    {
+                        case RecoveryKind.NothingToRollBack:
+                            break;   // 入れ替えは始まっていなかった。このまま普通に起動する
+                        case RecoveryKind.Restored when iAmOld:
+                            result = result with
+                            {
+                                Notice = r.MarkedFailed ? I18n.Strings.UpdateRolledBack(rec.To, rt.Current.ToString()) : I18n.Strings.UpdateRestored,
+                            };
+                            break;   // 戻した物がこの版。このまま起動する
+                        case RecoveryKind.Restored:
+                            if (r.MarkedFailed) rt.Launch("--update-rolled-back", rec.To);
+                            else rt.Launch("--update-restored");
+                            shutdown();
+                            return true;
+                        case RecoveryKind.RetryRelaunch:
+                            rt.Launch();
+                            shutdown();
+                            return true;
+                        case RecoveryKind.GaveUp:
+                            result = result with { GiveUp = rec.To, Notice = I18n.Strings.UpdateGaveUp(rec.To) };
+                            return false;   // .old と記録は残す
+                        default:
+                            // 試みた回数を残せない。起こし直すと際限なく続くので、この exe のまま起動して知らせる
+                            result = result with { Notice = I18n.Strings.UpdateStuck(r.Error ?? "") };
+                            return false;
+                    }
                     break;
+                }
+                case BootAction.GiveUp:
+                    result = result with { GiveUp = rec!.To, Notice = I18n.Strings.UpdateGaveUp(rec.To) };
+                    return false;   // .old と記録は残す（手で戻せるように）
+                case BootAction.Hold:
+                    return false;   // 起こし直された直後。戻しも片付けもしない
                 case BootAction.Verify:
                     rec!.Launches++;
                     rt.Store.SaveSwap(rec);
@@ -238,7 +266,7 @@ internal static class UpdateBoot
                     Swapper.Cleanup(rt.AppDir, UpdateRuntime.AllFiles);
                     break;
                 default:
-                    Swapper.Cleanup(rt.AppDir, UpdateRuntime.AllFiles);
+                    if (SwapBoot.MayCleanup(action)) Swapper.Cleanup(rt.AppDir, UpdateRuntime.AllFiles);
                     break;
             }
 
@@ -251,7 +279,7 @@ internal static class UpdateBoot
             }
             var started = UpdateApply.SwapAndRelaunch(rt, st, p, out _);
             if (started is not { } s) return false;
-            _ = UpdateApply.WatchAsync(rt, s.Child, s.Record, shutdown);
+            _ = UpdateApply.WatchAsync(rt, s.Child, s.Record, shutdown, stayHere);
             return true;
         }
         finally

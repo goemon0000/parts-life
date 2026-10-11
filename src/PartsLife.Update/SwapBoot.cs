@@ -13,8 +13,13 @@ public enum BootAction
     Cleanup,
     /// <summary>記録が今の版と合わない（戻した後など）。記録だけ消す。</summary>
     Stale,
-    /// <summary>何度戻そうとしても戻し切れない。諦めて記録を消し、利用者に知らせる（.old は手で戻せるよう残す）。</summary>
+    /// <summary>
+    /// 何度戻そうとしても戻し切れない。利用者に手で戻すよう知らせる。**.old と記録は残す**
+    /// （片付けで .old を消すと、手で戻す物が無くなる）。いまの版がしばらく無事に動いたら記録を消す。
+    /// </summary>
     GiveUp,
+    /// <summary>戻して起こし直された直後（--update-rolled-back / --update-restored）。戻しも片付けもしない（戻しの輪を作らない）。</summary>
+    Hold,
 }
 
 /// <summary>
@@ -42,7 +47,17 @@ public static class SwapBoot
     /// <summary>戻しをこの回数試みても戻し切れなければ諦める（起こし直しが際限なく続かないように）。</summary>
     public const int MaxRollbackAttempts = 3;
 
-    public static BootAction Decide(SwapRecord? record, AppVersion running)
+    /// <param name="relaunchedAfterRollback">戻して起こし直された起動（--update-rolled-back / --update-restored）。</param>
+    public static BootAction Decide(SwapRecord? record, AppVersion running, bool relaunchedAfterRollback = false)
+    {
+        var action = DecideCore(record, running);
+        return relaunchedAfterRollback && action is BootAction.Rollback ? BootAction.Hold : action;
+    }
+
+    /// <summary>.old・.failed を片付けてよいか。戻す・諦めて手で戻してもらう・起こし直された直後・確かめの途中では片付けない。</summary>
+    public static bool MayCleanup(BootAction action) => action is BootAction.None or BootAction.Stale or BootAction.Cleanup;
+
+    private static BootAction DecideCore(SwapRecord? record, AppVersion running)
     {
         if (record is null) return BootAction.None;
         if (record.Confirmed) return BootAction.Cleanup;
