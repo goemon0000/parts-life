@@ -26,7 +26,7 @@
 
     <!-- exe の属性。**署名を受けるには中身の名乗りが要る**（SignPath の条件）。
          署名の有無に関わらず、右クリック→プロパティで何のファイルか分かる方が良い。 -->
-    <Version>0.7.1</Version>
+    <Version>0.7.2</Version>
     <Product>パーツぐらし / Parts Life</Product>
     <AssemblyTitle>パーツぐらし</AssemblyTitle>
     <Description>PCパーツのキャラクターが実機の稼働状況を姿で表す常駐アプリ</Description>
