@@ -222,7 +222,7 @@ class OldHolder(threading.Thread):
 
 
 def scenario(name, work, port, srv_feed, layout, release_version, release_assets, app_files, expect_version, rolled_back,
-             extra_env=None, hold_old=False):
+             extra_env=None, hold_old=False, second_launch=False):
     print(f"\n== 場面 {name} ==")
     root = work / f"run-{name}"
     app, data = root / "app", root / "data"
@@ -260,6 +260,21 @@ def scenario(name, work, port, srv_feed, layout, release_version, release_assets
             time.sleep(3)
         else:
             wait_for("入れ替えた（PartsLife.exe.old ができた）", lambda: (app / "PartsLife.exe.old").exists(), 120)
+            if second_launch:
+                # 入れ替えの最中（古い版が見届けている間）にもう 1 つ起動する。短いお知らせを出して終わり、
+                # 起動の回数（Launches）にも戻しにも触らないこと
+                wait_for("新しい版が起動の回数を数えた", lambda: (upd / "swap.json").exists()
+                         and json.loads((upd / "swap.json").read_text("utf-8")).get("Launches", 0) >= 1, 60)
+                extra = subprocess.Popen([str(app / "PartsLife.exe")], cwd=str(app), env=env)
+                try:
+                    code = extra.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    extra.kill()
+                    raise AssertionError("入れ替えの最中の 2 つ目の起動が終わらなかった")
+                check(f"入れ替えの最中の 2 つ目の起動は、お知らせだけ出して終わった（終了コード {code}）", True)
+                rec = json.loads((upd / "swap.json").read_text("utf-8")) if (upd / "swap.json").exists() else {}
+                check(f"2 つ目の起動は起動の回数に触っていない（{rec.get('Launches')}）", rec.get("Launches", 1) <= 1)
+                check("2 つ目の起動は戻しをしていない", not rec.get("RollbackRequested"))
             wait_for("新しい版が「起動できた」と書いた", lambda: not (upd / "swap.json").exists()
                      or json.loads((upd / "swap.json").read_text("utf-8")).get("Confirmed"), 120)
             wait_for("後片付け（.old が消え、swap.json が消えた）",
@@ -323,7 +338,8 @@ def main():
         if "A" in picked:
             scenario("A", work, port, feed, "zip", NEW,
                      {"PartsLife.zip": new_zip, "PartsLife.exe": new_full},
-                     {"PartsLife.exe": cur_slim, "PartsLife.Check.exe": cur_helper}, NEW, rolled_back=False)
+                     {"PartsLife.exe": cur_slim, "PartsLife.Check.exe": cur_helper}, NEW, rolled_back=False,
+                     second_launch=True)
         if "B" in picked:
             scenario("B", work, port, feed, "exe", NEW,
                      {"PartsLife.zip": new_zip, "PartsLife.exe": new_full},
