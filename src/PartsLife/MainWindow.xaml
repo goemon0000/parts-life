@@ -47,6 +47,108 @@
       </Setter>
     </Style>
 
+    <!-- 窓の上のタブ。押すと下に設定の欄が開き、もう一度押すと畳む。
+         RadioButton にしてあるのは、読み上げで「n 個中 m 番目のタブ」として扱われるため -->
+    <Style x:Key="TabButton" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="#9AA7C4" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="9,2" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="b" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#22FFFFFF" />
+                <Setter Property="Foreground" Value="#DDE5F8" />
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="b" Property="BorderBrush" Value="#5DD8BB" />
+                <Setter Property="Foreground" Value="#DDE5F8" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#335DD8BB" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- 設定の欄の選択肢（CheckBox / RadioButton どちらにも使う）。○ / ● で選ばれているかを示す -->
+    <Style x:Key="OptionToggle" TargetType="ToggleButton">
+      <Setter Property="Foreground" Value="#DDE5F8" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="Margin" Value="0,0,6,2" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToggleButton">
+            <Border x:Name="b" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                    CornerRadius="3" Padding="{TemplateBinding Padding}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="g" Text="○" Foreground="#9AA7C4" Margin="0,0,5,0" VerticalAlignment="Center" />
+                <ContentPresenter VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="g" Property="Text" Value="●" />
+                <Setter TargetName="g" Property="Foreground" Value="#5DD8BB" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#22FFFFFF" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="b" Property="BorderBrush" Value="#8C5DD8BB" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- 設定の欄の押しボタン（今すぐ確認・点検を開く・最初から など）。枠を付けて選択肢と見分ける -->
+    <Style x:Key="ActionButton" TargetType="Button">
+      <Setter Property="Foreground" Value="#DDE5F8" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="Margin" Value="0,0,6,2" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="Transparent" BorderBrush="#4C5DD8BB" BorderThickness="1"
+                    CornerRadius="3" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#33FFFFFF" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="b" Property="BorderBrush" Value="#5DD8BB" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- 右下の掴み。窓に枠が無いので、掴める場所を自前で置く。 -->
     <Style x:Key="GripStyle" TargetType="Thumb">
       <Setter Property="Cursor" Value="SizeNWSE" />
@@ -64,6 +166,20 @@
 
   <Grid x:Name="Shell">
     <StackPanel x:Name="Root">
+
+      <!-- 上の上: タブ。右クリックの献立と同じ物を、見える所に並べる（中身は MainWindow.Tabs.cs）。
+           「ようす」が選ばれている間は設定の欄を畳み、いつもの盤だけの姿 -->
+      <Border x:Name="TabBar" Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
+              BorderThickness="1" CornerRadius="6" Padding="3,1" Margin="0,0,0,3">
+        <StackPanel x:Name="TabStrip" Orientation="Horizontal"
+                    KeyboardNavigation.TabNavigation="Once" KeyboardNavigation.DirectionalNavigation="Cycle" />
+      </Border>
+
+      <!-- タブを選んだときだけ開く設定の欄 -->
+      <Border x:Name="SettingsPanel" Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"
+              BorderThickness="1" CornerRadius="6" Padding="9,6" Margin="0,0,0,3" Visibility="Collapsed">
+        <StackPanel x:Name="SettingsStack" KeyboardNavigation.TabNavigation="Cycle" />
+      </Border>
 
       <!-- 上: 物語。文字は拡大しない。常に読みやすい大きさで置く -->
       <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource PanelEdge}"

@@ -29,6 +29,21 @@ public static class Strings
     public static string LabelNameAndLevel => T("名前とレベル", "Name and level");
     public static string LabelNone         => T("出さない", "Hide");
 
+    // --- 窓の上のタブ（右クリックの献立と同じ物を、見える所に並べる） ---
+    public static string TabBoard     => T("ようす", "Party");
+    public static string TabView      => T("表示", "View");
+    public static string TabStartup   => T("起動・更新", "Startup");
+    public static string TabChecks    => T("点検", "Checkup");
+    public static string TabData      => T("データ", "Data");
+    public static string TabsTip      => T("Ctrl+1〜5 でも選べます。右クリックの献立も今までどおり使えます",
+                                           "Ctrl+1–5 also work. The right-click menu still works as before");
+    public static string LanguageHeader => T("言語", "Language");
+    public static string ChecksAbout  => T("CPU の負荷テスト・システムチェック・記憶媒体の点検を別の窓で開きます。開いただけでは何も動きません。",
+                                           "Opens load tests, the system check and the storage check in a separate window. Nothing runs until you press a button there.");
+    public static string ChecksOpen   => T("点検の窓を開く", "Open checkup");
+    public static string DataAbout    => T("取り消せません。押すと確認が出ます。窓の位置・言語・更新の設定は残ります。",
+                                           "This can't be undone; you'll be asked to confirm. Window position, language and update settings are kept.");
+
     public static string ResetMenu    => T("最初から", "Start over");
     public static string ChecksMenu   => T("点検…（負荷テスト・システムチェック）", "Checkup… (load test, system check)");
     public static string ResetStory   => T("物語だけ最初から", "Story only");

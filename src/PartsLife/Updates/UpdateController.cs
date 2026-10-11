@@ -262,48 +262,67 @@ internal sealed class UpdateController
     // 献立
     // -----------------------------------------------------------------------
 
-    /// <summary>右クリックの献立の「更新」。いまの版・最後の確認・今すぐ確認・設定・更新の内容。</summary>
-    public MenuItem BuildMenu()
+    /// <summary>
+    /// 献立とタブの「更新」に出す中身。**両方ともここから作る**（片方だけ表示の決まりが変わらないように）。
+    /// 読むだけで、確かめにも行かず何も書かない。
+    /// </summary>
+    internal sealed record MenuModel(
+        string Current, string LastCheck, string? Status, string? Blocked,
+        bool CheckOff, bool CanCheckNow, UpdateMode Mode, string NotesPage);
+
+    public MenuModel Model()
     {
         var st = _rt.Store.LoadState();
-        var root = new MenuItem { Header = Strings.UpdateMenu };
-
-        root.Items.Add(new MenuItem { Header = Strings.UpdateCurrent(_rt.Current.ToString()), IsEnabled = false });
-        root.Items.Add(new MenuItem
-        {
-            Header = st.LastCheckUtc is { } t ? Strings.UpdateLastCheck(t) : Strings.UpdateNeverChecked,
-            IsEnabled = false,
-        });
-        string? status = Mode == UpdateMode.Off ? null
+        var mode = Mode;
+        string? status = mode == UpdateMode.Off ? null
             : st.Pending is { } p ? Strings.UpdateStaged(p.Version)
             : st.LatestVersion is { } lv && AppVersion.TryParse(lv, out var v) && v > _rt.Current ? Strings.UpdateAvailable(lv)
             : st.LastError is { } err ? Strings.UpdateFailed(err)
             : null;
-        if (status is not null) root.Items.Add(new MenuItem { Header = status, IsEnabled = false });
-        if (Mode == UpdateMode.Auto && !_rt.CanReplace)
-            root.Items.Add(new MenuItem { Header = Strings.CannotReplace(_rt.Block), IsEnabled = false });
-
-        var now = new MenuItem { Header = Strings.UpdateCheckNow };
-        if (Mode == UpdateMode.Off)
-        {
+        return new MenuModel(
+            Strings.UpdateCurrent(_rt.Current.ToString()),
+            st.LastCheckUtc is { } t ? Strings.UpdateLastCheck(t) : Strings.UpdateNeverChecked,
+            status,
+            mode == UpdateMode.Auto && !_rt.CanReplace ? Strings.CannotReplace(_rt.Block) : null,
             // **「確認しない」の間は押せない。** 押せば通信することになり、「確認しない」と食い違う
-            now.IsEnabled = false;
+            CheckOff: mode == UpdateMode.Off,
+            CanCheckNow: mode != UpdateMode.Off && !_busy && UpdateSchedule.CanCheckNow(st, DateTimeOffset.UtcNow),
+            mode,
+            st.LatestPageUrl is { } lp && _rt.Endpoints.IsReleasePage(lp) ? lp : _rt.Endpoints.ReleasesPage);
+    }
+
+    /// <summary>「今すぐ確認」。押せないとき（<see cref="MenuModel.CanCheckNow"/> が偽）は何もしない。</summary>
+    public void CheckNow()
+    {
+        if (Model().CanCheckNow) RunCheck(manual: true);
+    }
+
+    public void OpenNotes() => OpenPage(Model().NotesPage);
+
+    /// <summary>右クリックの献立の「更新」。いまの版・最後の確認・今すぐ確認・設定・更新の内容。</summary>
+    public MenuItem BuildMenu()
+    {
+        var m = Model();
+        var root = new MenuItem { Header = Strings.UpdateMenu };
+
+        root.Items.Add(new MenuItem { Header = m.Current, IsEnabled = false });
+        root.Items.Add(new MenuItem { Header = m.LastCheck, IsEnabled = false });
+        if (m.Status is not null) root.Items.Add(new MenuItem { Header = m.Status, IsEnabled = false });
+        if (m.Blocked is not null) root.Items.Add(new MenuItem { Header = m.Blocked, IsEnabled = false });
+
+        var now = new MenuItem { Header = Strings.UpdateCheckNow, IsEnabled = m.CanCheckNow };
+        if (m.CheckOff)
+        {
             now.ToolTip = Strings.UpdateCheckOffTip;
             ToolTipService.SetShowOnDisabled(now, true);
         }
-        else if (_busy || !UpdateSchedule.CanCheckNow(st, DateTimeOffset.UtcNow)) now.IsEnabled = false;
         now.Click += (_, _) => RunCheck(manual: true);
         root.Items.Add(now);
 
         root.Items.Add(new Separator());
-        foreach (var (mode, header) in new[]
-                 {
-                     (UpdateMode.Auto, Strings.UpdateModeAuto),
-                     (UpdateMode.NotifyOnly, Strings.UpdateModeNotify),
-                     (UpdateMode.Off, Strings.UpdateModeOff),
-                 })
+        foreach (var (mode, header) in Modes())
         {
-            var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = Mode == mode };
+            var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = m.Mode == mode };
             var captured = mode;
             item.Click += (_, _) => SetMode(captured);
             root.Items.Add(item);
@@ -311,13 +330,20 @@ internal sealed class UpdateController
 
         root.Items.Add(new Separator());
         var notes = new MenuItem { Header = Strings.UpdateNotes };
-        string page = st.LatestPageUrl is { } lp && _rt.Endpoints.IsReleasePage(lp) ? lp : _rt.Endpoints.ReleasesPage;
-        notes.Click += (_, _) => OpenPage(page);
+        notes.Click += (_, _) => OpenPage(m.NotesPage);
         root.Items.Add(notes);
         return root;
     }
 
-    private void SetMode(UpdateMode mode)
+    /// <summary>更新の設定の選び方。献立とタブで同じ並び・同じ文言。</summary>
+    public static IReadOnlyList<(UpdateMode Mode, string Header)> Modes() => new[]
+    {
+        (UpdateMode.Auto, Strings.UpdateModeAuto),
+        (UpdateMode.NotifyOnly, Strings.UpdateModeNotify),
+        (UpdateMode.Off, Strings.UpdateModeOff),
+    };
+
+    public void SetMode(UpdateMode mode)
     {
         var before = Mode;
         _state.UpdateMode = UpdateModes.Name(mode);

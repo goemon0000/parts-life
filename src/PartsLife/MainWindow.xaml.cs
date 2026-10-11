@@ -148,18 +148,8 @@ public partial class MainWindow : Window
 
         ExpandButton.Click += (_, _) => SetExpanded(!_expanded);
         SizeButton.Click += (_, _) => SnapScale();
-        LangButton.Click += (_, _) =>
-        {
-            Strings.Lang = Strings.Lang == "ja" ? "en" : "ja";
-            _state.Lang = Strings.Lang;
-            ApplyLanguage();
-        };
-        TopmostButton.Click += (_, _) =>
-        {
-            Topmost = !Topmost;
-            _state.Topmost = Topmost;
-            TopmostButton.Opacity = Topmost ? 1.0 : 0.45;
-        };
+        LangButton.Click += (_, _) => ToggleLanguage();
+        TopmostButton.Click += (_, _) => ToggleTopmost();
         CloseButton.Click += (_, _) => Close();
         NoticeClose.Click += (_, _) => HideNotice();
         NoticeLink.Click += (_, _) => OnNoticeLink();
@@ -169,6 +159,7 @@ public partial class MainWindow : Window
         BoardHost.MouseMove += OnBoardHover;
         BoardHost.MouseLeave += (_, _) => _hoverTip.IsOpen = false;
         MouseRightButtonUp += (_, e) => { ShowMenu(); e.Handled = true; };
+        PreviewKeyDown += OnTabKeys;
 
         // **飾りのために巻き添えで落ちない。**
         // 計測は OS の API に触るので、環境によっては想定外の例外が出る。
@@ -262,6 +253,8 @@ public partial class MainWindow : Window
         NoticeBar.Visibility = Visibility.Visible;
         _noticeTimer.Stop();
         if (hideAfter is { } h) { _noticeTimer.Interval = h; _noticeTimer.Start(); }
+        // 更新の欄を開いているなら、確かめた結果（最後の確認・新しい版）を映す
+        if (_tab == Ui.SettingsTab.Startup) RefreshSettings();
     }
 
     internal void HideNotice()
@@ -288,10 +281,10 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 入れ替えてよいほど手が空いているか。点検の窓（負荷テスト・表面検査）が開いていない、
-    /// 献立や確認の窓が開いていない、窓の上に指が載っていない、大きさを変えている最中でない。
+    /// 献立や確認の窓・設定のタブが開いていない、窓の上に指が載っていない、大きさを変えている最中でない。
     /// </summary>
     internal bool IsIdleForUpdate =>
-        !_menuOpen && !_dialogOpen && !IsMouseOver && !Grip.IsDragging && IsVisible
+        !_menuOpen && !_dialogOpen && _tab == Ui.SettingsTab.None && !IsMouseOver && !Grip.IsDragging && IsVisible
         && Application.Current.Windows.Count == 1;
 
     /// <summary>入れ替えの直前。進行を書き切ってから止まり、窓を隠す。**以後は保存しない**（新しい版が続きを書く）。</summary>
@@ -456,6 +449,8 @@ public partial class MainWindow : Window
         // GPU の型番が入らなくなる。狭いときは枠だけ広げて、盤を中央に置く。
         double panel = Math.Max(w, MinPanelWidth);
         _boardPixelWidth = (int)BoardImage.ArtSize.Width;
+        TabBar.Width = panel;
+        SettingsPanel.Width = panel;
         StoryPanel.Width = panel;
         ArrowBar.Width = panel;
         DetailPanel.Width = panel;
@@ -653,100 +648,6 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 右クリックの献立。**設定画面は作らない。**
-    /// 常駐の玩具に画面をもう一枚足すと、それだけで「アプリ」になってしまう。
-    /// 触る項目はこの4つで足りる。
-    /// </summary>
-    private void ShowMenu()
-    {
-        var menu = new ContextMenu();
-
-        var top = new MenuItem { Header = Strings.TopmostTip, IsCheckable = true, IsChecked = Topmost };
-        top.Click += (_, _) =>
-        {
-            Topmost = !Topmost;
-            _state.Topmost = Topmost;
-            TopmostButton.Opacity = Topmost ? 1.0 : 0.45;
-        };
-        menu.Items.Add(top);
-
-        var auto = new MenuItem { Header = Strings.RunAtLogin, IsCheckable = true, IsChecked = Startup.IsEnabled };
-        auto.Click += (_, _) => Startup.Set(!Startup.IsEnabled);
-        menu.Items.Add(auto);
-
-        var lang = new MenuItem { Header = Strings.Lang == "ja" ? "English" : "日本語" };
-        lang.Click += (_, _) =>
-        {
-            Strings.Lang = Strings.Lang == "ja" ? "en" : "ja";
-            _state.Lang = Strings.Lang;
-            ApplyLanguage();
-        };
-        menu.Items.Add(lang);
-
-        var labels = new MenuItem { Header = Strings.LabelMenu };
-        foreach (var (mode, header) in new[]
-                 {
-                     (Labels.LevelOnly, Strings.LabelLevelOnly),
-                     (Labels.NameAndLevel, Strings.LabelNameAndLevel),
-                     (Labels.None, Strings.LabelNone),
-                 })
-        {
-            var item = new MenuItem { Header = header, IsCheckable = true, IsChecked = _labels == mode };
-            var captured = mode;
-            item.Click += (_, _) =>
-            {
-                _labels = captured;
-                _state.Labels = captured switch
-                {
-                    Labels.NameAndLevel => "name",
-                    Labels.None => "none",
-                    _ => "level",
-                };
-                PlaceLevelLabels();
-            };
-            labels.Items.Add(item);
-        }
-        menu.Items.Add(labels);
-
-        // **取り返しがつかないので、一段深い所に置いて必ず確認する。**
-        // 献立の一番上に「最初から」があると、押し間違いで数ヶ月ぶんが消える。
-        var reset = new MenuItem { Header = Strings.ResetMenu };
-        foreach (var (header, ask, act) in new (string, string, Action)[]
-                 {
-                     (Strings.ResetStory,  Strings.ResetStoryAsk,  _state.ResetStory),
-                     (Strings.ResetLevels, Strings.ResetLevelsAsk, _state.ResetLevels),
-                     (Strings.ResetAll,    Strings.ResetAllAsk,    _state.ResetAll),
-                 })
-        {
-            var item = new MenuItem { Header = header };
-            var (askText, action) = (ask, act);
-            item.Click += (_, _) => ConfirmReset(askText, action);
-            reset.Items.Add(item);
-        }
-        menu.Items.Add(reset);
-
-        // 更新（いまの版・最後の確認・今すぐ確認・設定・更新の内容）
-        if (Updates is not null) menu.Items.Add(Updates.BuildMenu());
-
-        // 点検は別の窓。**この常駐窓は操作を受け付けないまま**にしておくため
-        menu.Items.Add(new Separator());
-        var checks = new MenuItem { Header = Strings.ChecksMenu };
-        checks.Click += (_, _) => OpenChecks();
-        menu.Items.Add(checks);
-
-        menu.Items.Add(new Separator());
-        var quit = new MenuItem { Header = Strings.Close };
-        quit.Click += (_, _) => Close();
-        menu.Items.Add(quit);
-
-        menu.Opened += (_, _) => _menuOpen = true;
-        menu.Closed += (_, _) => _menuOpen = false;
-        menu.PlacementTarget = this;
-        _menuOpen = true;
-        menu.IsOpen = true;
-    }
-
-    /// <summary>
     /// 「点検」の窓を開く。**別の方法に分けてあるのは、ここを通るまで点検の
     /// アセンブリ（PartsLife.CheckWindow / PartsLife.Checks）を読み込ませないため。**
     /// JIT はこの方法を初めて呼ぶときに参照先を読むので、押さない限り常駐の負担は 0。
@@ -788,6 +689,8 @@ public partial class MainWindow : Window
         TopmostButton.ToolTip = Strings.TopmostTip;
         Grip.ToolTip = Strings.ResizeTip;
         ExpandButton.ToolTip = _expanded ? Strings.CollapseTip : Strings.ExpandTip;
+        BuildTabs();
+        RefreshSettings();
         UpdateStoryText();
         PlaceLevelLabels();
         UpdateDetail();
