@@ -167,7 +167,8 @@ public class CpuLoadTestTests
         var sw = Stopwatch.StartNew();
         var r = CpuLoadTest.Run(new CpuLoadOptions { Duration = TimeSpan.FromMinutes(1), Threads = 1 }, null, cts.Token);
         Assert.True(r.Stopped);
-        Assert.True(sw.ElapsedMilliseconds < 1000);
+        // 1 分は走らないことを見る。共有の CI 機や重い手元では立ち上がりだけで 1 秒を超えることがあった
+        Assert.True(sw.ElapsedMilliseconds < 5000);
     }
 
     [Fact]
