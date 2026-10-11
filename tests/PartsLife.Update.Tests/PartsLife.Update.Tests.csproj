@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 自動更新の決まりの試験。**本物の通信はしない**（偽の HttpMessageHandler を渡す）。
+       WPF を持たないので Linux でも回る（署名の試験だけは Windows でしか確かめられないので、そこでは飛ばす）:
+         dotnet test tests/PartsLife.Update.Tests -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PartsLife.Update\PartsLife.Update.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GitHub の releases/latest の応答を、形はそのままに削った物（版は架空の v0.7.3） -->
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

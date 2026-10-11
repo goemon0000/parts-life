@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    自動更新。**このアプリが通信するのは、ここだけ。**
+
+    - 行き先は GitHub の 2 つだけ（最新の Release を尋ねる api.github.com と、その Release の添付物）。
+      ほかの行き先は、転送（302）の先も含めて許さない（UpdateEndpoints）
+    - 送るのは User-Agent（PartsLife/<版>）と Accept だけ。識別子・機械の情報・利用の記録は送らない
+    - 設定で「確認しない」にすると、HttpClient を作りもしない（試験で確かめている）
+
+    ■ 決まりは純粋な関数
+    版の比較・Release の JSON の読み・SHA256.txt の照合・確認の間隔・入れ替えと戻し、は
+    通信や画面と切り離してあり、試験で中身を確かめられる（tests/PartsLife.Update.Tests）。
+
+    ■ WPF を持たない
+    画面との繋ぎは本体（src/PartsLife/Updates）にある。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>PartsLife.Update</RootNamespace>
+    <AssemblyName>PartsLife.Update</AssemblyName>
+    <!-- リフレクション頼みの JSON を入れない（読み書きは源泉生成の UpdateJson だけ）。
+         本体は今は NativeAOT ではないが、トリミングや AOT に移しても黙って壊れないように -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PartsLife.Update.Tests" />
+  </ItemGroup>
+
+</Project>

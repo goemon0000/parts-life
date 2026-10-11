@@ -5,9 +5,11 @@
     <Project Path="src/PartsLife.Checks/PartsLife.Checks.csproj" />
     <Project Path="src/PartsLife.CheckWindow/PartsLife.CheckWindow.csproj" />
     <Project Path="src/PartsLife.Check/PartsLife.Check.csproj" />
+    <Project Path="src/PartsLife.Update/PartsLife.Update.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PartsLife.Core.Tests/PartsLife.Core.Tests.csproj" />
     <Project Path="tests/PartsLife.Checks.Tests/PartsLife.Checks.Tests.csproj" />
+    <Project Path="tests/PartsLife.Update.Tests/PartsLife.Update.Tests.csproj" />
   </Folder>
 </Solution>

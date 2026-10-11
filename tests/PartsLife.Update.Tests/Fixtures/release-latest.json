@@ -1,0 +1,86 @@
+{
+  "url": "https://api.github.com/repos/goemon0000/parts-life/releases/409306903",
+  "assets_url": "https://api.github.com/repos/goemon0000/parts-life/releases/409306903/assets",
+  "html_url": "https://github.com/goemon0000/parts-life/releases/tag/v0.7.3",
+  "id": 409306903,
+  "node_id": "RE_kwDOURA7cc4YZYcX",
+  "tag_name": "v0.7.3",
+  "target_commitish": "main",
+  "name": "v0.7.3: 試験用の架空の版",
+  "draft": false,
+  "immutable": false,
+  "prerelease": false,
+  "created_at": "2026-10-11T00:58:46Z",
+  "updated_at": "2026-10-11T01:01:56Z",
+  "published_at": "2026-10-11T01:01:25Z",
+  "assets": [
+    {
+      "url": "https://api.github.com/repos/goemon0000/parts-life/releases/assets/629409536",
+      "id": 629409536,
+      "node_id": "RA_kwDOURA7cc4lhAcA",
+      "name": "PartsLife.exe",
+      "label": "",
+      "content_type": "application/x-msdos-program",
+      "state": "uploaded",
+      "size": 65321290,
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "download_count": 0,
+      "created_at": "2026-10-11T01:01:22Z",
+      "updated_at": "2026-10-11T01:01:25Z",
+      "browser_download_url": "https://github.com/goemon0000/parts-life/releases/download/v0.7.3/PartsLife.exe",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      }
+    },
+    {
+      "url": "https://api.github.com/repos/goemon0000/parts-life/releases/assets/629409540",
+      "id": 629409540,
+      "node_id": "RA_kwDOURA7cc4lhAcE",
+      "name": "PartsLife.zip",
+      "label": "",
+      "content_type": "application/zip",
+      "state": "uploaded",
+      "size": 62367210,
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "download_count": 0,
+      "created_at": "2026-10-11T01:01:22Z",
+      "updated_at": "2026-10-11T01:01:25Z",
+      "browser_download_url": "https://github.com/goemon0000/parts-life/releases/download/v0.7.3/PartsLife.zip",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      }
+    },
+    {
+      "url": "https://api.github.com/repos/goemon0000/parts-life/releases/assets/629409535",
+      "id": 629409535,
+      "node_id": "RA_kwDOURA7cc4lhAb_",
+      "name": "SHA256.txt",
+      "label": "",
+      "content_type": "text/plain",
+      "state": "uploaded",
+      "size": 162,
+      "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "download_count": 1,
+      "created_at": "2026-10-11T01:01:22Z",
+      "updated_at": "2026-10-11T01:01:22Z",
+      "browser_download_url": "https://github.com/goemon0000/parts-life/releases/download/v0.7.3/SHA256.txt",
+      "uploader": {
+        "login": "github-actions[bot]",
+        "id": 41898282,
+        "type": "Bot"
+      }
+    }
+  ],
+  "tarball_url": "https://api.github.com/repos/goemon0000/parts-life/tarball/v0.7.3",
+  "zipball_url": "https://api.github.com/repos/goemon0000/parts-life/zipball/v0.7.3",
+  "body": "（試験用。実在しない版）",
+  "author": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  }
+}
