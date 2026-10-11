@@ -23,7 +23,7 @@ SignPath Foundation の[条件](https://signpath.org/terms.html)が求める公�
 `windows-latest` 上でビルドします。** 手元の機械で作った実行ファイルは配りません。
 
 各 Release には `SHA256.txt` を添えています。ダウンロードした物が
-CI の作った物と同じかどうかは、これで確かめられます。
+CI の作った物と同じかどうかは、これで確かめられます（アプリの自動更新も、これと照合してから入れ替えます）。
 
 ```powershell
 Get-FileHash PartsLife.exe -Algorithm SHA256
@@ -55,12 +55,37 @@ EV 証明書でも SmartScreen の警告を即座に消せなくなりました�
 
 ## 中身について
 
-- 通信しません
+- **通信するのは更新の確認とダウンロードだけ（GitHub）です。** 設定（右クリック →「更新」→「確認しない」）で止められます。
+  ほかには何も送りません（下記「更新の確かめ方」）
 - 管理者権限を要求しません
-- 書き込むのは `%APPDATA%\PartsLife\`（設定と物語の進行）と、
+- 書き込むのは `%APPDATA%\PartsLife\`（設定と物語の進行）、`%LOCALAPPDATA%\PartsLife\updates\`（更新の覚え書きと、落とした新しい版）、
+  更新を入れ替えるときの exe の置き場所（`PartsLife.exe.old` を作り、確かめが済んだら消す）と、
   自動起動を有効にした場合のみ
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` です
-- アンインストールは exe を消すだけです。上の2箇所も消せば完全に元通りになります
+- アンインストールは exe を消すだけです。上の場所も消せば完全に元通りになります
+
+## 更新の確かめ方
+
+アプリは GitHub Releases から新しい版を落として、自分で入れ替えます（README の「更新」）。
+**新しい鍵は作っていません。** 署名がまだ無いので、手で落とすときに慎重な人がやる確かめを、そのまま機械にやらせています。
+
+| 確かめること | どうやって |
+|---|---|
+| 配布元 | `https://api.github.com/repos/goemon0000/parts-life/releases/latest` が返した Release の添付物だけ。URL がこの repo のそのタグの添付物の形でなければ使わない。下書き・試験版は使わない |
+| 経路 | https だけ。行き先は `api.github.com`・`github.com`（この repo の添付物の場所だけ）・`release-assets.githubusercontent.com`・`objects.githubusercontent.com`（添付物の転送先）に限る。転送も 1 つずつこの表に照らす |
+| 中身 | 同じ Release の `SHA256.txt` の行と、落とした物の SHA-256 が一致すること。GitHub が添付物ごとに記録している digest とも一致すること。ZIP の中身は ZIP 丸ごとの値で決まる（中の exe の行は無い。`SHA256.txt` の `PartsLife.exe` の行は単体で配っている exe の値で、ZIP の中の物とは別物） |
+| 署名 | いま動いている exe が署名つきなら、新しい exe も WinVerifyTrust で有効、かつ署名者の名乗り（Subject）が同じであること。確かめの間は通信しない（失効の確認を外し、手元の証明書だけで確かめる） |
+| 版と大きさ | 新しい exe に書かれた版が Release のタグと同じで、いまより新しい（古い版に戻さない）。200MB まで、Release の記載どおりの大きさ。ZIP の中身は `PartsLife.exe` と `PartsLife.Check.exe` の 2 つちょうど |
+
+**いまは署名の申請中で、配っている exe は無署名です。** そのため、いまの exe が無署名なら、無署名の更新も
+（`SHA256.txt` との照合を通したうえで）入れています。署名つきの版が出たら、無署名の更新は断るように変えます
+（`src/PartsLife.Update/Authenticode.cs` の `SignaturePolicy.RequireSignature`。署名つきの版に一度上がった人は、
+その時点で「同じ名乗りの署名」が必須になるので、無署名の版には戻りません）。
+
+`SHA256.txt` と添付物は同じ GitHub のアカウントから上がるので、この照合が守るのは「途中で壊れた・すり替えられた」までです。
+repo の持ち主のアカウントが乗っ取られた場合は防げません（ブラウザで落とす人と同じ立場です）。それを防ぐのが署名です。
+
+入れ替えた新しい版がうまく起動しなかったときは、元の版（`PartsLife.exe.old`）に戻し、その版は二度と入れません。
 
 ## 依存している物
 

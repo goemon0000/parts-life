@@ -31,6 +31,10 @@ jobs:
       - name: 試験
         run: dotnet test tests/PartsLife.Core.Tests -c Release --logger "console;verbosity=normal"
 
+      # 自動更新の決まり（WPF を持たないので Linux でも回る。署名の読み取りの試験だけは Windows でしか見ない）
+      - name: 試験（自動更新）
+        run: dotnet test tests/PartsLife.Update.Tests -c Release
+
       # WPF のアプリも Linux から組めること（EnableWindowsTargeting）
       - name: アプリが組めるか
         run: dotnet build src/PartsLife/PartsLife.csproj -c Debug

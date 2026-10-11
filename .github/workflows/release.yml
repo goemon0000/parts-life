@@ -42,12 +42,16 @@ jobs:
       # 資源の使用量を眺めるためのアプリが、その倍を自分で使っていては話にならない。
       # 非圧縮版は ZIP にすると 56MB で、圧縮版の exe(62MB) より小さい。
       # 冒険の決まり（保存の引き継ぎ・装備・構え・30日の模擬）と、
-      # 点検の中身（NVMe/SMART の解析・基準値の差・メモリ照合・止めたら止まるか・この版で出す機能と止める機能が揃っているか）。
-      # どちらかが落ちたら出さない
+      # 点検の中身（NVMe/SMART の解析・基準値の差・メモリ照合・止めたら止まるか・この版で出す機能と止める機能が揃っているか）、
+      # 自動更新の決まり。どれかが落ちたら出さない
       - name: テスト（冒険）
         run: dotnet test tests/PartsLife.Core.Tests -c Release
       - name: テスト（点検）
         run: dotnet test tests/PartsLife.Checks.Tests -c Release
+      # 自動更新の決まり（版の比較・Release の読み・SHA256.txt の照合・行き先の許可・確認の間隔・
+      # 「確認しない」なら通信しない・入れ替えと戻し）。Release で回すので、試験用の行き先の差し替えが効かないことも見る
+      - name: テスト（自動更新）
+        run: dotnet test tests/PartsLife.Update.Tests -c Release
 
       - name: ビルド（直接実行できる単一exe）
         run: >
