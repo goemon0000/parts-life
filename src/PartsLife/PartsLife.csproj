@@ -61,6 +61,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 自動更新。このアプリの通信はここだけ（GitHub の Release を尋ねて落とす）。設定で止められる -->
+    <ProjectReference Include="..\PartsLife.Update\PartsLife.Update.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- SSD/HDD の判別に MSFT_PhysicalDisk を引くため -->
     <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>

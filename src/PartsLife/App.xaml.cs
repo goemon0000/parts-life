@@ -65,8 +65,16 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // 更新: 窓を出す前に、入れ替えの後始末（確かめ・戻し・.old の片付け）と、用意済みの版の入れ替え。
+        // 入れ替えて起こし直すときは、ここで終わる（新しい版が窓を出す）。--updated-from <版> はそのとき付く印
+        var state = Updates.AppData.LoadState();
+        var rt = Updates.UpdateRuntime.Create();
+        Update.SwapRecord? justUpdated = null;
+        if (rt is not null && Updates.UpdateBoot.Run(rt, state, () => Shutdown(), out justUpdated)) return;
+
         // 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）
-        var main = new MainWindow();
+        var main = new MainWindow(state);
+        if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, justUpdated);
         MainWindow = main;
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];

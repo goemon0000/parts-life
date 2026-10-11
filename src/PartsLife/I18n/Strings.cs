@@ -57,6 +57,43 @@ public static class Strings
     public static string Level    => T("Lv", "Lv");
     public static string Gear     => T("装備", "Gear");
 
+    // ---- 更新 -------------------------------------------------------------
+    public static string UpdateMenu       => T("更新", "Updates");
+    public static string UpdateCurrent(string v) => T($"いまの版 v{v}", $"Current version v{v}");
+    public static string UpdateLastCheck(DateTimeOffset t) =>
+        T($"最後の確認 {t.ToLocalTime():yyyy-MM-dd HH:mm}", $"Last checked {t.ToLocalTime():yyyy-MM-dd HH:mm}");
+    public static string UpdateNeverChecked => T("まだ確認していません", "Not checked yet");
+    public static string UpdateCheckNow   => T("今すぐ確認", "Check now");
+    public static string UpdateChecking   => T("確認しています…", "Checking…");
+    public static string UpdateCheckOffTip => T("「確認しない」の間は通信しません", "No network access while set to \"Don't check\"");
+    public static string UpdateModeAuto   => T("自動で更新する", "Update automatically");
+    public static string UpdateModeNotify => T("確認だけして知らせる", "Check and notify only");
+    public static string UpdateModeOff    => T("確認しない", "Don't check");
+    public static string UpdateNotes      => T("更新の内容（GitHub）", "Release notes (GitHub)");
+    public static string UpdateWhatsNew   => T("内容を見る", "What's new");
+    public static string UpdateStaged(string v) => T($"v{v} を用意しました（手が空いたら入れ替えます）", $"v{v} is ready (installs when idle)");
+    public static string UpdateAvailable(string v) => T($"新しい版 v{v} があります", $"A new version v{v} is available");
+    public static string UpdateAvailableBlocked(string v, string why) =>
+        T($"新しい版 v{v} があります（{why}）", $"A new version v{v} is available ({why})");
+    public static string UpdateUpdated(string v)   => T($"v{v} に更新しました", $"Updated to v{v}");
+    public static string UpdateUpToDate(string v)  => T($"最新の版です（v{v}）", $"You're up to date (v{v})");
+    public static string UpdateFailed(string why)  => T($"更新を確かめられませんでした: {why}", $"Update check failed: {why}");
+    public static string UpdateRateLimited => T("GitHub の回数制限のため、しばらく確認しません", "GitHub rate limit reached; checking again later");
+    public static string UpdateSkipped(string v)   => T($"v{v} は前にうまく起動しなかったので入れません", $"v{v} failed to start before; not installing it");
+    public static string UpdateRolledBack(string v, string cur) =>
+        T($"v{v} がうまく起動しなかったので、v{cur} に戻しました", $"v{v} didn't start properly; went back to v{cur}");
+    public static string UpdateSwapFailed(string why) => T($"入れ替えられませんでした: {why}", $"Couldn't install the update: {why}");
+
+    internal static string CannotReplace(Updates.ReplaceBlock b) => b switch
+    {
+        Updates.ReplaceBlock.ExeName => T("exe の名前が PartsLife.exe ではないため、自動では入れ替えられません",
+                                          "the exe isn't named PartsLife.exe, so it can't be replaced automatically"),
+        Updates.ReplaceBlock.DevBuild => T("開発用のビルドのため、自動では入れ替えません",
+                                           "this is a development build, so it isn't replaced automatically"),
+        _ => T("このフォルダには書き込めないため、自動では入れ替えられません",
+               "this folder isn't writable, so it can't be replaced automatically"),
+    };
+
     public static string Disclaimer => T(
         "※ 規格・相性・物語はすべてお遊びです。購入や設定の判断には使えません。",
         "Note: the specs, compatibility marks and story here are all for fun — not a reference for purchases or settings.");

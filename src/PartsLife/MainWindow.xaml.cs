@@ -7,6 +7,7 @@ using PartsLife.Game;
 using PartsLife.I18n;
 using PartsLife.Rendering;
 using PartsLife.Sensors;
+using PartsLife.Updates;
 
 namespace PartsLife;
 
@@ -18,8 +19,16 @@ public partial class MainWindow : Window
     private readonly PdhSampler _pdh = new();
     private readonly DiskSampler _disk = new();
 
-    private readonly PartyState _state = PartyState.Load();
+    private readonly PartyState _state;
     private readonly Director _director;
+
+    /// <summary>自動更新との繋ぎ。常駐の起動のときだけ（--shot などの書き出しでは null）。</summary>
+    internal UpdateController? Updates { get; set; }
+
+    /// <summary>右クリックの献立・確認の窓が開いている間は真。この間は更新の入れ替えをしない。</summary>
+    private bool _menuOpen, _dialogOpen;
+
+    private readonly DispatcherTimer _noticeTimer = new();
 
     /// <summary>
     /// 絵の拡大率。**整数でなくてもよい。**
@@ -83,8 +92,12 @@ public partial class MainWindow : Window
     /// <summary>CPU ごとの担当コア。起動時に1回だけ数える。</summary>
     private readonly IReadOnlyList<int[]> _packages;
 
-    public MainWindow()
+    public MainWindow() : this(null) { }
+
+    /// <summary>state は起動の最初に読んだ進行（更新の設定を窓より先に見るため）。null ならここで読む。</summary>
+    public MainWindow(PartyState? state)
     {
+        _state = state ?? AppData.LoadState();
         InitializeComponent();
         _board = new BoardRenderer(_atlas);
         _hoverTip.Child = new Border
@@ -114,6 +127,9 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveState();
         Closed += (_, _) =>
         {
+            Updates?.OnAppClosing();
+            Updates?.Stop();
+            _noticeTimer.Stop();
             // 「閉じる」はアプリの終了。点検の窓が開いていたら先に普通に閉じる:
             // 窓の Closing で試験を止め、管理者の補助 exe に stop を送る（補助 exe はパイプが切れても止まる）。
             // 型で探さないのは、点検のアセンブリを開いていないのに読み込ませないため
@@ -145,6 +161,9 @@ public partial class MainWindow : Window
             TopmostButton.Opacity = Topmost ? 1.0 : 0.45;
         };
         CloseButton.Click += (_, _) => Close();
+        NoticeClose.Click += (_, _) => HideNotice();
+        NoticeLink.Click += (_, _) => OnNoticeLink();
+        _noticeTimer.Tick += (_, _) => HideNotice();
 
         Grip.DragDelta += OnGripDrag;
         BoardHost.MouseMove += OnBoardHover;
@@ -221,6 +240,76 @@ public partial class MainWindow : Window
         Redraw(force: true);
         SetExpanded(_state.Expanded);
         PlaceWindow();
+        if (BenchMode != "sense") _frameTimer.Start();
+        if (BenchMode != "draw") _sensorTimer.Start();
+        Updates?.Start();
+    }
+
+    // -----------------------------------------------------------------------
+    // 更新との繋ぎ（src/PartsLife/Updates）
+    // -----------------------------------------------------------------------
+
+    private Action? _noticeAction;
+
+    /// <summary>物語の下に 1 行のお知らせを出す。link を押すと onLink。hideAfter 経てば畳む（null なら ✕ を押すまで）。</summary>
+    internal void ShowNotice(string text, string? link, Action? onLink, TimeSpan? hideAfter = null)
+    {
+        NoticeText.Text = text;
+        NoticeText.ToolTip = text;
+        _noticeAction = onLink;
+        NoticeLink.Content = link ?? "";
+        NoticeLink.Visibility = link is not null && onLink is not null ? Visibility.Visible : Visibility.Collapsed;
+        NoticeBar.Visibility = Visibility.Visible;
+        _noticeTimer.Stop();
+        if (hideAfter is { } h) { _noticeTimer.Interval = h; _noticeTimer.Start(); }
+    }
+
+    internal void HideNotice()
+    {
+        _noticeTimer.Stop();
+        _noticeAction = null;
+        NoticeBar.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>「確認しています…」のままなら畳む（自動の確認で新しい版が無かったとき）。</summary>
+    internal void HideNoticeIfChecking()
+    {
+        if (NoticeBar.Visibility == Visibility.Visible && NoticeText.Text == Strings.UpdateChecking) HideNotice();
+    }
+
+    private void OnNoticeLink()
+    {
+        var act = _noticeAction;
+        HideNotice();
+        act?.Invoke();
+    }
+
+    internal void SaveNow() => SaveState();
+
+    /// <summary>
+    /// 入れ替えてよいほど手が空いているか。点検の窓（負荷テスト・表面検査）が開いていない、
+    /// 献立や確認の窓が開いていない、窓の上に指が載っていない、大きさを変えている最中でない。
+    /// </summary>
+    internal bool IsIdleForUpdate =>
+        !_menuOpen && !_dialogOpen && !IsMouseOver && !Grip.IsDragging && IsVisible
+        && Application.Current.Windows.Count == 1;
+
+    /// <summary>入れ替えの直前。進行を書き切ってから止まり、窓を隠す。**以後は保存しない**（新しい版が続きを書く）。</summary>
+    internal void SuspendForUpdate()
+    {
+        SaveState();
+        _readOnly = true;
+        _frameTimer.Stop();
+        _sensorTimer.Stop();
+        _hoverTip.IsOpen = false;
+        Hide();
+    }
+
+    /// <summary>入れ替えられなかった。元どおり動き続ける。</summary>
+    internal void ResumeAfterFailedUpdate()
+    {
+        _readOnly = false;
+        Show();
         if (BenchMode != "sense") _frameTimer.Start();
         if (BenchMode != "draw") _sensorTimer.Start();
     }
@@ -636,6 +725,9 @@ public partial class MainWindow : Window
         }
         menu.Items.Add(reset);
 
+        // 更新（いまの版・最後の確認・今すぐ確認・設定・更新の内容）
+        if (Updates is not null) menu.Items.Add(Updates.BuildMenu());
+
         // 点検は別の窓。**この常駐窓は操作を受け付けないまま**にしておくため
         menu.Items.Add(new Separator());
         var checks = new MenuItem { Header = Strings.ChecksMenu };
@@ -647,7 +739,10 @@ public partial class MainWindow : Window
         quit.Click += (_, _) => Close();
         menu.Items.Add(quit);
 
+        menu.Opened += (_, _) => _menuOpen = true;
+        menu.Closed += (_, _) => _menuOpen = false;
         menu.PlacementTarget = this;
+        _menuOpen = true;
         menu.IsOpen = true;
     }
 
@@ -664,9 +759,15 @@ public partial class MainWindow : Window
     {
         bool wasTopmost = Topmost;
         Topmost = false;                 // 確認の窓が最前面の後ろに隠れないように
-        var answer = MessageBox.Show(this, ask, Strings.ResetTitle,
+        _dialogOpen = true;              // 確認の最中に更新の入れ替えが割り込まないように
+        MessageBoxResult answer;
+        try
+        {
+            answer = MessageBox.Show(this, ask, Strings.ResetTitle,
                                      MessageBoxButton.OKCancel, MessageBoxImage.Warning,
                                      MessageBoxResult.Cancel);
+        }
+        finally { _dialogOpen = false; }
         Topmost = wasTopmost;
         if (answer != MessageBoxResult.OK) return;
 

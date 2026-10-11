@@ -92,6 +92,16 @@
                      Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Text="" />
           <TextBlock x:Name="StoryLine2" Foreground="{StaticResource Sub}" FontSize="12"
                      TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Text="" />
+          <!-- 更新のお知らせ（「v0.7.3 に更新しました」「新しい版 v0.7.3 があります」）。普段は畳んである。
+               リンクは Release のページを既定のブラウザで開くだけ（アプリ自身は通信しない） -->
+          <DockPanel x:Name="NoticeBar" LastChildFill="True" Margin="0,4,0,0" Visibility="Collapsed">
+            <Button x:Name="NoticeClose" Style="{StaticResource TinyButton}" Content="✕" FontSize="9"
+                    DockPanel.Dock="Right" />
+            <Button x:Name="NoticeLink" Style="{StaticResource TinyButton}" Foreground="{StaticResource Accent}"
+                    DockPanel.Dock="Right" Visibility="Collapsed" />
+            <TextBlock x:Name="NoticeText" Foreground="{StaticResource Accent}" FontSize="11"
+                       VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
         </StackPanel>
       </Border>
 

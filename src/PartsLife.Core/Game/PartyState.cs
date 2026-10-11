@@ -77,6 +77,13 @@ public sealed class PartyState
     public string Labels { get; set; } = "level";
 
     /// <summary>
+    /// 更新の設定 "auto"（自動で更新する）/ "notify"（確認だけして知らせる）/ "off"（確認しない）。
+    /// **この欄の無い古い保存は "auto"。** 読み方は PartsLife.Update の UpdateModes（知らない値は "notify" に読む）。
+    /// 更新の覚え書き（最後に確認した時刻など）はここに書かない（%LOCALAPPDATA%\PartsLife\updates）。
+    /// </summary>
+    public string UpdateMode { get; set; } = "auto";
+
+    /// <summary>
     /// この版が知らない欄（新しい版が書いた物）。**読んだまま書き戻す。**
     /// 新しい版の保存を古い版で開いても、分かる所だけ使い、分からない所は消さずに残す。
     /// </summary>
@@ -137,6 +144,7 @@ public sealed class PartyState
         RecentVignettes ??= new List<string>();
         Lang ??= "";
         Labels ??= "level";
+        UpdateMode ??= "auto";
 
         if (SaveVersion < 1) MigrateKeys();
         // v0.6.0 まで → 冒険を足す。旅は最初の町から、何も持たずに始まる
