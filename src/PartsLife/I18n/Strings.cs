@@ -82,6 +82,11 @@ public static class Strings
     public static string UpdateSkipped(string v)   => T($"v{v} は前にうまく起動しなかったので入れません", $"v{v} failed to start before; not installing it");
     public static string UpdateRolledBack(string v, string cur) =>
         T($"v{v} がうまく起動しなかったので、v{cur} に戻しました", $"v{v} didn't start properly; went back to v{cur}");
+    public static string UpdateAlreadyInstalled(string v) =>
+        T($"新しい版 v{v} に入れ替わっています。開き直すと新しい版になります", $"v{v} is already installed; reopen the app to use it");
+    public static string UpdateGaveUp(string v) =>
+        T($"v{v} から元の版に戻せませんでした。PartsLife.exe.old を PartsLife.exe に戻してください",
+          $"Couldn't go back from v{v}. Please rename PartsLife.exe.old to PartsLife.exe");
     public static string UpdateSwapFailed(string why) => T($"入れ替えられませんでした: {why}", $"Couldn't install the update: {why}");
 
     internal static string CannotReplace(Updates.ReplaceBlock b) => b switch

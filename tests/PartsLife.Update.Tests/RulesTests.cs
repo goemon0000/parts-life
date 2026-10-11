@@ -347,23 +347,53 @@ public class SignaturePolicyTests
     private static readonly SignatureInfo Unsigned = SignatureInfo.Unsigned;
     private static readonly SignatureInfo Broken = new(SignatureKind.Invalid, null);
     private static SignatureInfo By(string s) => new(SignatureKind.Valid, s);
+    private static readonly ExeIdentity Me = new("パーツぐらし / Parts Life", "PartsLife.dll", "web-autoai.com");
+    private static readonly ExeIdentity None = default;
+    private const string SignPath = "CN=SignPath Foundation, O=SignPath Foundation, C=US";
+
+    private static string? Check(SignatureInfo running, SignatureInfo candidate, ExeIdentity? runningId = null, ExeIdentity? candidateId = null) =>
+        SignaturePolicy.Check(running, runningId ?? Me, candidate, candidateId ?? Me, "PartsLife.exe");
 
     [Fact]
     public void Unsigned_running_exe_accepts_unsigned_or_signed_but_not_broken()
     {
-        Assert.Null(SignaturePolicy.Check(Unsigned, Unsigned, "PartsLife.exe"));
-        Assert.Null(SignaturePolicy.Check(Unsigned, By("CN=SignPath Foundation"), "PartsLife.exe"));
-        Assert.NotNull(SignaturePolicy.Check(Unsigned, Broken, "PartsLife.exe"));
+        Assert.Null(Check(Unsigned, Unsigned, None, None));
+        Assert.Null(Check(Unsigned, By(SignPath), None, None));
+        Assert.NotNull(Check(Unsigned, Broken, None, None));
     }
 
     [Fact]
     public void Signed_running_exe_requires_the_same_signer()
     {
-        var me = By("CN=SignPath Foundation, O=SignPath Foundation, C=US");
-        Assert.Null(SignaturePolicy.Check(me, me, "PartsLife.exe"));
-        Assert.NotNull(SignaturePolicy.Check(me, Unsigned, "PartsLife.exe"));
-        Assert.NotNull(SignaturePolicy.Check(me, Broken, "PartsLife.exe"));
-        Assert.NotNull(SignaturePolicy.Check(me, By("CN=Someone Else"), "PartsLife.exe"));
+        var me = By(SignPath);
+        Assert.Null(Check(me, me));
+        Assert.NotNull(Check(me, Unsigned));
+        Assert.NotNull(Check(me, Broken));
+        Assert.NotNull(Check(me, By("CN=Someone Else")));
+    }
+
+    /// <summary>**いまの exe の署名を確かめられない（壊れている・辿れない）なら、どんな候補でも入れない**（閉じる側に倒す）。</summary>
+    [Fact]
+    public void Running_exe_with_unverifiable_signature_refuses_everything()
+    {
+        foreach (var candidate in new[] { Unsigned, Broken, By(SignPath) })
+        {
+            var why = Check(Broken, candidate);
+            Assert.NotNull(why);
+            Assert.Contains(SignaturePolicy.Unverifiable, why);
+        }
+    }
+
+    /// <summary>SignPath Foundation の証明書は多くの OSS で共有。Subject が同じでも、版情報の名乗りが違えば入れない。</summary>
+    [Fact]
+    public void Same_shared_signer_but_different_product_is_refused()
+    {
+        var sp = By(SignPath);
+        Assert.NotNull(Check(sp, sp, Me, Me with { ProductName = "Some Other OSS" }));
+        Assert.NotNull(Check(sp, sp, Me, Me with { OriginalFilename = "Other.dll" }));
+        Assert.NotNull(Check(sp, sp, Me, Me with { CompanyName = "Other" }));
+        Assert.NotNull(Check(sp, sp, None, None));                               // 名乗りが読めない
+        Assert.Null(Check(sp, sp, Me with { CompanyName = null }, Me with { CompanyName = "x" }));   // 会社名はあれば比べる
     }
 }
 
@@ -375,13 +405,13 @@ public class SwapBootTests
     public void Decides_from_the_record()
     {
         Assert.Equal(BootAction.None, SwapBoot.Decide(null, V073));
-        Assert.Equal(BootAction.Verify, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3" }, V073));
-        Assert.Equal(BootAction.Verify, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launches = 1 }, V073));
-        Assert.Equal(BootAction.Rollback, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launches = 2 }, V073));
+        Assert.Equal(BootAction.Verify, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launched = true }, V073));
+        Assert.Equal(BootAction.Verify, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launched = true, Launches = 1 }, V073));
+        Assert.Equal(BootAction.Rollback, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launched = true, Launches = 2 }, V073));
         Assert.Equal(BootAction.Cleanup, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Confirmed = true }, V073));
         // 戻した後の古い版（記録の To と合わない）
-        Assert.Equal(BootAction.Stale, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3" }, new AppVersion(0, 7, 2)));
-        Assert.Equal(BootAction.Stale, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "garbage" }, V073));
+        Assert.Equal(BootAction.Stale, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "0.7.3", Launched = true }, new AppVersion(0, 7, 2)));
+        Assert.Equal(BootAction.Stale, SwapBoot.Decide(new SwapRecord { From = "0.7.2", To = "garbage", Launched = true }, V073));
     }
 
     [Fact]

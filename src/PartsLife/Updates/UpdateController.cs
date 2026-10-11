@@ -24,6 +24,7 @@ internal sealed class UpdateController
     private readonly PartyState _state;
     private readonly UpdateRuntime _rt;
     private SwapRecord? _justUpdated;
+    private readonly BootResult _boot;
 
     private readonly DispatcherTimer _first = new();
     private readonly DispatcherTimer _poll = new();
@@ -32,12 +33,13 @@ internal sealed class UpdateController
     private CancellationTokenSource? _cts;
     private bool _busy;
 
-    public UpdateController(MainWindow host, PartyState state, UpdateRuntime rt, SwapRecord? justUpdated)
+    public UpdateController(MainWindow host, PartyState state, UpdateRuntime rt, BootResult boot)
     {
         _host = host;
         _state = state;
         _rt = rt;
-        _justUpdated = justUpdated;
+        _boot = boot;
+        _justUpdated = boot.JustUpdated;
 
         // 試験用の行き先（Debug ビルドだけ）では待ちを縮める。配布物では UpdateSchedule の値のまま
         _first.Interval = rt.Endpoints.IsTestFeed ? TimeSpan.FromSeconds(3) : UpdateSchedule.FirstDelay;
@@ -157,6 +159,11 @@ internal sealed class UpdateController
                 if (manual) _host.ShowNotice(Strings.UpdateUpToDate(_rt.Current.ToString()), null, null, TimeSpan.FromSeconds(20));
                 else _host.HideNoticeIfChecking();
                 break;
+            case CheckKind.AlreadyInstalled:
+                // ほかのプロセスが入れ替え済みで、この古いプロセスは .old から動いている。もう確かめに行かない
+                _poll.Stop();
+                ShowWithLink(Strings.UpdateAlreadyInstalled(r.Version!), r.PageUrl, TimeSpan.FromHours(1));
+                break;
             case CheckKind.SkippedFailed:
                 if (manual) ShowWithLink(Strings.UpdateSkipped(r.Version!), r.PageUrl);
                 break;
@@ -182,15 +189,15 @@ internal sealed class UpdateController
         var st = _rt.Store.LoadState();
         if (st.Pending is not { } p) return;
         _host.SuspendForUpdate();
-        var child = UpdateApply.SwapAndRelaunch(_rt, st, p, out var error);
-        if (child is null)
+        var started = UpdateApply.SwapAndRelaunch(_rt, st, p, out var error);
+        if (started is not { } s)
         {
             _host.ResumeAfterFailedUpdate();
             _host.ShowNotice(Strings.UpdateSwapFailed(error ?? ""), null, null, TimeSpan.FromMinutes(2));
             return;
         }
         Stop();
-        _ = UpdateApply.WatchAsync(_rt, child, () => Application.Current.Shutdown());
+        _ = UpdateApply.WatchAsync(_rt, s.Child, s.Record, () => Application.Current.Shutdown());
     }
 
     /// <summary>
@@ -223,10 +230,20 @@ internal sealed class UpdateController
 
     private void ShowRollbackNotice()
     {
+        if (_boot.GaveUp is { } g)
+        {
+            _host.ShowNotice(Strings.UpdateGaveUp(g), null, null);
+            return;
+        }
         var st = _rt.Store.LoadState();
-        if (st.RolledBackVersion is not { } v) return;
-        st.RolledBackVersion = null;
-        _rt.Store.SaveState(st);
+        // 覚え書きを書けなかったときは、起こし直すときの引数（--update-rolled-back）で知る
+        string? v = st.RolledBackVersion ?? _boot.RolledBack;
+        if (v is null) return;
+        if (st.RolledBackVersion is not null)
+        {
+            st.RolledBackVersion = null;
+            _rt.Store.SaveState(st);
+        }
         _host.ShowNotice(Strings.UpdateRolledBack(v, _rt.Current.ToString()), null, null, TimeSpan.FromMinutes(10));
     }
 

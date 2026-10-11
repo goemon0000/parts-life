@@ -15,11 +15,28 @@ public readonly record struct SignatureInfo(SignatureKind Kind, string? Subject)
 }
 
 /// <summary>
-/// 新しい exe の署名を、いま動いている exe の署名と比べる。**純粋な関数**（試験で中身を確かめる）。
+/// exe の版情報の名乗り（FileVersionInfo）。署名つきのときに、署名者の名乗りと併せて比べる。
+/// **SignPath Foundation の証明書は多くの OSS で共有されている**ので、Subject が同じだけでは
+/// 「同じアプリ」とは言えない。製品名と元のファイル名（会社名があればそれも）が同じであることも求める。
+/// </summary>
+public readonly record struct ExeIdentity(string? ProductName, string? OriginalFilename, string? CompanyName)
+{
+    public static ExeIdentity Read(string path)
+    {
+        var v = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+        return new ExeIdentity(v.ProductName, v.OriginalFilename, v.CompanyName);
+    }
+}
+
+/// <summary>
+/// 新しい exe の署名を、いま置いてある同じ名前の exe の署名と比べる。**純粋な関数**（試験で中身を確かめる）。
 ///
-///   いまの exe が署名済み → 新しい exe も有効な署名で、名乗り（Subject）が同じであること
-///   いまの exe が無署名   → 新しい exe は無署名でも通す（SHA256.txt との照合は必ずする）。
-///                          ただし「署名が壊れている」物は通さない
+///   いまの exe が署名済み（Valid）  → 新しい exe も有効な署名で、名乗り（Subject）が同じ。
+///                                     さらに版情報の製品名・元のファイル名（会社名があればそれも）が同じ
+///   いまの exe の署名を確かめられない（Invalid。壊れている・手元の証明書だけでは辿れない等）
+///                                  → **更新しない**（閉じる側に倒す。「署名を確かめられないので更新しません」）
+///   いまの exe が無署名            → 新しい exe は無署名でも通す（SHA256.txt との照合は必ずする）。
+///                                     ただし「署名が壊れている」物は通さない
 ///
 /// TODO(署名): SignPath の署名つきの Release が出たら、無署名の更新は断る。
 ///   いまは署名の申請中で、配っている exe が全部無署名のため、ここで断ると誰も更新できない。
@@ -31,21 +48,33 @@ public static class SignaturePolicy
     /// <summary>無署名の更新を断るか。署名つきの Release が出たら true にする（上の TODO）。</summary>
     public const bool RequireSignature = false;
 
+    public const string Unverifiable = "署名を確かめられないので更新しません";
+
     /// <returns>通すなら null、断るなら理由。</returns>
-    public static string? Check(SignatureInfo running, SignatureInfo candidate, string name)
+    public static string? Check(SignatureInfo running, ExeIdentity runningId,
+                                SignatureInfo candidate, ExeIdentity candidateId, string name)
     {
+        if (running.Kind == SignatureKind.Invalid) return $"{Unverifiable}（いまの {name}）";
         if (candidate.Kind == SignatureKind.Invalid) return $"{name} の署名が正しくない";
 #pragma warning disable CS0162 // RequireSignature は定数
         if (RequireSignature && candidate.Kind != SignatureKind.Valid) return $"{name} に署名が無い";
 #pragma warning restore CS0162
-        if (running.Kind == SignatureKind.Valid)
+        if (running.Kind != SignatureKind.Unsigned)
         {
             if (candidate.Kind != SignatureKind.Valid) return $"{name} に署名が無い（いまの版は署名つき）";
-            if (!string.Equals(running.Subject, candidate.Subject, StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(running.Subject) || !string.Equals(running.Subject, candidate.Subject, StringComparison.Ordinal))
                 return $"{name} の署名の名乗りが、いまの版と違う";
+            if (!SameText(runningId.ProductName, candidateId.ProductName) || string.IsNullOrEmpty(runningId.ProductName))
+                return $"{name} の製品名が、いまの版と違う";
+            if (!SameText(runningId.OriginalFilename, candidateId.OriginalFilename) || string.IsNullOrEmpty(runningId.OriginalFilename))
+                return $"{name} の元のファイル名が、いまの版と違う";
+            if (!string.IsNullOrEmpty(runningId.CompanyName) && !SameText(runningId.CompanyName, candidateId.CompanyName))
+                return $"{name} の会社名が、いまの版と違う";
         }
         return null;
     }
+
+    private static bool SameText(string? a, string? b) => string.Equals(a ?? "", b ?? "", StringComparison.Ordinal);
 }
 
 /// <summary>

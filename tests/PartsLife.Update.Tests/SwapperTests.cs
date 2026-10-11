@@ -34,7 +34,7 @@ public class SwapperTests : IDisposable
         Install("PartsLife.Check.exe", "v0.7.2 helper");
         var files = new[] { Stage("PartsLife.exe", "v0.7.3 main"), Stage("PartsLife.Check.exe", "v0.7.3 helper") };
 
-        Assert.Null(Swapper.Apply(_app, _staged, files));
+        Assert.True(Swapper.Apply(_app, _staged, files).Ok);
         Assert.Equal("v0.7.3 main", File.ReadAllText(App("PartsLife.exe")));
         Assert.Equal("v0.7.3 helper", File.ReadAllText(App("PartsLife.Check.exe")));
         Assert.Equal("v0.7.2 main", File.ReadAllText(App("PartsLife.exe.old")));
@@ -50,7 +50,7 @@ public class SwapperTests : IDisposable
         var f = Stage("PartsLife.exe", "v0.7.3 main");
         File.WriteAllText(Path.Combine(_staged, "PartsLife.exe"), "tampered");
 
-        Assert.NotNull(Swapper.Apply(_app, _staged, [f]));
+        Assert.False(Swapper.Apply(_app, _staged, [f]).Ok);
         Assert.Equal("v0.7.2 main", File.ReadAllText(App("PartsLife.exe")));
         Assert.Equal(["PartsLife.exe"], Directory.GetFiles(_app).Select(x => Path.GetFileName(x)!).ToArray());
     }
@@ -65,7 +65,8 @@ public class SwapperTests : IDisposable
         var files = new[] { Stage("PartsLife.exe", "v0.7.3 main"), Stage("PartsLife.Check.exe", "v0.7.3 helper") };
 
         var why = Swapper.Apply(_app, _staged, files);
-        Assert.NotNull(why);
+        Assert.False(why.Ok);
+        Assert.False(why.Dirty);
         Assert.Equal("v0.7.2 main", File.ReadAllText(App("PartsLife.exe")));
         Assert.Equal("v0.7.2 helper", File.ReadAllText(App("PartsLife.Check.exe")));
         Assert.False(File.Exists(App("PartsLife.exe.old")));
@@ -78,7 +79,7 @@ public class SwapperTests : IDisposable
     {
         Install("PartsLife.exe", "v0.7.2 main");
         Install("PartsLife.exe.old", "v0.7.1 main");
-        Assert.Null(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main")]));
+        Assert.True(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main")]).Ok);
         Assert.Equal("v0.7.2 main", File.ReadAllText(App("PartsLife.exe.old")));
     }
 
@@ -88,7 +89,7 @@ public class SwapperTests : IDisposable
         Install("PartsLife.exe", "v0.7.2 main");
         Install("PartsLife.Check.exe", "v0.7.2 helper");
         var names = new[] { "PartsLife.exe", "PartsLife.Check.exe" };
-        Assert.Null(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main"), Stage("PartsLife.Check.exe", "v0.7.3 helper")]));
+        Assert.True(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main"), Stage("PartsLife.Check.exe", "v0.7.3 helper")]).Ok);
 
         Assert.Null(Swapper.Rollback(_app, names));
         Assert.Equal("v0.7.2 main", File.ReadAllText(App("PartsLife.exe")));
@@ -103,7 +104,7 @@ public class SwapperTests : IDisposable
     public void Cleanup_after_success_keeps_the_new_version()
     {
         Install("PartsLife.exe", "v0.7.2 main");
-        Assert.Null(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main")]));
+        Assert.True(Swapper.Apply(_app, _staged, [Stage("PartsLife.exe", "v0.7.3 main")]).Ok);
         Assert.Equal(1, Swapper.Cleanup(_app, ["PartsLife.exe"]));
         Assert.Equal("v0.7.3 main", File.ReadAllText(App("PartsLife.exe")));
         Assert.Equal(["PartsLife.exe"], Directory.GetFiles(_app).Select(x => Path.GetFileName(x)!).ToArray());

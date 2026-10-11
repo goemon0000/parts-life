@@ -66,15 +66,17 @@ public partial class App : System.Windows.Application
         }
 
         // 更新: 窓を出す前に、入れ替えの後始末（確かめ・戻し・.old の片付け）と、用意済みの版の入れ替え。
-        // 入れ替えて起こし直すときは、ここで終わる（新しい版が窓を出す）。--updated-from <版> はそのとき付く印
+        // 入れ替えて起こし直すときは、ここで終わる（新しい版が窓を出す）。--updated-from <版> はそのとき付く印、
+        // --update-rolled-back <版> は元に戻して起こし直したときの印。入れ替えの最中に別に起動されたときも、ここで終わる
         var state = Updates.AppData.LoadState();
         var rt = Updates.UpdateRuntime.Create();
-        Update.SwapRecord? justUpdated = null;
-        if (rt is not null && Updates.UpdateBoot.Run(rt, state, () => Shutdown(), out justUpdated)) return;
+        Updates.BootResult boot = new(null, null, null);
+        if (rt is not null && Updates.UpdateBoot.Run(rt, state, args, () => Shutdown(), out boot)) return;
+        if (rt is not null) Updates.AppData.CrashForTest(rt.Current);   // Debug ビルドの試験用だけ（Release では呼び出しごと消える）
 
         // 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）
         var main = new MainWindow(state);
-        if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, justUpdated);
+        if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, boot);
         MainWindow = main;
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];

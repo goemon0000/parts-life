@@ -18,6 +18,11 @@ public enum CheckKind
     Staged,
     /// <summary>新しい版はあるが、前に入れ替えてうまく起動しなかった版なので入れない。</summary>
     SkippedFailed,
+    /// <summary>
+    /// 置いてある PartsLife.exe がもう新しい版（ほかのプロセスが入れ替え済み）。この古いプロセスは .old から動いている。
+    /// 落とさない（落としても入れ替えられず、毎日失敗を繰り返すだけ）。開き直せば新しい版になる。
+    /// </summary>
+    AlreadyInstalled,
     /// <summary>うまくいかなかった（Message に理由）。</summary>
     Failed,
 }
@@ -38,14 +43,12 @@ public sealed class UpdateContext
     /// </summary>
     public Func<HttpMessageHandler> HandlerFactory { get; init; } = UpdateHttp.CreateDefaultHandler;
 
-    /// <summary>いま動いている PartsLife.exe（署名を比べる相手）。</summary>
-    public string? RunningExe { get; init; }
-
     /// <summary>入れ替えられない理由（書けないフォルダ・開発用のビルド）。null なら入れ替えられる。</summary>
     public string? CannotReplaceReason { get; init; }
 
     public Func<string, SignatureInfo> InspectSignature { get; init; } = DefaultInspect;
     public Func<string, AppVersion?> ReadFileVersion { get; init; } = DefaultFileVersion;
+    public Func<string, ExeIdentity> ReadIdentity { get; init; } = ExeIdentity.Read;
     public TimeProvider Time { get; init; } = TimeProvider.System;
 
     public InstallLayout Layout => InstallLayouts.Detect(AppDir);
@@ -145,6 +148,10 @@ public sealed class Updater
         state.LatestVersion = release.Version.ToString();
         state.LatestPageUrl = release.PageUrl;
 
+        // 置いてある exe がもうその版以上なら、ほかのプロセスが入れ替え済み（この古いプロセスは .old から動いている）
+        if (_c.ReadFileVersion(Path.Combine(_c.AppDir, InstallLayouts.MainExe)) is { } installed && installed >= release.Version)
+            return new CheckResult(CheckKind.AlreadyInstalled, installed.ToString(), release.PageUrl);
+
         if (state.HasFailed(release.Version))
             return new CheckResult(CheckKind.SkippedFailed, release.Version.ToString(), release.PageUrl,
                                    "前に入れ替えてうまく起動しなかった版なので、入れません");
@@ -217,11 +224,15 @@ public sealed class Updater
                 Layout = InstallLayouts.Name(layout),
                 PageUrl = release.PageUrl,
             };
-            var running = _c.RunningExe is { } exe && File.Exists(exe) ? _c.InspectSignature(exe) : SignatureInfo.Unsigned;
             foreach (var name in InstallLayouts.FilesFor(layout))
             {
-                string path = Path.Combine(files, name);
-                if (SignaturePolicy.Check(running, _c.InspectSignature(path), name) is { } bad) throw new UpdateException(bad);
+                // 比べる相手は、いま置いてある同じ名前の exe（PartsLife.exe は PartsLife.exe と、補助 exe は補助 exe と）
+                string path = Path.Combine(files, name), mine = Path.Combine(_c.AppDir, name);
+                var running = File.Exists(mine) ? _c.InspectSignature(mine) : SignatureInfo.Unsigned;
+                var runningId = running.Kind == SignatureKind.Unsigned ? default : _c.ReadIdentity(mine);
+                var candidate = _c.InspectSignature(path);
+                var candidateId = running.Kind == SignatureKind.Unsigned ? default : _c.ReadIdentity(path);
+                if (SignaturePolicy.Check(running, runningId, candidate, candidateId, name) is { } bad) throw new UpdateException(bad);
                 pending.Files.Add(new StagedFile { Name = name, Sha256 = Sha256List.HashFile(path), Size = new FileInfo(path).Length });
             }
 

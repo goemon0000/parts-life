@@ -1,13 +1,40 @@
 namespace PartsLife.Update;
 
 /// <summary>
+/// ファイルの操作。試験では、決めた場所で失敗させる物に差し替える（<see cref="Swapper"/> の失敗の道を確かめるため）。
+/// </summary>
+public class FileOps
+{
+    public static readonly FileOps Real = new();
+    public virtual void Move(string from, string to) => File.Move(from, to);
+    public virtual void Delete(string path) => File.Delete(path);
+    public virtual void Copy(string from, string to) => File.Copy(from, to, overwrite: true);
+    public virtual bool Exists(string path) => File.Exists(path);
+}
+
+/// <summary>
+/// 入れ替えの結果。
+///   Ok    … 入れ替えた
+///   Dirty … 入れ替えられず、しかも元にも戻し切れなかった（新しい物が入ったまま・.old が残っている）。
+///           swap.json を残して、次の起動で戻し直す（<see cref="SwapBoot"/> の Rollback）
+///   どちらでもない … 入れ替えられなかったが、フォルダは元のまま
+/// </summary>
+public readonly record struct SwapOutcome(bool Ok, bool Dirty, string? Error)
+{
+    public static readonly SwapOutcome Success = new(true, false, null);
+    public static SwapOutcome Clean(string error) => new(false, false, error);
+    public static SwapOutcome Unclean(string error) => new(false, true, error);
+}
+
+/// <summary>
 /// exe の入れ替えと戻し。**動いている exe は消せないが、名前は変えられる**（Windows の決まり）。
 ///
 ///   入れ替え: 落とした物を、まず同じフォルダに「名前.new」として写して照合し直す
 ///             → いまの「名前」を「名前.old」に → 「名前.new」を「名前」に
 ///             （同じフォルダの中の名前の付け替えだけにする。別のドライブからの移動は途中で切れうるため）
 ///             途中で 1 つでも失敗したら、それまでに付け替えた分を元に戻す
-///   戻し:     「名前」を「名前.failed」に → 「名前.old」を「名前」に
+///   戻し:     「名前」を「名前.failed」に → 「名前.old」を「名前」に。
+///             後ろが失敗したら「名前.failed」を「名前」に戻す（**PartsLife.exe が無い状態では終わらない**）
 ///   後片付け: 「名前.old」「名前.failed」「名前.new」を消す（消せなければ次の起動で）
 /// フォルダは引数で受け取る（試験では一時フォルダで回す）。
 /// </summary>
@@ -29,10 +56,10 @@ public static class Swapper
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
     }
 
-    /// <returns>入れ替えたら null、できなかったら理由（そのときはフォルダを元のままに戻してある）。</returns>
-    public static string? Apply(string appDir, string stagedDir, IReadOnlyList<StagedFile> files)
+    public static SwapOutcome Apply(string appDir, string stagedDir, IReadOnlyList<StagedFile> files, FileOps? ops = null)
     {
-        if (files.Count == 0) return "入れ替える物が無い";
+        ops ??= FileOps.Real;
+        if (files.Count == 0) return SwapOutcome.Clean("入れ替える物が無い");
         var copied = new List<string>();
         try
         {
@@ -40,24 +67,23 @@ public static class Swapper
             foreach (var f in files)
             {
                 string staged = Path.Combine(stagedDir, f.Name);
-                if (!File.Exists(staged)) return $"{f.Name} が置き場に無い";
-                if (!Sha256List.Same(Sha256List.HashFile(staged), f.Sha256)) return $"{f.Name} が置き場で変わっている";
+                if (!ops.Exists(staged)) return Discard(ops, copied, $"{f.Name} が置き場に無い");
+                if (!Sha256List.Same(Sha256List.HashFile(staged), f.Sha256)) return Discard(ops, copied, $"{f.Name} が置き場で変わっている");
                 string next = Path.Combine(appDir, f.Name + NewSuffix);
-                File.Copy(staged, next, overwrite: true);
+                ops.Copy(staged, next);
                 copied.Add(next);
-                if (!Sha256List.Same(Sha256List.HashFile(next), f.Sha256)) return $"{f.Name} を写したら中身が変わった";
+                if (!Sha256List.Same(Sha256List.HashFile(next), f.Sha256)) return Discard(ops, copied, $"{f.Name} を写したら中身が変わった");
             }
             // 2. 前回の .old が残っていれば先に消す（消せないなら入れ替えない。.old を上書きして古い版を失わない）
             foreach (var f in files)
             {
                 string old = Path.Combine(appDir, f.Name + OldSuffix);
-                if (File.Exists(old)) File.Delete(old);
+                if (ops.Exists(old)) ops.Delete(old);
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            foreach (var c in copied) TryDelete(c);
-            return "入れ替えの用意ができない: " + e.Message;
+            return Discard(ops, copied, "入れ替えの用意ができない: " + e.Message);
         }
 
         // 3. 名前の付け替え。失敗したら付け替えた分を戻す
@@ -68,61 +94,118 @@ public static class Swapper
             {
                 string cur = Path.Combine(appDir, f.Name);
                 steps.Add((cur, false, false));
-                if (File.Exists(cur))
+                if (ops.Exists(cur))
                 {
-                    File.Move(cur, cur + OldSuffix);
+                    ops.Move(cur, cur + OldSuffix);
                     steps[^1] = (cur, true, false);
                 }
-                File.Move(cur + NewSuffix, cur);
+                ops.Move(cur + NewSuffix, cur);
                 steps[^1] = (cur, steps[^1].MovedOld, true);
             }
-            return null;
+            return SwapOutcome.Success;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
+            string? stuck = null;
             for (int i = steps.Count - 1; i >= 0; i--)
             {
                 var (cur, movedOld, movedNew) = steps[i];
-                try
-                {
-                    if (movedNew) File.Delete(cur);                    // 入れた新しい物（まだ動いていない）を外す
-                    if (movedOld) File.Move(cur + OldSuffix, cur);     // 元の物を元の名前に
-                }
-                catch (Exception e2) when (e2 is IOException or UnauthorizedAccessException) { }
+                string? err = movedNew ? RestoreOne(cur, movedOld, ops)
+                            : movedOld ? PutBack(cur, ops)
+                            : null;
+                stuck ??= err;
             }
-            foreach (var f in files) TryDelete(Path.Combine(appDir, f.Name + NewSuffix));
-            return "入れ替えに失敗したので元に戻した: " + e.Message;
+            foreach (var f in files) TryDelete(ops, Path.Combine(appDir, f.Name + NewSuffix));
+            return stuck is null
+                ? SwapOutcome.Clean("入れ替えに失敗したので元に戻した: " + e.Message)
+                : SwapOutcome.Unclean($"入れ替えに失敗し、元にも戻し切れなかった（次の起動で戻し直す）: {e.Message} / {stuck}");
         }
     }
 
     /// <summary>
     /// 新しい版を退けて、.old を元の名前に戻す。新しい版が動いていても（名前を変えるだけなので）できる。
     /// </summary>
-    /// <returns>戻せたら null、戻せなかったら理由。</returns>
-    public static string? Rollback(string appDir, IReadOnlyList<string> names)
+    /// <returns>戻せたら null、戻せなかったら理由（.old は残してある。次の起動で戻し直す）。</returns>
+    public static string? Rollback(string appDir, IReadOnlyList<string> names, FileOps? ops = null)
     {
+        ops ??= FileOps.Real;
         string? error = null;
         foreach (var name in names)
         {
-            string cur = Path.Combine(appDir, name), old = cur + OldSuffix, failed = cur + FailedSuffix;
-            if (!File.Exists(old)) continue;
-            try
-            {
-                if (File.Exists(cur))
-                {
-                    TryDelete(failed);
-                    if (File.Exists(failed)) failed += "-" + DateTime.UtcNow.Ticks;
-                    File.Move(cur, failed);
-                }
-                File.Move(old, cur);
-                TryDelete(failed);   // 動いていなければ消える。動いていれば後片付けで
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                error ??= $"{name} を戻せない: {e.Message}";
-            }
+            string cur = Path.Combine(appDir, name);
+            if (!ops.Exists(cur + OldSuffix)) continue;
+            // 1 つ戻せなくても、残りは戻す（??= だと右が呼ばれない）
+            string? err = RestoreOne(cur, hadOld: true, ops);
+            error ??= err;
         }
         return error;
+    }
+
+    /// <summary>
+    /// 1 つを元に戻す。「名前」→「名前.failed」→「名前.old」→「名前」。
+    /// 後ろが失敗したら「名前.failed」を「名前」に戻す（写しでもよい）。**「名前」が無いまま終わらない。**
+    /// hadOld が偽（元々その物が無かった）なら、入れた新しい物を消すだけ。
+    /// </summary>
+    private static string? RestoreOne(string cur, bool hadOld, FileOps ops)
+    {
+        string old = cur + OldSuffix;
+        if (!hadOld)
+        {
+            try { if (ops.Exists(cur)) ops.Delete(cur); return null; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return $"{Path.GetFileName(cur)} を外せない: {e.Message}"; }
+        }
+        if (!ops.Exists(old)) return null;
+
+        string failed = cur + FailedSuffix;
+        bool movedAway = false;
+        try
+        {
+            if (ops.Exists(cur))
+            {
+                TryDelete(ops, failed);
+                if (ops.Exists(failed)) failed += "-" + DateTime.UtcNow.Ticks;
+                ops.Move(cur, failed);
+                movedAway = true;
+            }
+            ops.Move(old, cur);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            if (movedAway && !ops.Exists(cur))
+            {
+                // 退けた新しい物を元の名前に戻す。それもだめなら写す。それもだめなら古い物を写す
+                try { ops.Move(failed, cur); }
+                catch (Exception e2) when (e2 is IOException or UnauthorizedAccessException)
+                {
+                    try { ops.Copy(failed, cur); }
+                    catch (Exception e3) when (e3 is IOException or UnauthorizedAccessException)
+                    {
+                        try { ops.Copy(old, cur); } catch (Exception e4) when (e4 is IOException or UnauthorizedAccessException) { }
+                    }
+                }
+            }
+            return $"{Path.GetFileName(cur)} を戻せない: {e.Message}";
+        }
+        TryDelete(ops, failed);   // 動いていなければ消える。動いていれば後片付けで
+        return null;
+    }
+
+    /// <summary>「名前」を「名前.old」にした直後に失敗した（新しい物はまだ入っていない）。.old を元の名前に戻す。</summary>
+    private static string? PutBack(string cur, FileOps ops)
+    {
+        try { ops.Move(cur + OldSuffix, cur); return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            try { ops.Copy(cur + OldSuffix, cur); }
+            catch (Exception e2) when (e2 is IOException or UnauthorizedAccessException) { }
+            return $"{Path.GetFileName(cur)} を元の名前に戻せない: {e.Message}";
+        }
+    }
+
+    private static SwapOutcome Discard(FileOps ops, List<string> copied, string error)
+    {
+        foreach (var c in copied) TryDelete(ops, c);
+        return SwapOutcome.Clean(error);
     }
 
     /// <summary>.old・.failed・.new の残りを消す。消せた数を返す（動いている物は消えない。次の起動で）。</summary>
@@ -133,11 +216,11 @@ public static class Swapper
         {
             string cur = Path.Combine(appDir, name);
             foreach (var p in new[] { cur + OldSuffix, cur + NewSuffix, cur + FailedSuffix })
-                if (File.Exists(p) && TryDelete(p)) n++;
+                if (File.Exists(p) && TryDelete(FileOps.Real, p)) n++;
             try
             {
                 foreach (var p in Directory.GetFiles(appDir, name + FailedSuffix + "-*"))
-                    if (TryDelete(p)) n++;
+                    if (TryDelete(FileOps.Real, p)) n++;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
@@ -148,12 +231,12 @@ public static class Swapper
     public static bool HasOld(string appDir, IReadOnlyList<string> names) =>
         names.Any(n => File.Exists(Path.Combine(appDir, n + OldSuffix)));
 
-    private static bool TryDelete(string path)
+    private static bool TryDelete(FileOps ops, string path)
     {
         try
         {
-            if (File.Exists(path)) File.Delete(path);
-            return !File.Exists(path);
+            if (ops.Exists(path)) ops.Delete(path);
+            return !ops.Exists(path);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
     }

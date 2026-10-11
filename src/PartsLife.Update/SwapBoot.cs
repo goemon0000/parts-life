@@ -13,6 +13,8 @@ public enum BootAction
     Cleanup,
     /// <summary>記録が今の版と合わない（戻した後など）。記録だけ消す。</summary>
     Stale,
+    /// <summary>何度戻そうとしても戻し切れない。諦めて記録を消し、利用者に知らせる（.old は手で戻せるよう残す）。</summary>
+    GiveUp,
 }
 
 /// <summary>
@@ -37,11 +39,82 @@ public static class SwapBoot
     /// <summary>確かめが済まないまま、この回数目の起動になったら戻す。</summary>
     public const int MaxUnconfirmedLaunches = 3;
 
+    /// <summary>戻しをこの回数試みても戻し切れなければ諦める（起こし直しが際限なく続かないように）。</summary>
+    public const int MaxRollbackAttempts = 3;
+
     public static BootAction Decide(SwapRecord? record, AppVersion running)
     {
         if (record is null) return BootAction.None;
         if (record.Confirmed) return BootAction.Cleanup;
+        // 入れ替えの途中で止まった（新しい版を起こすところまで行かなかった）・戻すと決めてまだ戻し切れていない。
+        // **どの版が起きても戻す。** ここで .old を片付けると、古い版が二度と戻らない
+        if (!record.Launched || record.RollbackRequested)
+            return record.RollbackAttempts >= MaxRollbackAttempts ? BootAction.GiveUp : BootAction.Rollback;
         if (!AppVersion.TryParse(record.To, out var to) || to != running) return BootAction.Stale;
         return record.Launches + 1 >= MaxUnconfirmedLaunches ? BootAction.Rollback : BootAction.Verify;
+    }
+}
+
+/// <summary>
+/// 入れ替えの最中の印。名前つきの Mutex（利用者ごと: <c>Local\PartsLife.Update</c>）。
+///   - 入れ替える側（古い版）は、名前を付け替える前から見届けが終わるまで握る
+///   - 入れ替えの最中に別に起動されたら（二重クリック・ログオン時の自動起動）、少し待って、空かなければ何もせずに終わる。
+///     起動の回数（Launches）にも戻しにも触らない
+///   - 入れ替えで起こされた新しい版（<c>--updated-from</c>）だけは待たない（古い版が握ったまま見届けているため）
+/// Mutex は握ったスレッドでしか放せない。このアプリでは画面のスレッドだけで握り、放す。
+/// </summary>
+public sealed class UpdateLock : IDisposable
+{
+    public const string DefaultName = @"Local\PartsLife.Update";
+
+    private readonly Mutex _mutex;
+    private bool _held;
+
+    public UpdateLock(string name = DefaultName) => _mutex = new Mutex(false, name);
+
+    public bool IsHeld => _held;
+
+    /// <summary>握る（もう握っていれば真）。timeout まで空かなければ偽。</summary>
+    public bool TryAcquire(TimeSpan timeout)
+    {
+        if (_held) return true;
+        try { _held = _mutex.WaitOne(timeout); }
+        catch (AbandonedMutexException) { _held = true; }   // 握っていた側が落ちた。引き継ぐ
+        return _held;
+    }
+
+    public void Release()
+    {
+        if (!_held) return;
+        _held = false;
+        try { _mutex.ReleaseMutex(); } catch (ApplicationException) { }
+    }
+
+    public void Dispose()
+    {
+        Release();
+        _mutex.Dispose();
+    }
+}
+
+/// <summary>入れ替える直前に、用意した物を照らし直す。**純粋な関数**（試験で中身を確かめる）。</summary>
+public static class UpdatePlan
+{
+    /// <returns>入れ替えてよければ null、だめなら理由。</returns>
+    public static string? Check(PendingUpdate p, InstallLayout layout, AppVersion current, UpdateState state)
+    {
+        if (InstallLayouts.Parse(p.Layout) != layout) return "用意した版と、いまの置き方が合わない";
+        if (!AppVersion.TryParse(p.Version, out var v)) return "用意した版の数が読めない";
+        if (v <= current) return "用意した版がいまより新しくない";
+        if (state.HasFailed(v)) return "前にうまく起動しなかった版";
+        // 入れ替える名前は、置き方の決まりの物ちょうど（順番も）。覚え書きを書き換えられても、ほかの名前には触らない
+        var want = InstallLayouts.FilesFor(layout);
+        if (p.Files.Count != want.Count) return "入れ替える物の数が合わない";
+        for (int i = 0; i < want.Count; i++)
+        {
+            if (!string.Equals(p.Files[i].Name, want[i], StringComparison.Ordinal)) return $"入れ替える物の名前が違う（{p.Files[i].Name}）";
+            if (!Sha256List.IsHex64(p.Files[i].Sha256)) return $"{want[i]} の値が無い";
+        }
+        return null;
     }
 }

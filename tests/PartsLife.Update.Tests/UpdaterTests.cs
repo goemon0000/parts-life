@@ -97,6 +97,8 @@ public class UpdaterTests : IDisposable
     private SignatureInfo _runningSig = SignatureInfo.Unsigned;
     private Func<string, SignatureInfo> _candidateSig = _ => SignatureInfo.Unsigned;
     private AppVersion? _fileVersion = new AppVersion(0, 7, 3);
+    private AppVersion? _installedVersion = new AppVersion(0, 7, 2);
+    private Func<string, ExeIdentity> _identity = _ => new ExeIdentity("パーツぐらし / Parts Life", "PartsLife.dll", "web-autoai.com");
 
     public UpdaterTests()
     {
@@ -118,10 +120,10 @@ public class UpdaterTests : IDisposable
         Current = new AppVersion(0, 7, 2),
         Store = _store,
         HandlerFactory = () => { _handlersMade++; return _gh; },
-        RunningExe = Path.Combine(_app, "PartsLife.exe"),
         CannotReplaceReason = cannotReplace,
         InspectSignature = p => p == Path.Combine(_app, "PartsLife.exe") ? _runningSig : _candidateSig(p),
-        ReadFileVersion = _ => _fileVersion,
+        ReadFileVersion = p => p == Path.Combine(_app, "PartsLife.exe") ? _installedVersion : _fileVersion,
+        ReadIdentity = p => _identity(p),
         Time = new FixedTime(() => _now),
     });
 
@@ -348,6 +350,51 @@ public class UpdaterTests : IDisposable
 
         _candidateSig = _ => new SignatureInfo(SignatureKind.Valid, "CN=SignPath Foundation");
         Assert.Equal(CheckKind.Staged, (await Check(UpdateMode.Auto, manual: true)).Kind);
+    }
+
+    [Fact]
+    public async Task Running_exe_with_unverifiable_signature_refuses_any_update()
+    {
+        _runningSig = new SignatureInfo(SignatureKind.Invalid, null);
+        foreach (var cand in new[] { SignatureInfo.Unsigned, new SignatureInfo(SignatureKind.Invalid, null),
+                                     new SignatureInfo(SignatureKind.Valid, "CN=SignPath Foundation") })
+        {
+            _candidateSig = _ => cand;
+            SingleExeRelease().PublishTo(_gh);
+            var r = await Check(UpdateMode.Auto, manual: true);
+            Assert.Equal(CheckKind.Failed, r.Kind);
+            Assert.Contains(SignaturePolicy.Unverifiable, r.Message);
+            Assert.Null(_store.LoadState().Pending);
+        }
+    }
+
+    [Fact]
+    public async Task Shared_signer_with_another_products_name_is_refused()
+    {
+        _runningSig = new SignatureInfo(SignatureKind.Valid, "CN=SignPath Foundation");
+        _candidateSig = _ => new SignatureInfo(SignatureKind.Valid, "CN=SignPath Foundation");
+        _identity = p => p.StartsWith(_app)
+            ? new ExeIdentity("パーツぐらし / Parts Life", "PartsLife.dll", "web-autoai.com")
+            : new ExeIdentity("Another OSS", "Another.dll", "someone");
+        SingleExeRelease().PublishTo(_gh);
+        var r = await Check(UpdateMode.Auto);
+        Assert.Equal(CheckKind.Failed, r.Kind);
+        Assert.Contains("製品名", r.Message);
+    }
+
+    /// <summary>
+    /// ほかのプロセスが入れ替え済みで、この古いプロセスが .old から動いているとき。
+    /// **落とさない**（落としても入れ替えられず、毎日落として毎日失敗する輪になる）。
+    /// </summary>
+    [Fact]
+    public async Task Already_installed_by_another_process_downloads_nothing()
+    {
+        _installedVersion = new AppVersion(0, 7, 3);
+        SingleExeRelease().PublishTo(_gh);
+        var r = await Check(UpdateMode.Auto);
+        Assert.Equal(CheckKind.AlreadyInstalled, r.Kind);
+        Assert.Single(_gh.Requests);
+        Assert.Null(_store.LoadState().Pending);
     }
 
     [Fact]

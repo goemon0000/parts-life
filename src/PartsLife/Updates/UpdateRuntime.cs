@@ -23,6 +23,21 @@ internal static class AppData
     public static PartyState LoadState() => TestDataDir is { } d ? PartyState.Load(d) : PartyState.Load();
 
     public static string UpdatesRoot => TestDataDir is { } d ? Path.Combine(d, "updates") : UpdateStore.DefaultRoot;
+
+    /// <summary>
+    /// 試験用: この版として起動したら、3 秒後に落ちる（入れ替えた新しい版が起動直後に落ちる場面を、本物のアプリで作るため）。
+    /// **Debug ビルドだけ。** 配布物（Release）では中身が空で、環境変数を見もしない。
+    /// </summary>
+    public const string TestCrashVariable = "PARTSLIFE_TEST_CRASH_VERSION";
+
+    [System.Diagnostics.Conditional("DEBUG")]
+    public static void CrashForTest(AppVersion current)
+    {
+#if DEBUG
+        if (TestDataDir is not null && Environment.GetEnvironmentVariable(TestCrashVariable) == current.ToString())
+            _ = Task.Run(async () => { await Task.Delay(3000); Environment.Exit(3); });
+#endif
+    }
 }
 
 /// <summary>入れ替えられない理由（<see cref="UpdateRuntime.Block"/>）。</summary>
@@ -38,6 +53,9 @@ internal sealed class UpdateRuntime
     public required AppVersion Current { get; init; }
     public required UpdateStore Store { get; init; }
     public required UpdateEndpoints Endpoints { get; init; }
+
+    /// <summary>入れ替えの最中の印。試験用の保存の置き場（Debug だけ）では名前を分け、普段のアプリと干渉しない。</summary>
+    public required UpdateLock Lock { get; init; }
 
     /// <summary>入れ替えられない理由。None なら入れ替えられる（そのときだけ「自動で更新する」が働く）。</summary>
     public ReplaceBlock Block { get; init; }
@@ -62,6 +80,10 @@ internal sealed class UpdateRuntime
             Store = new UpdateStore(AppData.UpdatesRoot),
             Endpoints = UpdateEndpoints.FromTestFeedVariable() ?? UpdateEndpoints.GitHub,
             Block = WhyCannotReplace(exe, dir),
+            Lock = new UpdateLock(AppData.TestDataDir is { } t
+                ? UpdateLock.DefaultName + "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                      System.Text.Encoding.UTF8.GetBytes(t.ToLowerInvariant())))[..16]
+                : UpdateLock.DefaultName),
         };
     }
 
@@ -87,7 +109,6 @@ internal sealed class UpdateRuntime
         Current = Current,
         Store = Store,
         Endpoints = Endpoints,
-        RunningExe = ExePath,
         // 理由の文は画面の側で言語に合わせて出す。ここでは「入れ替えられない」ことだけ伝える
         CannotReplaceReason = CanReplace ? null : Block.ToString(),
     };
