@@ -47,7 +47,9 @@ public class AppVersionTests
 
 public class ReleaseParserTests
 {
-    private static string Fixture() => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "release-latest.json"));
+    /// <summary>改行は LF に揃えて読む（Windows の checkout では CRLF になり、複数行の置き換えが当たらなくなる）。</summary>
+    private static string Fixture() =>
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "release-latest.json")).Replace("\r\n", "\n");
 
     [Fact]
     public void Reads_the_recorded_shape()
