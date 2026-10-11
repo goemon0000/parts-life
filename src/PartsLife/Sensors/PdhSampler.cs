@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using PartsLife.Hardware;
 
 namespace PartsLife.Sensors;
@@ -55,8 +54,13 @@ public sealed class PdhSampler : IDisposable
     private IntPtr _diskPerCounter;
     private bool _ready;
 
-    private static readonly Regex LuidRe = new(@"luid_0x([0-9A-Fa-f]+)_0x([0-9A-Fa-f]+)", RegexOptions.Compiled);
-    private static readonly Regex EngTypeRe = new(@"engtype_(\w+)$", RegexOptions.Compiled);
+    /// <summary>
+    /// インスタンス名 → (LUID の鍵, エンジンの種類)。**同じ名前を毎回読み直さない。**
+    /// 名前はプロセスごとに出るので数百〜千を超え、計測のたびに全部を読み直すと、そのぶん常駐の割り当てが増える。
+    /// 名前にはプロセス番号が入り、プロセスが入れ替わると増え続けるので、上限を超えたら一度空にする。
+    /// </summary>
+    private readonly Dictionary<string, (string? Key, string Type)> _names = new(StringComparer.Ordinal);
+    private const int MaxCachedNames = 2048;
 
     /// <summary>
     /// 盤に立てる GPU（名前・総VRAM・並び）。**D3DKMT から拾い、その秒のカウンタでは決めない。**
@@ -114,10 +118,8 @@ public sealed class PdhSampler : IDisposable
         var perEngine = new Dictionary<string, Dictionary<string, double>>();
         foreach (var (instance, value) in ReadArray(_utilCounter))
         {
-            string? key = LuidKey(instance);
+            var (key, type) = Parse(instance);
             if (key is null) continue;
-            var engType = EngTypeRe.Match(instance);
-            string type = engType.Success ? engType.Groups[1].Value : "other";
             var byType = perEngine.TryGetValue(key, out var d)
                 ? d : perEngine[key] = new Dictionary<string, double>();
             byType[type] = byType.GetValueOrDefault(type) + value;
@@ -129,7 +131,7 @@ public sealed class PdhSampler : IDisposable
         {
             foreach (var (instance, value) in ReadArray(_memCounter))
             {
-                string? key = LuidKey(instance);
+                var (key, _) = Parse(instance);
                 if (key is null) continue;
                 vram[key] = vram.GetValueOrDefault(key) + value;
             }
@@ -197,25 +199,16 @@ public sealed class PdhSampler : IDisposable
     }
 
     /// <summary>
-    /// 総VRAM。**WMI の Win32_VideoController.AdapterRAM は 4GB で頭打ちになる**ので使わない。
-    /// ドライバがレジストリに書く qwMemorySize を読む。
-    /// </summary>
-    /// <summary>
-    /// `..._luid_0x00000000_0x0000E123_...` から鍵を作る。
+    /// `..._luid_0x00000000_0x0000E123_..._engtype_3D` から鍵と種類を読む（読み方は Core の GpuCounterName）。
     /// 桁数の書き方が環境で揺れるので、**数として読んでから揃える。**
     /// </summary>
-    private static string? LuidKey(string instance)
+    private (string? Key, string Type) Parse(string instance)
     {
-        var m = LuidRe.Match(instance);
-        if (!m.Success) return null;
-        try
-        {
-            long high = Convert.ToInt64(m.Groups[1].Value, 16);
-            ulong low = Convert.ToUInt64(m.Groups[2].Value, 16);
-            return GpuIdentity_.KeyOf(high, low);
-        }
-        catch (OverflowException) { return null; }
-        catch (FormatException) { return null; }
+        if (_names.TryGetValue(instance, out var hit)) return hit;
+        if (_names.Count >= MaxCachedNames) _names.Clear();
+        var parsed = (GpuCounterName.LuidKey(instance), GpuCounterName.EngineType(instance));
+        _names[instance] = parsed;
+        return parsed;
     }
 
     public void Dispose()

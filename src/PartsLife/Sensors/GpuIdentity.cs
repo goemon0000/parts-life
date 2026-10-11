@@ -39,7 +39,8 @@ public static class GpuIdentity_
     private const uint ADAPTERTYPE_SOFTWARE = 0x4;
 
     /// <summary>PDH のインスタンス名に埋まっている LUID と突き合わせるための鍵。</summary>
-    public static string KeyOf(long high, ulong low) => $"{high:X}:{low:X}";
+    /// <summary>LUID の鍵。カウンタの側と同じ物を使う（Core の GpuCounterName）。</summary>
+    public static string KeyOf(long high, ulong low) => GpuCounterName.KeyOf(high, low);
 
     public static IReadOnlyList<GpuAdapterInfo> Enumerate()
     {
