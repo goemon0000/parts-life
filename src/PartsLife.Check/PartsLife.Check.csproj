@@ -34,7 +34,7 @@
     <!-- 参照先の .pdb を配布物に混ぜない（dist に本体と並べて置くため） -->
     <AllowedReferenceRelatedFileExtensions Condition="'$(Configuration)'=='Release'">.none</AllowedReferenceRelatedFileExtensions>
 
-    <Version>0.7.3</Version>
+    <Version>0.7.4</Version>
     <Product>パーツぐらし / Parts Life</Product>
     <AssemblyTitle>パーツぐらし 記憶媒体の点検（管理者）</AssemblyTitle>
     <Description>記憶媒体の SMART と表面検査を読むだけの補助プログラム（管理者で動く）</Description>
