@@ -73,8 +73,8 @@ EV 証明書でも SmartScreen の警告を即座に消せなくなりました�
 |---|---|
 | 配布元 | `https://api.github.com/repos/goemon0000/parts-life/releases/latest` が返した Release の添付物だけ。URL がこの repo のそのタグの添付物の形でなければ使わない。下書き・試験版は使わない |
 | 経路 | https だけ。行き先は `api.github.com`・`github.com`（この repo の添付物の場所だけ）・`release-assets.githubusercontent.com`・`objects.githubusercontent.com`（添付物の転送先）に限る。転送も 1 つずつこの表に照らす |
-| 中身 | 同じ Release の `SHA256.txt` の行と、落とした物の SHA-256 が一致すること。GitHub が添付物ごとに記録している digest とも一致すること。ZIP の中身は ZIP 丸ごとの値で決まる（中の exe の行は無い。`SHA256.txt` の `PartsLife.exe` の行は単体で配っている exe の値で、ZIP の中の物とは別物） |
-| 署名 | いま動いている exe が署名つきなら、新しい exe も WinVerifyTrust で有効、かつ署名者の名乗り（Subject）が同じであること。確かめの間は通信しない（失効の確認を外し、手元の証明書だけで確かめる） |
+| 中身 | 同じ Release の `SHA256.txt` の行と、落とした物の SHA-256 が一致すること。GitHub が添付物ごとに記録している digest が**あれば**、それとも一致すること（無い Release では SHA256.txt だけで照合する）。ZIP の中身は ZIP 丸ごとの値で決まる（中の exe の行は無い。`SHA256.txt` の `PartsLife.exe` の行は単体で配っている exe の値で、ZIP の中の物とは別物） |
+| 署名 | いま置いてある同じ名前の exe が署名つきなら、新しい exe も WinVerifyTrust で有効、かつ署名者の名乗り（Subject）が同じであること。SignPath Foundation の証明書は多くの OSS で共有なので、exe の版情報の製品名・元のファイル名（会社名があればそれも）も同じであること。**いまの exe の署名を確かめられない（壊れている・手元の証明書だけでは辿れない）ときは更新しない**（閉じる側に倒す）。確かめの間は通信しない（失効の確認を外し、手元の証明書だけで確かめる） |
 | 版と大きさ | 新しい exe に書かれた版が Release のタグと同じで、いまより新しい（古い版に戻さない）。200MB まで、Release の記載どおりの大きさ。ZIP の中身は `PartsLife.exe` と `PartsLife.Check.exe` の 2 つちょうど |
 
 **いまは署名の申請中で、配っている exe は無署名です。** そのため、いまの exe が無署名なら、無署名の更新も

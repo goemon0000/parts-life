@@ -10,14 +10,18 @@
   場面 A … ZIP の置き方（PartsLife.exe ＋ PartsLife.Check.exe）→ PartsLife.zip で 9.9.9 へ
   場面 B … 単体の exe の置き方 → PartsLife.exe で 9.9.9 へ
   場面 C … 9.9.8 が起動直後に落ちる → 元の版（0.7.2）に戻し、9.9.8 を「失敗した版」に記す
+  場面 D … 9.9.7（本物のアプリ。起動 3 秒後に落ちるようにしてある）に入れ替え、戻すときに .old を掴んでおいて
+           「.old → PartsLife.exe」の付け替えを失敗させる → PartsLife.exe が消えずに残り、記録を残して
+           起こし直した版が戻し直し、最後は 0.7.2 に戻る
 
-行き先の差し替え（PARTSLIFE_UPDATE_TEST_FEED）と保存の置き場の差し替え（PARTSLIFE_TEST_DATA_DIR）は
+行き先の差し替え（PARTSLIFE_UPDATE_TEST_FEED）・保存の置き場の差し替え（PARTSLIFE_TEST_DATA_DIR）・
+試験用に落ちる版（PARTSLIFE_TEST_CRASH_VERSION）は
 **Debug ビルドだけが読む。** 配布物（Release）では効かない（tests/PartsLife.Update.Tests で確かめている）。
 進行の保存も更新の覚え書きも一時フォルダに書くので、普段使っている %APPDATA%\\PartsLife には触らない。
 
 起動した写しの窓が数十秒ずつ画面の右上に出る。終わったら（失敗しても）写しのプロセスは止めて消す。
 
-  python tools/update-dry-run.py            # 3 つとも
+  python tools/update-dry-run.py            # 4 つとも
   python tools/update-dry-run.py A C        # 選んで
   python tools/update-dry-run.py --keep     # 一時フォルダを残す（中身を見たいとき）
 
@@ -31,7 +35,7 @@ APP = ROOT / "src/PartsLife/PartsLife.csproj"
 HELPER = ROOT / "src/PartsLife.Check/PartsLife.Check.csproj"
 VSWHERE = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer"
 
-CUR, NEW, BAD = "0.7.2", "9.9.9", "9.9.8"
+CUR, NEW, BAD, CRASHY = "0.7.2", "9.9.9", "9.9.8", "9.9.7"
 
 
 def run(cmd, **kw):
@@ -178,7 +182,47 @@ def check(what, ok):
     print(f"  ok: {what}")
 
 
-def scenario(name, work, port, srv_feed, layout, release_version, release_assets, app_files, expect_version, rolled_back):
+class OldHolder(threading.Thread):
+    """
+    場面 D: PartsLife.exe.old ができたらすぐ掴む（削除の共有なしで開く → 名前を変えられない）。
+    戻しが 1 回失敗した（swap.json の RollbackAttempts が 1 以上）のを見たら、そのときのフォルダの様子を控えて放す。
+    """
+    def __init__(self, app: Path, upd: Path):
+        super().__init__(daemon=True)
+        self.app, self.upd = app, upd
+        self.seen = None
+        self.stop = False
+
+    def run(self):
+        old = self.app / "PartsLife.exe.old"
+        fh = None
+        t0 = time.time()
+        while not self.stop and time.time() - t0 < 180:
+            if fh is None and old.exists():
+                try:
+                    fh = open(old, "rb")
+                except OSError:
+                    pass
+            if fh is not None:
+                try:
+                    rec = json.loads((self.upd / "swap.json").read_text("utf-8"))
+                except (OSError, ValueError):
+                    rec = {}
+                if rec.get("RollbackAttempts", 0) >= 1:
+                    self.seen = {
+                        "exe": (self.app / "PartsLife.exe").exists(),
+                        "old": old.exists(),
+                        "requested": rec.get("RollbackRequested"),
+                    }
+                    fh.close()
+                    return
+            time.sleep(0.05)
+        if fh is not None:
+            fh.close()
+
+
+def scenario(name, work, port, srv_feed, layout, release_version, release_assets, app_files, expect_version, rolled_back,
+             extra_env=None, hold_old=False):
     print(f"\n== 場面 {name} ==")
     root = work / f"run-{name}"
     app, data = root / "app", root / "data"
@@ -195,11 +239,20 @@ def scenario(name, work, port, srv_feed, layout, release_version, release_assets
     env = dict(os.environ)
     env["PARTSLIFE_UPDATE_TEST_FEED"] = f"http://127.0.0.1:{port}/"
     env["PARTSLIFE_TEST_DATA_DIR"] = str(data)
+    env.update(extra_env or {})
     upd = data / "updates"
     real_before = real_state_stamp()
+    holder = OldHolder(app, upd) if hold_old else None
     try:
+        if holder:
+            holder.start()
         subprocess.Popen([str(app / "PartsLife.exe")], cwd=str(app), env=env)
         wait_for("最新の Release を尋ねた", lambda: "/releases/latest" in Quiet.hits, 60)
+        if holder:
+            wait_for("戻しの 1 回目が失敗した（.old を掴んでいた）", lambda: holder.seen is not None, 120)
+            check("そのとき PartsLife.exe は消えずに残っていた", holder.seen["exe"])
+            check("そのとき .old も残っていた（次で戻し直せる）", holder.seen["old"])
+            check("記録に「戻す」を残していた", holder.seen["requested"])
         if rolled_back:
             wait_for("戻した版が記録された", lambda: (upd / "update-state.json").exists()
                      and release_version in json.loads((upd / "update-state.json").read_text("utf-8")).get("FailedVersions", []), 180)
@@ -235,6 +288,8 @@ def scenario(name, work, port, srv_feed, layout, release_version, release_assets
         else:
             check("普段の %APPDATA%\\PartsLife\\state.json には触っていない", after == real_before)
     finally:
+        if holder:
+            holder.stop = True
         kill_under(root)
 
 
@@ -242,7 +297,7 @@ def main():
     if os.name != "nt":
         raise SystemExit("Windows でだけ動く")
     keep = "--keep" in sys.argv
-    picked = [a for a in sys.argv[1:] if a in ("A", "B", "C")] or ["A", "B", "C"]
+    picked = [a for a in sys.argv[1:] if a in ("A", "B", "C", "D")] or ["A", "B", "C", "D"]
     work = Path(tempfile.mkdtemp(prefix="pl-update-dry-run-"))
     print("一時フォルダ:", work)
     try:
@@ -253,6 +308,7 @@ def main():
         cur_helper = publish_helper(work / f"helper-{CUR}", CUR)
         new_helper = publish_helper(work / f"helper-{NEW}", NEW)
         crasher = publish_crasher(work, BAD)
+        crashy = publish_app(work / f"app-{CRASHY}-slim", CRASHY, compressed=False) if "D" in picked else None
         new_zip = work / "PartsLife.zip"
         with zipfile.ZipFile(new_zip, "w", zipfile.ZIP_DEFLATED) as z:
             z.write(new_slim, "PartsLife.exe")
@@ -276,6 +332,11 @@ def main():
             scenario("C", work, port, feed, "exe", BAD,
                      {"PartsLife.exe": crasher},
                      {"PartsLife.exe": cur_slim}, CUR, rolled_back=True)
+        if "D" in picked:
+            scenario("D", work, port, feed, "exe", CRASHY,
+                     {"PartsLife.exe": crashy},
+                     {"PartsLife.exe": cur_slim}, CUR, rolled_back=True,
+                     extra_env={"PARTSLIFE_TEST_CRASH_VERSION": CRASHY}, hold_old=True)
         srv.shutdown()
         print("\nすべて通った")
     finally:
