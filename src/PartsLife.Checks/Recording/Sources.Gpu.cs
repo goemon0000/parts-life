@@ -230,15 +230,15 @@ internal sealed class GpuGapSource : ISensorSource
     {
         var list = new List<MetricStatus>();
         foreach (var (slot, reason) in _gaps)
-            foreach (var (metric, unit) in Missing)
+            foreach (var (metric, unit) in Missing(slot.Vendor))
                 list.Add(new MetricStatus(MetricKeys.Gpu(slot.Index, metric), unit, slot.Vendor, Availability.Unavailable, reason));
         return list;
     }
 
-    private static readonly (string, string)[] Missing =
-    {
-        (MetricKeys.Temp, "°C"), (MetricKeys.Clock, "MHz"), (MetricKeys.Power, "W"), (MetricKeys.FanPct, "%"),
-    };
+    /// <summary>その会社のドライバが返すはずだった項目。AMD はホットスポットとファンの回転数（rpm）、他はファンの割合（%）。</summary>
+    private static (string, string)[] Missing(string vendor) => vendor == "amd"
+        ? new[] { (MetricKeys.Temp, "°C"), (MetricKeys.HotspotTemp, "°C"), (MetricKeys.Clock, "MHz"), (MetricKeys.Power, "W"), (MetricKeys.FanRpm, "rpm") }
+        : new[] { (MetricKeys.Temp, "°C"), (MetricKeys.Clock, "MHz"), (MetricKeys.Power, "W"), (MetricKeys.FanPct, "%") };
 
     public void Prime() { }
     public void Read(SampleRow row) { }

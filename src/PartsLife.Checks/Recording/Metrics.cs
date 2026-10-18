@@ -44,6 +44,8 @@ public static class Reasons
     public const string NoAdlx = "no-adlx";
     /// <summary>ADLX は開けたが、この GPU の項目を返さなかった。</summary>
     public const string AdlxNoMetric = "adlx-no-metric";
+    /// <summary>同じ名前の AMD の GPU が複数あり、ADLX の GPU とどれが対かを決められない（取り違えるより読まない）。</summary>
+    public const string AdlxAmbiguous = "adlx-ambiguous";
     /// <summary>この版はその会社のドライバ経由の読み取りを持たない（Intel の IGCL。段 3 以降）。</summary>
     public const string VendorNotImplemented = "vendor-not-implemented";
     public const string NoBattery = "no-battery";
@@ -81,6 +83,8 @@ public static class MetricKeys
     public const string Util = "util_pct";
     public const string MemUsed = "mem_used_mb";
     public const string Temp = "temp_c";
+    /// <summary>GPU のホットスポット（最も熱い所）の温度。AMD の ADLX が返す。</summary>
+    public const string HotspotTemp = "hotspot_c";
     public const string Clock = "clock_mhz";
     public const string MemClock = "mem_clock_mhz";
     public const string Power = "power_w";
@@ -116,7 +120,7 @@ public static class MetricKeys
         {
             "load_pct" or "util_pct" or "used_pct" or "busy_pct" or "perf_limit_pct" or "fan_pct" or "battery_pct" => "%",
             "clock_mhz" or "mem_clock_mhz" => "MHz",
-            "temp_c" => "°C",
+            "temp_c" or "hotspot_c" => "°C",
             "power_w" or "pkg_power_w" or "power_limit_w" => "W",
             "vcore_v" => "V",
             "fan_rpm" => "rpm",

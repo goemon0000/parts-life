@@ -453,6 +453,58 @@ public class RecordRecorderTests : IDisposable
         Assert.Equal("intel", new GpuSlot(2, adapter).Vendor);
         Assert.Equal("amd", new GpuSlot(0, adapter with { VendorId = 0x1002 }).Vendor);
         Assert.Equal("nvidia", new GpuSlot(0, adapter with { VendorId = 0x10DE }).Vendor);
+
+        // AMD は ADLX の項目名（ホットスポット・ファンは rpm）で「読めない」と答える
+        var amd = new GpuGapSource(new[] { (new GpuSlot(1, adapter with { VendorId = 0x1002 }), Reasons.NoAdlx) }).Detect();
+        Assert.Equal(new[] { "gpu1.temp_c", "gpu1.hotspot_c", "gpu1.clock_mhz", "gpu1.power_w", "gpu1.fan_rpm" }, amd.Select(s => s.Key).ToArray());
+        Assert.All(amd, s => Assert.Equal(Reasons.NoAdlx, s.Reason));
+    }
+
+    // =====================================================================
+    // AMD（ADLX）: どの GPU がどれかの突き合わせ
+    // =====================================================================
+
+    [Fact]
+    public void Adlx_pairing_matches_by_name_ignoring_case_punctuation_and_the_amd_prefix()
+    {
+        var pairs = AdlxGpuSource.Pair(new[] { (0, "AMD Radeon(TM) RX 7900 XTX"), (1, "AMD Radeon(TM) Graphics") },
+                                       new[] { "AMD Radeon Graphics", "Radeon RX 7900 XTX" }, out bool ambiguous);
+        Assert.False(ambiguous);
+        Assert.Equal(1, pairs[0]);       // 並びが逆でも、名前で結ぶ
+        Assert.Equal(0, pairs[1]);
+        Assert.Equal("radeonrx7900xtx", AdlxGpuSource.Norm("AMD Radeon(TM) RX 7900 XTX"));
+    }
+
+    [Fact]
+    public void Adlx_pairing_takes_the_only_pair_even_if_the_names_differ()
+    {
+        var pairs = AdlxGpuSource.Pair(new[] { (2, "AMD Radeon(TM) Graphics") }, new[] { "AMD Radeon 780M Graphics" }, out bool ambiguous);
+        Assert.False(ambiguous);
+        Assert.Equal(0, pairs[2]);
+    }
+
+    [Fact]
+    public void Adlx_pairing_refuses_to_guess_between_gpus_with_the_same_name()
+    {
+        var same = AdlxGpuSource.Pair(new[] { (0, "AMD Radeon RX 6800"), (1, "AMD Radeon RX 6800") },
+                                      new[] { "AMD Radeon RX 6800", "AMD Radeon RX 6800" }, out bool ambiguous);
+        Assert.Empty(same);               // どちらがどちらか分からない → どちらも読まない
+        Assert.True(ambiguous);
+
+        // 1 枚だけ名前が重なるときは、重なった方だけ読まない
+        var mixed = AdlxGpuSource.Pair(new[] { (0, "AMD Radeon RX 6800"), (1, "AMD Radeon RX 6800"), (2, "AMD Radeon RX 7600") },
+                                       new[] { "AMD Radeon RX 6800", "AMD Radeon RX 6800", "AMD Radeon RX 7600" }, out bool amb2);
+        Assert.True(amb2);
+        Assert.Equal(new[] { 2 }, mixed.Keys.ToArray());
+        Assert.Equal(2, mixed[2]);
+    }
+
+    [Fact]
+    public void Adlx_pairing_leaves_unmatched_gpus_unpaired_without_calling_it_ambiguous()
+    {
+        var pairs = AdlxGpuSource.Pair(new[] { (0, "AMD Radeon RX 6800"), (1, "AMD Radeon RX 7600") }, new[] { "AMD Radeon RX 9070" }, out bool ambiguous);
+        Assert.Empty(pairs);
+        Assert.False(ambiguous);
     }
 
     [Fact]
@@ -532,6 +584,19 @@ public class RecordRecorderTests : IDisposable
         Assert.Equal(Availability.NeedsExtension, rec.Capabilities.Metrics.Single(m => m.Key == "cpu.vcore_v").State);
         Assert.DoesNotContain("cpu.temp_c", rec.Capabilities.Metrics.Where(m => m.IsAvailable).Select(m => m.Key));
         Assert.Contains(rec.Capabilities.Metrics, m => m.Key == "mem.used_pct" && m.IsAvailable);
+
+        // GPU は 1 枚ごとに、読めるか・読めない理由のどちらかが必ず付く（黙って欠けない）。AMD は ADLX の項目名で
+        foreach (var g in rec.Capabilities.Gpus)
+        {
+            string[] keys = g.Vendor == "amd"
+                ? new[] { "temp_c", "hotspot_c", "clock_mhz", "mem_clock_mhz", "power_w", "fan_rpm" }
+                : new[] { "temp_c", "clock_mhz", "power_w" };
+            foreach (var k in keys)
+            {
+                var m = Assert.Single(rec.Capabilities.Metrics, x => x.Key == $"{g.Id}.{k}");
+                Assert.True(m.IsAvailable || m.Reason.Length > 0, $"{m.Key} has neither a value nor a reason");
+            }
+        }
 
         rec.Start(null);
         var done = await Task.WhenAny(rec.Completion, Task.Delay(TimeSpan.FromSeconds(3.6)));

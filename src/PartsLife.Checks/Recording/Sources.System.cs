@@ -44,14 +44,21 @@ internal sealed class CpuPdhSource : ISensorSource
         _flags = _q.Add(@"\Processor Information(*)\Performance Limit Flags");
         _energy = _q.Add(@"\Energy Meter(*)\Power");
 
-        // PDH は 2 回集めて初めて差分の値が出る
-        _q.Collect();
-        Thread.Sleep(300);
-        _q.Collect();
-
-        var load = _q.ReadArray(_load, includeInvalid: true);
-        var perf = _q.ReadArray(_perf, noCap100: true, includeInvalid: true);
-        var freq = _q.ReadArray(_freq, includeInvalid: true);
+        // PDH は 2 回集めて初めて差分の値が出る。まれに最初の差分が無効のまま返ることがあるので、
+        // 全体の値が揃うまで（最大 3 回）間をおいて取り直す。カウンタそのものが無いときは待たない
+        List<(string Instance, double Value)> load, perf, freq;
+        for (int attempt = 0; ; attempt++)
+        {
+            _q.Collect();
+            Thread.Sleep(300);
+            _q.Collect();
+            load = _q.ReadArray(_load, includeInvalid: true);
+            perf = _q.ReadArray(_perf, noCap100: true, includeInvalid: true);
+            freq = _q.ReadArray(_freq, includeInvalid: true);
+            bool complete = HasTotal(load) && HasTotal(perf) && HasTotal(freq);
+            bool hopeless = _load == IntPtr.Zero || _perf == IntPtr.Zero || _freq == IntPtr.Zero;
+            if (complete || hopeless || attempt >= 2) break;
+        }
         var limit = _q.ReadArray(_limit);
         var flags = _q.ReadArray(_flags);
         var energy = _q.ReadArray(_energy);
@@ -152,6 +159,8 @@ internal sealed class CpuPdhSource : ISensorSource
         if (_hasPower && PackageWatts(_q.ReadArray(_energy)) is { } w && PlausibleWatts(w))
             row.Set(MetricKeys.CpuPackagePower, w);
     }
+
+    private static bool HasTotal(List<(string Instance, double Value)> list) => list.Any(x => IsTotal(x.Instance) && !double.IsNaN(x.Value));
 
     internal static bool IsTotal(string instance) => string.Equals(instance, "_Total", StringComparison.OrdinalIgnoreCase);
 
@@ -275,11 +284,15 @@ internal sealed class DiskPdhSource : ISensorSource
             _read = _q.Add(@"\PhysicalDisk(_Total)\Disk Read Bytes/sec");
             _write = _q.Add(@"\PhysicalDisk(_Total)\Disk Write Bytes/sec");
             _idle = _q.Add(@"\PhysicalDisk(_Total)\% Idle Time");
-            _q.Collect();
-            Thread.Sleep(250);
-            _q.Collect();
-            _hasRw = _q.Read(_read) is not null && _q.Read(_write) is not null;
-            _hasIdle = _q.Read(_idle) is not null;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                _q.Collect();
+                Thread.Sleep(250);
+                _q.Collect();
+                _hasRw = _q.Read(_read) is not null && _q.Read(_write) is not null;
+                _hasIdle = _q.Read(_idle) is not null;
+                if ((_hasRw && _hasIdle) || _read == IntPtr.Zero) break;   // まれに最初の差分が無効なので、1 回だけ取り直す
+            }
         }
         const string src = "pdh:PhysicalDisk";
         return new[]
