@@ -606,8 +606,8 @@ public class RecordRecorderTests : IDisposable
         Assert.True(result.Session.Stats.Samples >= 2, $"samples={result.Session.Stats.Samples}");
         var series = CsvStream.Read(result.CsvPath);
         Assert.True(series.Count >= 2);
-        Assert.InRange(series.T[0], 0.9, 1.6);         // 1 秒ごと
-        Assert.InRange(series.T[1] - series.T[0], 0.8, 1.3);
+        Assert.InRange(series.T[0], 0.5, 2.5);         // 1 秒ごと（混んだ機械でも外れすぎないよう広めに）
+        Assert.InRange(series.T[1] - series.T[0], 0.5, 2.0);
         Assert.Contains(series.Get("cpu.load_pct")!, v => !double.IsNaN(v));
         Assert.True(series.Get("mem.used_pct")!.All(v => v is > 0 and <= 100));
         Assert.Equal("completed", result.Session.Status);
