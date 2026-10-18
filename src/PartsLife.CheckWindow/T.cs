@@ -9,14 +9,17 @@ namespace PartsLife.CheckWindow;
 /// 窓の文言。本体の I18n.Strings と同じ流儀（日本語が先、英語も持つ）。
 /// 調子も本体に合わせる: 短く、言い切る。分からないことは分からないと言う。
 /// </summary>
-internal static class T
+internal static partial class T
 {
     private static string J(string ja, string en) => L.T(ja, en);
 
     public static string WindowTitle => J("点検 — パーツぐらし", "Checkup — Parts Life");
     public static string WindowHeading => J("点検", "Checkup");
-    public static string WindowSub => J("押したときだけ動きます。閉じれば全部止まります。ディスクには書き込みません。",
-                                        "Nothing runs until you press a button. Closing stops everything. Nothing is written to your disks.");
+    public static string WindowSub => Features.TestRecording
+        ? J("押したときだけ動きます。閉じれば全部止まります。ディスクに書くのは、「テストの記録」で自分で始めた記録のファイルだけです。",
+            "Nothing runs until you press a button. Closing stops everything. The only thing written to disk is the recording files you start yourself in \"Test recording\".")
+        : J("押したときだけ動きます。閉じれば全部止まります。ディスクには書き込みません。",
+            "Nothing runs until you press a button. Closing stops everything. Nothing is written to your disks.");
     public static string TabSystem => J("システムチェック", "System check");
     public static string TabLoad => J("負荷テスト", "Load test");
     public static string TabStorage => J("記憶媒体の精密チェック", "Storage health");

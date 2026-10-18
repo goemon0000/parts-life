@@ -13,6 +13,9 @@ namespace PartsLife.Checks;
 ///   CI の release.yml は補助 exe の発行・署名・ZIP への同梱をしているので、false に戻すならそちらも外す
 /// - <see cref="GpuLoadTest"/>: GPU の負荷テスト。**まだ実機で確かめていないので false のまま。**
 ///   false の間は負荷テストの面に GPU の選択肢が出ない
+/// - <see cref="TestRecording"/>: テストの記録（センサーを 1 秒ごとに記録し、手元で要約して、AI に渡す用の文書にする面）。
+///   2026-10-18 に、この PC（Ryzen 9 7950X・RTX 5070・RTX 3080 Ti・内蔵 Radeon）で管理者なしの通しを確かめた。
+///   Intel の GPU は読み取りを持たない（理由つきで「読めない」と答える）。false にすると点検の窓に面が出ない
 ///
 /// **環境変数・レジストリ・起動引数で切り替える道は作らない。** 昇格の経路のそばに
 /// 外から書き換えられるスイッチを置くと、それ自体が穴になる（以前の点検での指摘）。
@@ -25,4 +28,7 @@ internal static class Features
 
     /// <summary>GPU の負荷テスト。実機の付き添い試験がまだなので止めたまま（次の版で、確かめたあと true に）。</summary>
     internal const bool GpuLoadTest = false;
+
+    /// <summary>テストの記録。管理者もドライバも要らず、通信もしない。2026-10-18 に実機の通しを確かめた。</summary>
+    internal const bool TestRecording = true;
 }

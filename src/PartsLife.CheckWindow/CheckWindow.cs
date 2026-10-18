@@ -34,11 +34,11 @@ public static class CheckWindowHost
 }
 
 /// <summary>
-/// 「点検」の窓。面（システムチェック・負荷テスト・記憶媒体）を切り替える。
-/// **出す面は <see cref="Features"/> で決まる。** v0.7.0 は記憶媒体の面を出さなかった（2面）。v0.7.1 から3面。
+/// 「点検」の窓。面（システムチェック・負荷テスト・記憶媒体・テストの記録）を切り替える。
+/// **出す面は <see cref="Features"/> で決まる。** v0.7.0 は記憶媒体の面を出さなかった（2面）。v0.7.1 から3面。テストの記録の面を足して4面。
 ///
 /// - 開いただけでは何も動かない。各面のボタンを押したときだけ動く
-/// - 閉じたら全部止め、止まり終わったところでメモリを返す
+/// - 閉じたら全部止め、止まり終わったところでメモリを返す（テストの記録は、止めて、ここまでの分を保存する）
 /// </summary>
 internal sealed class CheckWindow : Window
 {
@@ -51,6 +51,7 @@ internal sealed class CheckWindow : Window
         ("system", () => T.TabSystem, true, () => new SystemPanel()),
         ("load", () => T.TabLoad, true, () => new LoadPanel()),
         ("storage", () => T.TabStorage, Features.StorageCheck, () => new StoragePanel()),
+        ("record", () => T.TabRecord, Features.TestRecording, () => new RecordPanel()),
     };
 
     /// <summary>面の名前の全部（--shot-check が知っている名前）。</summary>

@@ -50,8 +50,9 @@ internal static class Ui
         TextTrimming = wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
     };
 
-    public static TextBlock Heading(string text) =>
-        new() { Text = text, FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Accent, Margin = new Thickness(0, 12, 0, 6) };
+    /// <param name="first">カードの先頭に置く見出し（上の余白を取らない）。</param>
+    public static TextBlock Heading(string text, bool first = false) =>
+        new() { Text = text, FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = Accent, Margin = new Thickness(0, first ? 0 : 12, 0, 6) };
 
     public static Button Button(string text, bool primary = false)
     {

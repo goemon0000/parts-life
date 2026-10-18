@@ -38,14 +38,14 @@ public static class Strings
     public static string TabsTip      => T("Ctrl+1〜5 でも選べます。右クリックの献立も今までどおり使えます",
                                            "Ctrl+1–5 also work. The right-click menu still works as before");
     public static string LanguageHeader => T("言語", "Language");
-    public static string ChecksAbout  => T("CPU の負荷テスト・システムチェック・記憶媒体の点検を別の窓で開きます。開いただけでは何も動きません。",
-                                           "Opens load tests, the system check and the storage check in a separate window. Nothing runs until you press a button there.");
+    public static string ChecksAbout  => T("CPU の負荷テスト・システムチェック・記憶媒体の点検・テストの記録（ベンチ中のセンサーの記録）を別の窓で開きます。開いただけでは何も動きません。",
+                                           "Opens load tests, the system check, the storage check and test recording (sensor log during a benchmark) in a separate window. Nothing runs until you press a button there.");
     public static string ChecksOpen   => T("点検の窓を開く", "Open checkup");
     public static string DataAbout    => T("取り消せません。押すと確認が出ます。窓の位置・言語・更新の設定は残ります。",
                                            "This can't be undone; you'll be asked to confirm. Window position, language and update settings are kept.");
 
     public static string ResetMenu    => T("最初から", "Start over");
-    public static string ChecksMenu   => T("点検…（負荷テスト・システムチェック）", "Checkup… (load test, system check)");
+    public static string ChecksMenu   => T("点検…（負荷テスト・システムチェック・テストの記録）", "Checkup… (load test, system check, test recording)");
     public static string ResetStory   => T("物語だけ最初から", "Story only");
     public static string ResetLevels  => T("レベルだけ最初から", "Levels only");
     public static string ResetAll     => T("両方とも最初から", "Both");

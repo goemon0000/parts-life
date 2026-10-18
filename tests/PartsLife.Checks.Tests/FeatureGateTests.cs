@@ -66,21 +66,74 @@ public class FeatureGateTests
     }
 
     [Fact]
-    public void Window_shows_the_system_check_the_load_test_and_storage()
+    public void Test_recording_is_on_in_this_build() => Assert.True(Features.TestRecording);
+
+    [Fact]
+    public void Window_shows_the_system_check_the_load_test_storage_and_test_recording()
     {
-        Assert.Equal(new[] { "system", "load", "storage" }, CheckWindowShot.Tabs);
+        Assert.Equal(new[] { "system", "load", "storage", "record" }, CheckWindowShot.Tabs);
         OnSta(() =>
         {
             var w = new CheckWindow.CheckWindow();
             try
             {
-                Assert.Equal(new[] { T.TabSystem, T.TabLoad, T.TabStorage }, w.TabTitles);
+                Assert.Equal(new[] { T.TabSystem, T.TabLoad, T.TabStorage, T.TabRecord }, w.TabTitles);
                 Assert.IsType<SystemPanel>(w.Panel(0));
                 Assert.IsType<LoadPanel>(w.Panel(1));
                 Assert.IsType<StoragePanel>(w.Panel(2));
+                Assert.IsType<RecordPanel>(w.Panel(3));
             }
             finally { w.Close(); }
         });
+    }
+
+    /// <summary>
+    /// 「押したときだけ動く」: 窓を開いて記録の面を出し、閉じるまでの間、何も記録しない・何も書かない
+    /// （ドキュメント\PartsLife\runs に増える物が無い）。ボタンを押さなければ、センサーも読み込まない。
+    /// </summary>
+    [Fact]
+    public void Test_recording_face_writes_nothing_until_a_button_is_pressed()
+    {
+        var before = RunFiles();
+        OnSta(() =>
+        {
+            var w = new CheckWindow.CheckWindow();
+            try
+            {
+                w.Select(3);
+                Assert.IsType<RecordPanel>(w.Panel(3));
+                Assert.True(w.Panel(3).Running.IsCompleted);
+            }
+            finally { w.Close(); }
+        });
+        Assert.Equal(before, RunFiles());
+    }
+
+    private static string[] RunFiles()
+    {
+        string dir = PartsLife.Checks.Recording.RunStore.DefaultFolder();
+        return Directory.Exists(dir) ? Directory.GetFiles(dir).OrderBy(x => x, StringComparer.Ordinal).ToArray() : Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// --shot-check record は、本当に 6 秒だけ記録して要約と書き出しの見本まで描く。
+    /// 記録は一時フォルダに書いて終わったら消し、ドキュメントには何も書かない。
+    /// </summary>
+    [Fact]
+    public async Task Shot_of_the_record_face_records_in_a_temp_folder_and_leaves_documents_alone()
+    {
+        var before = RunFiles();
+        string path = Path.Combine(Path.GetTempPath(), "pl-gate-rec-" + Guid.NewGuid().ToString("N") + ".png");
+        string[] tempBefore = Directory.GetDirectories(Path.GetTempPath(), "pl-shot-record-*");
+        try
+        {
+            await OnStaAsync(() => CheckWindowShot.SaveAsync(path, "record", 1, "ja"));
+            Assert.True(File.Exists(path));
+            Assert.True(new FileInfo(path).Length > 5000);
+        }
+        finally { File.Delete(path); }
+        Assert.Equal(before, RunFiles());
+        Assert.Equal(tempBefore.Length, Directory.GetDirectories(Path.GetTempPath(), "pl-shot-record-*").Length);   // 一時フォルダは消してある
     }
 
     [Fact]
