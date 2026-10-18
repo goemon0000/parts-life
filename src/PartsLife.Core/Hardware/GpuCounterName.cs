@@ -10,8 +10,15 @@ namespace PartsLife.Hardware;
 /// もとは Regex（Compiled）で読んでいたが、1 件ごとに Match と部分文字列と数への変換が出て、
 /// 常駐の計測で一番数の多い割り当てになっていた。読み方は元の正規表現と同じ
 /// （`luid_0x([0-9A-Fa-f]+)_0x([0-9A-Fa-f]+)` の最初の一致、`engtype_(\w+)$`）。試験で突き合わせてある。
+///
+/// このファイルは点検（PartsLife.Checks のテストの記録）にもソースとして取り込む。そちらでは `PARTSLIFE_SHARED_INTERNAL`
+/// を定義して internal にする（本体が Core と点検の両方を参照するので、public のままだと同じ型が 2 つ見えて曖昧になる）。
 /// </summary>
+#if PARTSLIFE_SHARED_INTERNAL
+internal static class GpuCounterName
+#else
 public static class GpuCounterName
+#endif
 {
     /// <summary>LUID の鍵。D3DKMT の側（GpuIdentity）と**必ず同じ形**にする（突き合わせに使うため）。</summary>
     public static string KeyOf(long high, ulong low) =>

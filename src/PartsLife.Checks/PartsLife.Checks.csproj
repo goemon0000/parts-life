@@ -30,6 +30,9 @@
     <Version>0.7.0</Version>
     <!-- 本体の配布物（dist）に .pdb を混ぜない -->
     <DebugType Condition="'$(Configuration)'=='Release'">none</DebugType>
+    <!-- 共有している GpuCounterName（Core と同じソース）をこちらでは internal にする。本体は Core と点検の両方を参照するので、
+         public のままだと同じ型が 2 つ見えて曖昧になる -->
+    <DefineConstants>$(DefineConstants);PARTSLIFE_SHARED_INTERNAL</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,6 +49,8 @@
   <ItemGroup>
     <!-- GPU の別名の決まり。盤（PartsLife.Core）と同じソースを取り込む。Core は参照しない（補助 exe の依存を増やさない） -->
     <Compile Include="..\Shared\GpuAliasRule.cs" Link="Shared\GpuAliasRule.cs" />
+    <!-- GPU のカウンタ名（LUID）の読み方。テストの記録が、PDH の GPU の行を DXGI のアダプタと突き合わせるのに使う。盤（Core）と同じソース -->
+    <Compile Include="..\PartsLife.Core\Hardware\GpuCounterName.cs" Link="Shared\GpuCounterName.cs" />
   </ItemGroup>
 
 </Project>
