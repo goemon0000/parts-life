@@ -15,7 +15,8 @@
   場面 B … 単体の exe の置き方 → PartsLife.exe で 0.8.0 へ（A と同じ確かめ。補助 exe の有無だけが違う）
   場面 C … 0.8.0 が起動直後に落ちる（PARTSLIFE_TEST_CRASH_VERSION=0.8.0）→ 0.7.4 に戻し、0.8.0 を「失敗した版」に記す
   場面 D … 常駐の Mutex（試験用の置き場の目印つき）をこのスクリプトが握っておく → 入れ替えた 0.8.0 は
-           「もう一方が動いています」のお知らせだけ出して終わり、起動確認（Confirmed）を書かない → 0.7.4 に戻る
+           「もう一方が動いています」のお知らせだけ出して終わり、
+           保存も swap.json（起動の回数も）も読まず・書かず、起動確認（Confirmed）を書かない → 0.7.4 に戻る
 
 以前あった 9.9.x の偽の版の場面（.old を掴んで戻しを失敗させる場面など）は、この版の確かめには要らないので外した
 （git の履歴にある）。
@@ -339,9 +340,12 @@ def scenario(name, work, port, feed, layout, old_files, release_assets, expect_v
             wait_for("元の版（0.7.4）がまた起きている", lambda: any(file_version(Path(p)).startswith(CUR) for _, p in processes_under(root)), 90)
             time.sleep(3)
             check("0.8.0 は起動確認（Confirmed）を一度も書かなかった", not watcher.ever_confirmed)
-            check(f"0.8.0 は起こされた（起動の回数 {watcher.max_launches}）", watcher.max_launches >= 1)
             if hold_mutex:
-                check("0.8.0 は「もう一方が動いています」のお知らせの窓を出した", watcher.saw_notice_window)
+                # 常駐の Mutex は保存を読む前に握る。取れなければ、読まず・書かず（swap.json の起動の回数にも触れず）に終わる
+                check("0.8.0 は「もう一方が動いています」のお知らせの窓を出した（これで起こされたと分かる）", watcher.saw_notice_window)
+                check(f"0.8.0 は swap.json にも触れずに終わった（起動の回数 {watcher.max_launches}）", watcher.max_launches == 0)
+            else:
+                check(f"0.8.0 は起こされた（起動の回数 {watcher.max_launches}）", watcher.max_launches >= 1)
         else:
             wait_for("入れ替えた（PartsLife.exe.old ができた）", lambda: (app / "PartsLife.exe.old").exists(), 180)
             wait_for("0.8.0 が「起動できた」と書いた", lambda: not (upd / "swap.json").exists()
