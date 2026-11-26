@@ -11,6 +11,40 @@ PCパーツのキャラクターが、実機の稼働状況をそのまま姿で
 
 ---
 
+## 最後の版（v0.8.0）/ The final version (v0.8.0)
+
+**パーツぐらしは PCミエルの一部になりました。** これからの開発は PCミエルで続けます。このリポジトリの版は、v0.8.0 が最後です。
+
+- **続きの引き継ぎ**: v0.8.0 を起動すると、一度だけ案内が出ます。「PCミエルの紹介を開く」を押すと、既定のブラウザで紹介のページ
+  （`https://web-autoai.com/pc-mieru`）が開きます。続きの始め方はそのページにあります。
+  案内は何もインストールせず、Windows 起動時の設定にも触れません
+- **v0.8.0 はそのまま使えます。** 見た目・点検・物語はこれまでの版と同じです。変わるのは、新しい版の確認と自動の入れ替えをしなくなったことだけです
+  （アプリ自身は、どこにも通信しません）
+- **不具合の修正は、ここで終わります。** 以後の改良と修正は PCミエルで行います
+- **同時に動くのは 1 つだけ**: もう一方のパーツぐらし（または PCミエルの中のパーツぐらし）が動いているときは、短いお知らせを出して終わります。
+  進行の保存には触りません
+- 案内を閉じると、読んだ記録を `%LOCALAPPDATA%\PartsLife\final-notice.json` に書き、二度とは出ません。
+  記録できなかったときは、そう表示して、次の起動でもう一度出します。見直したいときは、右クリック →「更新」の「PCミエルのお知らせをもう一度見る」から
+
+v0.7.4 をお使いの方は、これまでの自動更新でこの版に入れ替わります（自動更新はこれが最後です）。
+
+**Parts Life is now part of PC Mieru.** Development continues in PC Mieru; v0.8.0 is the last release from this repository.
+
+- **Carrying on**: v0.8.0 shows a one-time notice when it starts. "Open the PC Mieru page" opens the PC Mieru page
+  (`https://web-autoai.com/pc-mieru`) in your default browser, where you can find how to carry on.
+  The notice installs nothing and does not touch your Windows start-up setting.
+- **v0.8.0 keeps working as it is.** The look, the checks and the story are the same as before. The only change is that it no longer
+  checks for new versions or updates itself (the app itself connects to nothing).
+- **Bug fixes end here.** Further improvements and fixes will be made in PC Mieru.
+- **Only one runs at a time**: if another Parts Life (or Parts Life inside PC Mieru) is already running, it shows a short notice and exits.
+  It does not touch your saved progress.
+- Closing the notice records that you have read it in `%LOCALAPPDATA%\PartsLife\final-notice.json`, and it will not appear again.
+  If that record cannot be written, the notice says so and appears again next time. To see it again, use right-click → "Updates" → "Show the PC Mieru notice again".
+
+If you are on v0.7.4, the existing auto-update replaces it with this version (this is the last automatic update).
+
+---
+
 ## できること
 
 - CPU・メモリ・GPU・ディスクの稼働を、**数字ではなくキャラクターの姿と動き**で表す
@@ -20,7 +54,7 @@ PCパーツのキャラクターが、実機の稼働状況をそのまま姿で
 - 上部で、干渉できない冒険が勝手に進む。町で休み、装備を整え、行き先を自分で決めて出かける
 - 右クリック →「点検…」で、**システムチェック・負荷テスト（CPU・メモリ）・記憶媒体の精密チェック**の窓が開く
   （常駐の窓とは別。押したときだけ動く。下記「点検」）
-- 新しい版が出たら、**自動で入れ替わる**（GitHub の Release を確かめて、照合してから。設定で止められる。下記「更新」）
+- v0.7.4 までは、新しい版が出たら**自動で入れ替わった**（GitHub の Release を確かめて、照合してから）。**v0.8.0（最後の版）は確かめに行かない**（下記「更新」）
 - 透明背景・最前面・右上に固定。場所を取らない
 
 ## やらないこと
@@ -68,10 +102,11 @@ Windows で CPU温度・ファン回転数・電圧を読むには**カーネル
 
 心配な場合は、このリポジトリのソースを読んでからご自分でビルドしてください。
 やっていることは「使用率を読んで絵を描く」だけです。
-**通信するのは更新の確認とダウンロードだけ（GitHub）。設定で止められます。ほかには何も送りません**（下記「更新」）。
+**v0.8.0 は、アプリ自身は何も通信しません**（更新の確認もしません。案内の「PCミエルの紹介を開く」や更新の内容は、押したときに既定のブラウザが開くだけです）。
+v0.7.4 までは、通信するのは更新の確認とダウンロードだけ（GitHub）でした（下記「更新」）。
 書き込むのは、設定と物語の進行（`%APPDATA%\PartsLife\`）、
 点検で読んだ記憶媒体の健康情報の数字（`%APPDATA%\PartsLife\checks\`）、
-更新の覚え書きと落とした新しい版（`%LOCALAPPDATA%\PartsLife\updates\`）、
+更新の覚え書き（`%LOCALAPPDATA%\PartsLife\updates\`）、最後の案内を読んだ記録（`%LOCALAPPDATA%\PartsLife\final-notice.json`）、
 それに入れ替えのときの exe の置き場所（`PartsLife.exe` と `.old`）だけです。
 
 ### v0.7.2 以前をお使いの方へ
@@ -99,8 +134,9 @@ dotnet test tests/PartsLife.Checks.Tests
 # 自動更新の決まりのテスト（本物の通信はしない。偽の GitHub を渡す）
 dotnet test tests/PartsLife.Update.Tests
 
-# 自動更新の通しの確かめ（Windows。偽の新しい版 v9.9.9 を作り、127.0.0.1 の偽の GitHub から
-# 一時フォルダの写しに入れ替えさせる。本物の Release にも普段の保存にも触らない）
+# 自動更新の通しの確かめ（Windows。v0.7.4 のソースと、この作業ツリー（v0.8.0）をそれぞれ Debug で作り、
+# 127.0.0.1 の偽の GitHub から v0.7.4 → v0.8.0 を一時フォルダの写しに入れ替えさせる。
+# 本物の Release にも普段の保存にもレジストリにも触らない）
 python tools/update-dry-run.py
 ```
 
@@ -223,6 +259,12 @@ Windows がそれを求める問い合わせだけです（SATA の SMART は常
 止め方はビルド時の定数だけ（`src/PartsLife.Checks/Features.cs`）で、環境変数や設定で後から有効にする道はありません。
 
 ## 更新
+
+> **v0.8.0（最後の版）は、新しい版を確かめに行きません**（自動でも、手でも。更新の欄の「今すぐ確認」は、
+> 「PCミエルのお知らせをもう一度見る」に替わりました）。以下は v0.7.4 までの仕組みの説明です。
+> そのうち入れ替えと戻しの部分（起動のたびの後始末・起動の確かめ・失敗したら元に戻す）は、
+> v0.7.4 から v0.8.0 への入れ替えを見届けるために、v0.8.0 にも残しています。
+> v0.8.0 の起動の確かめが済む前に、もう一方のパーツぐらしが動いていて起動できなかったときは、v0.7.4 に戻ります。
 
 新しい版が出たら、**自動で入れ替わります。** 版を重ねるたびに落とし直してもらうのは大変なので。
 
@@ -433,7 +475,8 @@ GPU が2枚あれば、回っている方だけが育ちます。
 - [x] 点検の窓（システムチェック・CPU とメモリの負荷テスト・記憶媒体の精密チェック）。常駐の占有は変えずに
 - [ ] 点検: GPU の負荷テスト（作ってある。次の版で、実機での確認のあと）
 - [ ] 点検: AMD / Intel の GPU の温度（ADLX など）。それまで GPU の負荷テストは NVIDIA だけ
-- [x] 自動更新（GitHub の Release を確かめ、SHA256.txt と照合して入れ替える。うまく起動しなければ元に戻す）
+- [x] 自動更新（GitHub の Release を確かめ、SHA256.txt と照合して入れ替える。うまく起動しなければ元に戻す）。v0.8.0 で確認をやめた
+- [x] 最後の版 v0.8.0: PCミエルへの案内（一度だけ）・同時に動くのは 1 つだけ（PCミエルの Party と同じ Mutex）
 - [ ] 設定・自動起動
 - [ ] 署名
 
