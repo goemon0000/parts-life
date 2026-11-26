@@ -114,7 +114,7 @@ public static class Strings
         T("もう一方のパーツぐらし（またはPCミエルのパーツぐらし）が動いています",
           "Another Parts Life (or Parts Life in PC Mieru) is already running");
     public static string FinalNoticeText =>
-        T("パーツぐらしは PCミエルの一部になりました。PCミエルで続きを引き継げます。",
+        T("パーツぐらしは PCミエルの一部になりました。\nPCミエルで続きを引き継げます。",
           "Parts Life is now part of PC Mieru. You can carry on in PC Mieru.");
     public static string FinalNoticeOpen => T("PCミエルの紹介を開く", "Open the PC Mieru page");
     public static string FinalNoticeClose => T("閉じる", "Close");
