@@ -12,8 +12,10 @@ namespace PartsLife.Updates;
 /// 最後の版（v0.8.0）の「パーツぐらしは PCミエルの一部になりました」の案内。**一度だけ**出す（既読の記録は
 /// <see cref="FinalNoticeStore"/>。決まりはそちらで試験している）。
 ///   - 「PCミエルの紹介を開く」: 既定のブラウザーで紹介のページを開く。**何も入れず、Run の設定にも触れない**
-///   - 「閉じる」・窓の ✕: 閉じる。どちらも、押した時点で既読を書く
-///   - 書けなかったら、その旨を窓に出し、既読にしない（次回もう一度出す）。黙って既読にしない
+///   - 「閉じる」・窓の ✕: 閉じる。**✕ も「閉じる」と同じ道を通る**（既読を書いてから閉じる）
+///   - 書けなかったら、その旨を窓に出して**開いたまま**にし、既読にしない（次回もう一度出す）。黙って既読にしない。
+///     もう一度押すと、書けなくても閉じる（既読にはならない）
+///   - 既読の記録の読み書きは画面のスレッドの外（Task.Run）。結果を受けて画面のスレッドで動く
 /// 出すのは主画面を出したあと。入れ替えで起こされた新しい版は、「起動できた」（Confirmed）を書き終えてから（UpdateController）。
 /// </summary>
 internal static class FinalNoticeUi
@@ -21,9 +23,13 @@ internal static class FinalNoticeUi
     private static Window? _open;
 
     /// <summary>未読なら出す（窓が出たあとに呼ぶ）。</summary>
-    public static void ShowIfUnread(Window owner)
+    public static void ShowIfUnread(Window owner) => _ = ShowIfUnreadAsync(owner);
+
+    private static async Task ShowIfUnreadAsync(Window owner)
     {
-        if (new FinalNoticeStore(AppData.FinalNoticeDir).IsRead()) return;
+        var store = new FinalNoticeStore(AppData.FinalNoticeDir);
+        bool read = await Task.Run(store.IsRead);   // ファイルを読むのは画面のスレッドの外。await のあとは画面のスレッドに戻る
+        if (read || owner.Dispatcher.HasShutdownStarted) return;
         Show(owner);
     }
 
@@ -127,12 +133,13 @@ internal static class FinalNoticeUi
         {
             _win = win;
             _error = error;
-            // 窓の ✕ は「閉じる」と同じ（アプリごと終わるときを除く）。書けなくても閉じる（次回もう一度出る）
-            win.Closing += (_, _) =>
+            // 窓の ✕ は「閉じる」と同じ道を通る（アプリごと終わるときを除く）。いったん閉じるのを止め、書けたら閉じる。
+            // 書けなかったら開いたまま失敗の行を出し、もう一度の ✕ は（既読にならないまま）閉じる
+            win.Closing += (_, e) =>
             {
                 if (_done || OwnerClosing) return;
-                _done = true;
-                store.TryMarkRead(DateTimeOffset.UtcNow, out _);
+                e.Cancel = true;
+                OnClose();
             };
         }
 
@@ -145,10 +152,24 @@ internal static class FinalNoticeUi
 
         public void OnClose() => Record(closeEvenIfFailed: _failedOnce);
 
-        /// <summary>既読を書く。書けたら閉じる。書けなかったら窓に出して開いたまま（もう一度「閉じる」を押すと、書けなくても閉じる）。</summary>
-        private void Record(bool closeEvenIfFailed)
+        private bool _busy;
+
+        /// <summary>既読を書く（画面のスレッドの外）。書けたら閉じる。書けなかったら窓に出して開いたまま（もう一度押すと、書けなくても閉じる）。</summary>
+        private void Record(bool closeEvenIfFailed) => _ = RecordAsync(closeEvenIfFailed);
+
+        private async Task RecordAsync(bool closeEvenIfFailed)
         {
-            if (store.TryMarkRead(DateTimeOffset.UtcNow, out _))
+            if (_busy) return;   // 書いている最中の押し直しは受けない
+            _busy = true;
+            bool ok;
+            try { ok = await Task.Run(() => store.TryMarkRead(DateTimeOffset.UtcNow, out _)); }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e);
+                ok = false;
+            }
+            _busy = false;
+            if (ok)
             {
                 _done = true;
                 _win?.Close();
