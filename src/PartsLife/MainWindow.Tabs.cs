@@ -301,7 +301,10 @@ public partial class MainWindow
 
         var actions = Row();
         // v0.8.0 は確かめに行かない。「今すぐ確認」の代わりに、PCミエルのお知らせをもう一度出す
-        actions.Children.Add(ActionButton(Strings.FinalNoticeShowAgain, () => Updates.ShowFinalNotice()));
+        // 入れ替えの確かめが済むまで（Confirmed を書き終えるまで）は押せない。確かめの途中で既読にしないため
+        var again = ActionButton(Strings.FinalNoticeShowAgain, () => Updates.ShowFinalNotice());
+        again.IsEnabled = Updates.NoticeReady;
+        actions.Children.Add(again);
         actions.Children.Add(ActionButton(Strings.UpdateNotes, () => Updates.OpenNotes()));
         SettingsStack.Children.Add(actions);
     }
@@ -354,6 +357,9 @@ public partial class MainWindow
         b.Click += (_, _) => Execute(command);
         return b;
     }
+
+    /// <summary>更新の欄が開いていれば作り直す（確かめが済んで、「もう一度見る」が押せるようになったとき）。</summary>
+    internal void RefreshUpdateSettings() => RefreshSettings();
 
     private Button ActionButton(string text, Action onClick)
     {

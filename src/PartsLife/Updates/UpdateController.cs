@@ -26,6 +26,18 @@ internal sealed class UpdateController
     private SwapRecord? _justUpdated;
     private readonly BootResult _boot;
 
+    /// <summary>
+    /// 案内（PCミエルのお知らせ）を出してよいか。入れ替えの確かめの最中（Confirmed を書き終えるまで）は偽。入れ替えが無い起動では最初から真。
+    /// 偽の間は、献立・設定の「もう一度見る」も何もしない（確かめの途中で、案内を開いたり既読にしたりしない）。
+    /// Confirmed を書けなかったときは、この実行では偽のまま（古い版が戻すので、案内は新しい版の次の機会に）。
+    /// </summary>
+    private bool _noticeReady;
+
+    /// <summary>Confirmed を書いている最中（画面のスレッドの外）。窓が閉じられたら、これが済むのを待つ。</summary>
+    private Task<ConfirmOutcome>? _confirming;
+
+    public bool NoticeReady => _noticeReady;
+
     private readonly DispatcherTimer _healthy = new();
 
     public UpdateController(MainWindow host, PartyState state, UpdateRuntime rt, BootResult boot)
@@ -35,6 +47,7 @@ internal sealed class UpdateController
         _rt = rt;
         _boot = boot;
         _justUpdated = boot.JustUpdated;
+        _noticeReady = boot.JustUpdated is null;
 
         _healthy.Interval = SwapBoot.HealthyAfter;
         _healthy.Tick += (_, _) => { _healthy.Stop(); ConfirmStarted(); };
@@ -68,14 +81,19 @@ internal sealed class UpdateController
     /// </summary>
     public void OnAppClosing()
     {
-        if (_justUpdated is null || !_healthy.IsEnabled) return;
+        if (_confirming is { } writing)
+        {
+            // 画面のスレッドの外で書いている最中。済むのを少し待つ（待たずに終わると、見張っている古い版が戻してしまう）
+            bool finished = false;
+            try { finished = writing.Wait(TimeSpan.FromSeconds(3)); }
+            catch (AggregateException) { }
+            if (!finished || (writing.IsCompletedSuccessfully && writing.Result != ConfirmOutcome.Failed)) return;
+            // 書けなかった。閉じる前に最後にもう一度（案内は出さない）
+        }
+        else if (_justUpdated is null || !_healthy.IsEnabled) return;
         _healthy.Stop();
         _justUpdated = null;
-        if (_rt.Store.LoadSwap() is { } rec && rec.To == _rt.Current.ToString())
-        {
-            rec.Confirmed = true;
-            _rt.Store.SaveSwap(rec);
-        }
+        SwapConfirm.TryConfirm(_rt.Store, _rt.Current.ToString(), out _);   // 失敗しても、戻すのは古い版に任せる
     }
 
     public void Stop()
@@ -98,14 +116,40 @@ internal sealed class UpdateController
             if (_rt.Store.LoadSwap() is { } stuck && stuck.RollbackAttempts >= SwapBoot.MaxRollbackAttempts) _rt.Store.DeleteSwap();
             return;
         }
-        var rec = _rt.Store.LoadSwap();
         _justUpdated = null;
-        if (rec is null || rec.To != _rt.Current.ToString()) return;
-        rec.Confirmed = true;
-        _rt.Store.SaveSwap(rec);
-        ShowWithLink(Strings.UpdateUpdated(rec.To), rec.PageUrl, TimeSpan.FromMinutes(10));
-        FinalNoticeUi.ShowIfUnread(_host);   // 「起動できた」を書き終えてから。一度だけの案内
+        var store = _rt.Store;
+        string current = _rt.Current.ToString();
+        var dispatcher = _host.Dispatcher;
+        // 書く（読み戻しまで・5 回まで再試行）のは画面のスレッドの外。窓を止めない。書き終えたら画面のスレッドへ戻して案内を出す
+        _confirming = Task.Run(() =>
+        {
+            var outcome = SwapConfirm.TryConfirm(store, current, out var rec);
+            dispatcher.BeginInvoke(new Action(() => OnConfirmed(outcome, rec)));
+            return outcome;
+        });
+    }
 
+    /// <summary>
+    /// Confirmed の書き込みが終わった（画面のスレッド）。**書けたときだけ**案内を出す。書けなかったら出さない
+    /// （古い版が、見張りの時間切れで元に戻す。戻る版に「PCミエルの一部になりました」を既読にさせない）。
+    /// </summary>
+    private void OnConfirmed(ConfirmOutcome outcome, SwapRecord? rec)
+    {
+        _confirming = null;
+        if (outcome == ConfirmOutcome.Failed) return;
+        _noticeReady = true;
+        if (outcome == ConfirmOutcome.Confirmed && rec is not null)
+        {
+            ShowWithLink(Strings.UpdateUpdated(rec.To), rec.PageUrl, TimeSpan.FromMinutes(10));
+            StartCleanup(rec);
+        }
+        FinalNoticeUi.ShowIfUnread(_host);   // 「起動できた」を書き終えてから。一度だけの案内
+        _host.RefreshUpdateSettings();
+    }
+
+    /// <summary>古い版が終わるのを待って、.old を消す。</summary>
+    private void StartCleanup(SwapRecord rec)
+    {
         var rt = _rt;
         _ = Task.Run(() =>
         {
@@ -169,7 +213,11 @@ internal sealed class UpdateController
     /// 「PCミエルのお知らせをもう一度見る」。**v0.8.0 では「今すぐ確認」の代わり。通信はしない**（定期の確認も手動の確認も、この版には無い）。
     /// 紹介のページは、案内の窓の「PCミエルの紹介を開く」から開ける。
     /// </summary>
-    public void ShowFinalNotice() => FinalNoticeUi.Show(_host);
+    public void ShowFinalNotice()
+    {
+        if (!_noticeReady) return;   // 入れ替えの確かめの最中は開かない・既読にしない
+        FinalNoticeUi.Show(_host);
+    }
 
     public void OpenNotes() => OpenPage(Model().NotesPage);
 
@@ -185,6 +233,7 @@ internal sealed class UpdateController
         if (m.Blocked is not null) root.Items.Add(new MenuItem { Header = m.Blocked, IsEnabled = false });
 
         var again = new MenuItem { Header = Strings.FinalNoticeShowAgain };
+        again.IsEnabled = _noticeReady;
         again.Click += (_, _) => ShowFinalNotice();
         root.Items.Add(again);
 

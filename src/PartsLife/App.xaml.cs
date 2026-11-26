@@ -81,61 +81,97 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        // 更新: 窓を出す前に、入れ替えの後始末（確かめ・戻し・.old の片付け）と、用意済みの版の入れ替え。
-        // 入れ替えて起こし直すときは、ここで終わる（新しい版が窓を出す）。--updated-from <版> はそのとき付く印、
-        // --update-rolled-back <版> は元に戻して起こし直したときの印。入れ替えの最中に別に起動されたときも、ここで終わる
+        // 常駐の所有者を、**保存を読む前に**握る（DESIGN-C 3.2）。取れなければ（もう一方が動いている）、保存を読まず・書かず・
+        // swap.json の Confirmed も書かずに、短いお知らせだけ出して終わる（入れ替えで起こされた子なら、Confirmed が付かず古い版が戻す）。
+        // 0.7.4 以前は Mutex を握らないので、握ったあとに旧い常駐が居ないかも見る
+        var rt = Updates.UpdateRuntime.Create();
+        if (!AcquireResident(args, rt)) return;
+
+        // 更新: 窓を出す前に、入れ替えの後始末（確かめ・戻し・.old の片付け）。
+        // v0.8.0 は用意済みの版の入れ替えをしない。--updated-from <版> は入れ替えで起こされた印、--update-rolled-back <版> は
+        // 元に戻して起こし直したときの印。入れ替えの最中に別に起動されたとき・戻しのために起こし直すときは、ここで終わる。
+        // **別の PartsLife.exe を起こす前と、終わる前に、常駐の Mutex を放す**（画面のスレッドで握ったので、ここで放す）
         var state = Updates.AppData.LoadState();
         SetLanguage(state);
-        var rt = Updates.UpdateRuntime.Create();
         Updates.BootResult boot = new();
         if (rt is not null)
         {
-            // stayHere: 窓を出す前に入れ替えて見届けたが、戻し切れず起こし直しもできなかったとき。この版のまま窓を出して知らせる
-            bool handled = Updates.UpdateBoot.Run(rt, state, args, () => Shutdown(),
-                notice => StartMain(state, rt, new Updates.BootResult(Notice: notice), args), out boot);
-            if (boot.Busy) { ShowBusyNotice(I18n.Strings.UpdateBusy); return; }
-            if (handled) return;
+            bool handled = Updates.UpdateBoot.Run(rt, args, () => { ReleaseResident(); Shutdown(); }, ReleaseResident, out boot);
+            if (boot.Busy) { ReleaseResident(); ShowBusyNotice(I18n.Strings.UpdateBusy); return; }
+            if (handled) { ReleaseResident(); return; }
             Updates.AppData.CrashForTest(rt.Current);   // Debug ビルドの試験用だけ（Release では呼び出しごと消える）
         }
         StartMain(state, rt, boot, args);
     }
 
     /// <summary>
-    /// 常駐の所有者（PCミエルの Party と共有する Mutex。DESIGN-C 3.2）。**窓が続く間ずっと持つ**。握るのも放すのも画面のスレッド
-    /// （StartMain と OnExit）。--render / --probe / --story / --shot / --shot-check / --shot-notice は、ここに来ない（窓を常駐させないので握らない）。
+    /// 常駐の Mutex を握り、旧い常駐（0.8.0 より前）が居ないことを確かめる。**保存を読む前に呼ぶ。**
+    /// 握れない・旧い常駐が居る → 握っていれば放し、短いお知らせだけ出して false（呼んだ側は何も読まず・書かずに終わる）。
+    /// 旧い常駐の探し方は <see cref="Update.LegacyResident"/>（親の PID は除く）。Debug ビルドで試験用の保存の置き場があるときは探さない
+    /// （通しの確かめで、利用者が普段使っているパーツぐらしと衝突しないように。Mutex の名前も別になる）。
+    /// SID が引けない・名前が別の種類の物と衝突している等は、利用者を締め出さず Mutex なしで動く（診断用に残す）。
     /// </summary>
-    private Update.ResidentMutex? _resident;
-
-    protected override void OnExit(ExitEventArgs e)
-    {
-        _resident?.Dispose();
-        _resident = null;
-        base.OnExit(e);
-    }
-
-    /// <summary>
-    /// 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）。
-    /// **MainWindow を作る前に常駐の Mutex を取る。** 取れなければ（もう一方のパーツぐらし・PCミエルの Party が動いている）
-    /// 短いお知らせだけ出して終わる。保存にも swap.json の Confirmed にも書かない
-    /// （入れ替えで起こされた子ならそのまま Confirmed が付かず、古い版が元に戻す）。
-    /// </summary>
-    private void StartMain(Game.PartyState state, Updates.UpdateRuntime? rt, Updates.BootResult boot, string[] args)
+    private bool AcquireResident(string[] args, Updates.UpdateRuntime? rt)
     {
         try
         {
             _resident = Update.ResidentMutex.TryAcquire(Update.ResidentMutex.CurrentName(Updates.AppData.TestDataDir));
             if (_resident is null)
             {
-                ShowBusyNotice(I18n.Strings.AnotherRunning);
-                return;
+                RefuseStart();
+                return false;
+            }
+            if (Updates.AppData.TestDataDir is null)
+            {
+                int? parent = Array.IndexOf(args, "--updated-from") >= 0 ? rt?.Store.LoadSwap()?.OldPid : null;
+                if (Update.LegacyResident.FindRunning(parent) is { } legacy)
+                {
+                    System.Diagnostics.Debug.WriteLine($"legacy resident {legacy.Name} pid={legacy.Pid}");
+                    ReleaseResident();
+                    RefuseStart();
+                    return false;
+                }
             }
         }
         catch (Exception e) when (e is InvalidOperationException or IOException or System.Security.SecurityException
-                                  or System.Threading.WaitHandleCannotBeOpenedException)
+                                  or System.Threading.WaitHandleCannotBeOpenedException or System.ComponentModel.Win32Exception)
         {
-            // SID が引けない・名前が別の種類の物と衝突している。利用者を締め出さず、Mutex なしで動く（診断用に残す）
             System.Diagnostics.Debug.WriteLine(e);
         }
+        return true;
+    }
+
+    /// <summary>保存を読む前なので、言語は機械の既定。</summary>
+    private void RefuseStart()
+    {
+        I18n.Strings.Lang = I18n.Strings.DetectDefault();
+        ShowBusyNotice(I18n.Strings.AnotherRunning);
+    }
+
+    private void ReleaseResident()
+    {
+        _resident?.Dispose();
+        _resident = null;
+    }
+
+    /// <summary>
+    /// 常駐の所有者（PCミエルの Party と共有する Mutex。DESIGN-C 3.2）。**窓が続く間ずっと持つ**。握るのも放すのも画面のスレッド
+    /// （OnStartup の AcquireResident と、ReleaseResident・OnExit）。--render / --probe / --story / --shot / --shot-check / --shot-notice は、ここに来ない（窓を常駐させないので握らない）。
+    /// </summary>
+    private Update.ResidentMutex? _resident;
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        ReleaseResident();
+        base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）。
+    /// 常駐の Mutex は、ここへ来る前（OnStartup、保存を読む前）に握ってある。
+    /// </summary>
+    private void StartMain(Game.PartyState state, Updates.UpdateRuntime? rt, Updates.BootResult boot, string[] args)
+    {
         var main = new MainWindow(state);
         if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, boot);
         MainWindow = main;
