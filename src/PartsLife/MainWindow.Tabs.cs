@@ -300,14 +300,8 @@ public partial class MainWindow
         SettingsStack.Children.Add(modes);
 
         var actions = Row();
-        var now = ActionButton(Strings.UpdateCheckNow, () => Updates.CheckNow());
-        now.IsEnabled = m.CanCheckNow;
-        if (m.CheckOff)
-        {
-            now.ToolTip = Strings.UpdateCheckOffTip;
-            ToolTipService.SetShowOnDisabled(now, true);
-        }
-        actions.Children.Add(now);
+        // v0.8.0 は確かめに行かない。「今すぐ確認」の代わりに、PCミエルのお知らせをもう一度出す
+        actions.Children.Add(ActionButton(Strings.FinalNoticeShowAgain, () => Updates.ShowFinalNotice()));
         actions.Children.Add(ActionButton(Strings.UpdateNotes, () => Updates.OpenNotes()));
         SettingsStack.Children.Add(actions);
     }

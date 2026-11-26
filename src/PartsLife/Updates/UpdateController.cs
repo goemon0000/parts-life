@@ -9,14 +9,14 @@ using PartsLife.Update;
 namespace PartsLife.Updates;
 
 /// <summary>
-/// 常駐の窓と更新の繋ぎ。いつ確かめるか・何を知らせるか・いつ入れ替えるか。
+/// 常駐の窓と更新の繋ぎ。
 ///
-/// **いつ入れ替えるか。** このアプリは常駐していて、何週間も閉じない人がいる。「次の起動で」だけだと
-/// その人には永久に届かない。そこで、落として照合し終えたら、手が空いているときに入れ替える:
-///   - 点検の窓が開いていない（負荷テストや表面検査の最中に止めない）
-///   - 右クリックの献立・確認の窓が開いていない、窓の上に指が載っていない
-/// 入れ替えは、進行を保存してから窓を隠し、新しい版を起こすだけ。窓は同じ場所に数秒で戻る。
-/// 手が空かないまま閉じられたら、次の起動で窓を出す前に入れ替える（<see cref="UpdateBoot"/>）。
+/// **v0.8.0（最後の版）では、新しい版を確かめに行かない。** 最初の確認・定期の確認のタイマーは動かさず、
+/// 手動の確認（「今すぐ確認」）も無い（代わりに「PCミエルのお知らせをもう一度見る」）。通信は一切しない。
+/// 残してあるのは、v0.7.4 → v0.8.0 の入れ替えが成り立つための物:
+///   - 入れ替えで起こされた新しい版（<c>--updated-from</c>）の「起動できた」（Confirmed）の記録（<see cref="ConfirmStarted"/>・<see cref="OnAppClosing"/>）
+///   - 起動の最初の入れ替えの後始末・戻し（<see cref="UpdateBoot"/>。窓を出す前。App.OnStartup）
+/// 一度だけの案内（<see cref="FinalNoticeUi"/>）は、主画面を出したあと。入れ替えで起こされたときは Confirmed を書き終えてから。
 /// </summary>
 internal sealed class UpdateController
 {
@@ -26,12 +26,7 @@ internal sealed class UpdateController
     private SwapRecord? _justUpdated;
     private readonly BootResult _boot;
 
-    private readonly DispatcherTimer _first = new();
-    private readonly DispatcherTimer _poll = new();
-    private readonly DispatcherTimer _idle = new();
     private readonly DispatcherTimer _healthy = new();
-    private CancellationTokenSource? _cts;
-    private bool _busy;
 
     public UpdateController(MainWindow host, PartyState state, UpdateRuntime rt, BootResult boot)
     {
@@ -41,15 +36,7 @@ internal sealed class UpdateController
         _boot = boot;
         _justUpdated = boot.JustUpdated;
 
-        // 試験用の行き先（Debug ビルドだけ）では待ちを縮める。配布物では UpdateSchedule の値のまま
-        _first.Interval = rt.Endpoints.IsTestFeed ? TimeSpan.FromSeconds(3) : UpdateSchedule.FirstDelay;
-        _poll.Interval = UpdateSchedule.Poll;
-        _idle.Interval = rt.Endpoints.IsTestFeed ? TimeSpan.FromSeconds(2) : TimeSpan.FromMinutes(1);
         _healthy.Interval = SwapBoot.HealthyAfter;
-
-        _first.Tick += (_, _) => { _first.Stop(); RunCheck(manual: false); };
-        _poll.Tick += (_, _) => RunCheck(manual: false);
-        _idle.Tick += (_, _) => ApplyWhenIdle();
         _healthy.Tick += (_, _) => { _healthy.Stop(); ConfirmStarted(); };
     }
 
@@ -61,8 +48,8 @@ internal sealed class UpdateController
         // 確かめの途中（入れ替えた新しい版）・諦めて手で戻してもらう状態のときは、しばらく無事に動いたら記録を片付ける
         if (_justUpdated is not null || _boot.GiveUp is not null) _healthy.Start();
         ShowBootNotice();
-        _first.Start();
-        _poll.Start();
+        // 入れ替えの確かめの最中でなければ、案内はいま出す。確かめの最中なら、Confirmed を書き終えたあと（ConfirmStarted）
+        if (_justUpdated is null) FinalNoticeUi.ShowIfUnread(_host);
     }
 
     /// <summary>
@@ -72,7 +59,6 @@ internal sealed class UpdateController
     {
         _host.ResumeAfterFailedUpdate();
         _host.ShowNotice(notice, null, null);
-        _poll.Start();
     }
 
     /// <summary>
@@ -94,122 +80,12 @@ internal sealed class UpdateController
 
     public void Stop()
     {
-        _first.Stop();
-        _poll.Stop();
-        _idle.Stop();
         _healthy.Stop();
-        _cts?.Cancel();
     }
 
     // -----------------------------------------------------------------------
-    // 確認
+    // 起動の確かめ（入れ替えた新しい版として起こされたとき）
     // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// 確かめに行く。**「確認しない」なら何もしない**（Updater の側でも止まる。二重の歯止め）。
-    /// 決まった時刻の確認は 24 時間に 1 回まで（Updater が覚え書きを見て止める）。
-    /// </summary>
-    private async void RunCheck(bool manual)
-    {
-        if (_busy || Mode == UpdateMode.Off) return;
-        _busy = true;
-        var mode = Mode;
-        _cts = new CancellationTokenSource();
-        if (manual) _host.ShowNotice(Strings.UpdateChecking, null, null);
-        CheckResult r;
-        try
-        {
-            var updater = new Updater(_rt.Context());
-            var token = _cts.Token;
-            r = await Task.Run(() => updater.CheckAsync(mode, manual, token));
-        }
-        catch (Exception e)
-        {
-            r = new CheckResult(CheckKind.Failed, Message: e.Message);
-        }
-        finally
-        {
-            _busy = false;
-        }
-        Guard(() => Handle(r, manual));
-    }
-
-    private void Handle(CheckResult r, bool manual)
-    {
-        var mode = Mode;
-        if (mode == UpdateMode.Off)
-        {
-            // 確かめている間に「確認しない」へ切り替えられた。結果は捨てる
-            _host.HideNotice();
-            return;
-        }
-        switch (r.Kind)
-        {
-            case CheckKind.Available:
-            {
-                var st = _rt.Store.LoadState();
-                if (!manual && st.NotifiedVersion == r.Version) break;   // 同じ版で何度も知らせない
-                string text = mode == UpdateMode.Auto && !_rt.CanReplace
-                    ? Strings.UpdateAvailableBlocked(r.Version!, Strings.CannotReplace(_rt.Block))
-                    : Strings.UpdateAvailable(r.Version!);
-                ShowWithLink(text, r.PageUrl);
-                st.NotifiedVersion = r.Version;
-                _rt.Store.SaveState(st);
-                break;
-            }
-            case CheckKind.Staged:
-                if (mode != UpdateMode.Auto)
-                {
-                    UpdateApply.Drop(_rt, _rt.Store.LoadState());
-                    break;
-                }
-                if (manual) ShowWithLink(Strings.UpdateStaged(r.Version!), r.PageUrl);
-                _idle.Start();
-                break;
-            case CheckKind.UpToDate:
-                if (manual) _host.ShowNotice(Strings.UpdateUpToDate(_rt.Current.ToString()), null, null, TimeSpan.FromSeconds(20));
-                else _host.HideNoticeIfChecking();
-                break;
-            case CheckKind.AlreadyInstalled:
-                // ほかのプロセスが入れ替え済みで、この古いプロセスは .old から動いている。もう確かめに行かない
-                _poll.Stop();
-                ShowWithLink(Strings.UpdateAlreadyInstalled(r.Version!), r.PageUrl, TimeSpan.FromHours(1));
-                break;
-            case CheckKind.SkippedFailed:
-                if (manual) ShowWithLink(Strings.UpdateSkipped(r.Version!), r.PageUrl);
-                break;
-            case CheckKind.RateLimited:
-                if (manual) _host.ShowNotice(Strings.UpdateRateLimited, null, null, TimeSpan.FromSeconds(30));
-                break;
-            case CheckKind.Failed:
-                if (manual) _host.ShowNotice(Strings.UpdateFailed(r.Message ?? ""), null, null, TimeSpan.FromSeconds(30));
-                break;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // 入れ替え
-    // -----------------------------------------------------------------------
-
-    private void ApplyWhenIdle()
-    {
-        if (Mode != UpdateMode.Auto || !_rt.CanReplace) { _idle.Stop(); return; }
-        if (!_host.IsIdleForUpdate) return;
-        _idle.Stop();
-
-        var st = _rt.Store.LoadState();
-        if (st.Pending is not { } p) return;
-        _host.SuspendForUpdate();
-        var started = UpdateApply.SwapAndRelaunch(_rt, st, p, out var error);
-        if (started is not { } s)
-        {
-            _host.ResumeAfterFailedUpdate();
-            _host.ShowNotice(Strings.UpdateSwapFailed(error ?? ""), null, null, TimeSpan.FromMinutes(2));
-            return;
-        }
-        Stop();
-        _ = UpdateApply.WatchAsync(_rt, s.Child, s.Record, () => Application.Current.Shutdown(), ResumeAfterRollback);
-    }
 
     /// <summary>
     /// 入れ替えた新しい版として、窓を出してしばらく無事に動いた。「起動できた」と書き、古い版が終わるのを待って .old を消す。
@@ -228,6 +104,7 @@ internal sealed class UpdateController
         rec.Confirmed = true;
         _rt.Store.SaveSwap(rec);
         ShowWithLink(Strings.UpdateUpdated(rec.To), rec.PageUrl, TimeSpan.FromMinutes(10));
+        FinalNoticeUi.ShowIfUnread(_host);   // 「起動できた」を書き終えてから。一度だけの案内
 
         var rt = _rt;
         _ = Task.Run(() =>
@@ -268,7 +145,7 @@ internal sealed class UpdateController
     /// </summary>
     internal sealed record MenuModel(
         string Current, string LastCheck, string? Status, string? Blocked,
-        bool CheckOff, bool CanCheckNow, UpdateMode Mode, string NotesPage);
+        UpdateMode Mode, string NotesPage);
 
     public MenuModel Model()
     {
@@ -284,18 +161,15 @@ internal sealed class UpdateController
             st.LastCheckUtc is { } t ? Strings.UpdateLastCheck(t) : Strings.UpdateNeverChecked,
             status,
             mode == UpdateMode.Auto && !_rt.CanReplace ? Strings.CannotReplace(_rt.Block) : null,
-            // **「確認しない」の間は押せない。** 押せば通信することになり、「確認しない」と食い違う
-            CheckOff: mode == UpdateMode.Off,
-            CanCheckNow: mode != UpdateMode.Off && !_busy && UpdateSchedule.CanCheckNow(st, DateTimeOffset.UtcNow),
             mode,
             st.LatestPageUrl is { } lp && _rt.Endpoints.IsReleasePage(lp) ? lp : _rt.Endpoints.ReleasesPage);
     }
 
-    /// <summary>「今すぐ確認」。押せないとき（<see cref="MenuModel.CanCheckNow"/> が偽）は何もしない。</summary>
-    public void CheckNow()
-    {
-        if (Model().CanCheckNow) RunCheck(manual: true);
-    }
+    /// <summary>
+    /// 「PCミエルのお知らせをもう一度見る」。**v0.8.0 では「今すぐ確認」の代わり。通信はしない**（定期の確認も手動の確認も、この版には無い）。
+    /// 紹介のページは、案内の窓の「PCミエルの紹介を開く」から開ける。
+    /// </summary>
+    public void ShowFinalNotice() => FinalNoticeUi.Show(_host);
 
     public void OpenNotes() => OpenPage(Model().NotesPage);
 
@@ -310,14 +184,9 @@ internal sealed class UpdateController
         if (m.Status is not null) root.Items.Add(new MenuItem { Header = m.Status, IsEnabled = false });
         if (m.Blocked is not null) root.Items.Add(new MenuItem { Header = m.Blocked, IsEnabled = false });
 
-        var now = new MenuItem { Header = Strings.UpdateCheckNow, IsEnabled = m.CanCheckNow };
-        if (m.CheckOff)
-        {
-            now.ToolTip = Strings.UpdateCheckOffTip;
-            ToolTipService.SetShowOnDisabled(now, true);
-        }
-        now.Click += (_, _) => RunCheck(manual: true);
-        root.Items.Add(now);
+        var again = new MenuItem { Header = Strings.FinalNoticeShowAgain };
+        again.Click += (_, _) => ShowFinalNotice();
+        root.Items.Add(again);
 
         root.Items.Add(new Separator());
         foreach (var (mode, header) in Modes())
@@ -345,23 +214,15 @@ internal sealed class UpdateController
 
     public void SetMode(UpdateMode mode)
     {
-        var before = Mode;
         _state.UpdateMode = UpdateModes.Name(mode);
         _host.SaveNow();
         if (mode != UpdateMode.Auto)
         {
-            _cts?.Cancel();
-            _idle.Stop();
             var st = _rt.Store.LoadState();
             if (st.Pending is not null) UpdateApply.Drop(_rt, st);
         }
-        if (mode == UpdateMode.Off) { _host.HideNotice(); return; }
-        // 「自動で更新する」に戻したとき、もう新しい版を知っていれば、待たずに用意を始める（押した人の操作として）
-        if (mode == UpdateMode.Auto && before != UpdateMode.Auto)
-        {
-            var st = _rt.Store.LoadState();
-            if (st.LatestVersion is { } lv && AppVersion.TryParse(lv, out var v) && v > _rt.Current) RunCheck(manual: true);
-        }
+        if (mode == UpdateMode.Off) _host.HideNotice();
+        // v0.8.0 は新しい版を確かめに行かない。「自動で更新する」に戻しても通信は始めない
     }
 
     // -----------------------------------------------------------------------

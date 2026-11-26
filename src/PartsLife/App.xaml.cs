@@ -43,6 +43,22 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // `--shot-notice <出力先.png> [--lang en]` — 最後の版の案内の窓を PNG にして終わる。
+        // 保存・既読の記録・Mutex・通信のどれにも触れない（窓の中身を組んで絵にするだけ）
+        int shotNotice = Array.FindIndex(args, a => a == "--shot-notice");
+        if (shotNotice >= 0)
+        {
+            if (shotNotice + 1 < args.Length)
+            {
+                Updates.FinalNoticeUi.SaveShot(args[shotNotice + 1], LangArg(args) ?? "ja",
+                    shotNotice + 2 < args.Length && double.TryParse(args[shotNotice + 2], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var ns) ? ns : 2);
+                Shutdown();
+            }
+            else Shutdown(2);   // 引数が足りなくても、常駐の窓には落ちない
+            return;
+        }
+
         int shotCheck = Array.FindIndex(args, a => a == "--shot-check");
         if (shotCheck >= 0)
         {
@@ -77,32 +93,68 @@ public partial class App : System.Windows.Application
             // stayHere: 窓を出す前に入れ替えて見届けたが、戻し切れず起こし直しもできなかったとき。この版のまま窓を出して知らせる
             bool handled = Updates.UpdateBoot.Run(rt, state, args, () => Shutdown(),
                 notice => StartMain(state, rt, new Updates.BootResult(Notice: notice), args), out boot);
-            if (boot.Busy) { ShowBusyNotice(); return; }
+            if (boot.Busy) { ShowBusyNotice(I18n.Strings.UpdateBusy); return; }
             if (handled) return;
             Updates.AppData.CrashForTest(rt.Current);   // Debug ビルドの試験用だけ（Release では呼び出しごと消える）
         }
         StartMain(state, rt, boot, args);
     }
 
-    /// <summary>常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）</summary>
+    /// <summary>
+    /// 常駐の所有者（PCミエルの Party と共有する Mutex。DESIGN-C 3.2）。**窓が続く間ずっと持つ**。握るのも放すのも画面のスレッド
+    /// （StartMain と OnExit）。--render / --probe / --story / --shot / --shot-check / --shot-notice は、ここに来ない（窓を常駐させないので握らない）。
+    /// </summary>
+    private Update.ResidentMutex? _resident;
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _resident?.Dispose();
+        _resident = null;
+        base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 常駐の窓が本体。閉じたらアプリごと終わる（点検の窓が開いていても残らない。App.xaml の ShutdownMode）。
+    /// **MainWindow を作る前に常駐の Mutex を取る。** 取れなければ（もう一方のパーツぐらし・PCミエルの Party が動いている）
+    /// 短いお知らせだけ出して終わる。保存にも swap.json の Confirmed にも書かない
+    /// （入れ替えで起こされた子ならそのまま Confirmed が付かず、古い版が元に戻す）。
+    /// </summary>
     private void StartMain(Game.PartyState state, Updates.UpdateRuntime? rt, Updates.BootResult boot, string[] args)
     {
+        try
+        {
+            _resident = Update.ResidentMutex.TryAcquire(Update.ResidentMutex.CurrentName(Updates.AppData.TestDataDir));
+            if (_resident is null)
+            {
+                ShowBusyNotice(I18n.Strings.AnotherRunning);
+                return;
+            }
+        }
+        catch (Exception e) when (e is InvalidOperationException or IOException or System.Security.SecurityException
+                                  or System.Threading.WaitHandleCannotBeOpenedException)
+        {
+            // SID が引けない・名前が別の種類の物と衝突している。利用者を締め出さず、Mutex なしで動く（診断用に残す）
+            System.Diagnostics.Debug.WriteLine(e);
+        }
         var main = new MainWindow(state);
         if (rt is not null) main.Updates = new Updates.UpdateController(main, state, rt, boot);
         MainWindow = main;
         int bench = Array.IndexOf(args, "--bench");
         if (bench >= 0 && bench + 1 < args.Length) main.BenchMode = args[bench + 1];
         main.Show();
+        // 一度だけの案内。入れ替えで起こされた新しい版は、起動確認（Confirmed）を書き終えてから UpdateController が出す。
+        // 更新の係が無いとき（Environment.ProcessPath が空）だけ、ここで出す
+        if (main.Updates is null) Updates.FinalNoticeUi.ShowIfUnread(main);
     }
 
     private static void SetLanguage(Game.PartyState state) =>
         I18n.Strings.Lang = state.Lang.Length > 0 ? state.Lang : I18n.Strings.DetectDefault();
 
     /// <summary>
-    /// 入れ替えの最中に別に起動された。**黙って消えない。** 小さな窓で数秒だけ知らせて終わる
+    /// 入れ替えの最中に別に起動された・もう一方が常駐している。**黙って消えない。** 小さな窓で数秒だけ知らせて終わる
     /// （入れ替えている側が、終われば窓を出す）。待っている間も画面のスレッドは止めない。
     /// </summary>
-    private void ShowBusyNotice()
+    private void ShowBusyNotice(string text)
     {
         var w = new Window
         {
@@ -114,7 +166,7 @@ public partial class App : System.Windows.Application
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
             Content = new System.Windows.Controls.TextBlock
             {
-                Text = I18n.Strings.UpdateBusy,
+                Text = text,
                 Margin = new Thickness(18, 14, 18, 14),
                 FontSize = 13,
             },

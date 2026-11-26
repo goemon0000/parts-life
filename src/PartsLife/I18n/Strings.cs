@@ -109,6 +109,18 @@ public static class Strings
           $"Couldn't finish undoing the update ({why}). Running as is; if PartsLife.exe.old exists, rename it to PartsLife.exe");
     public static string UpdateBusy =>
         T("更新の途中です。少し待ってからもう一度起動してください", "An update is in progress. Please wait a moment and start again.");
+    // 最後の版（v0.8.0）: PCミエルへの引き継ぎの案内（FinalNoticeUi）と、常駐の取り合い（App.StartMain）
+    public static string AnotherRunning =>
+        T("もう一方のパーツぐらし（またはPCミエルのパーツぐらし）が動いています",
+          "Another Parts Life (or Parts Life in PC Mieru) is already running");
+    public static string FinalNoticeText =>
+        T("パーツぐらしは PCミエルの一部になりました。PCミエルで続きを引き継げます。",
+          "Parts Life is now part of PC Mieru. You can carry on in PC Mieru.");
+    public static string FinalNoticeOpen => T("PCミエルの紹介を開く", "Open the PC Mieru page");
+    public static string FinalNoticeClose => T("閉じる", "Close");
+    public static string FinalNoticeNotRecorded =>
+        T("既読を記録できませんでした。次回もう一度表示します", "Could not record that you read this; it will show again next time");
+    public static string FinalNoticeShowAgain => T("PCミエルのお知らせをもう一度見る", "Show the PC Mieru notice again");
     public static string UpdateSwapFailed(string why) => T($"入れ替えられませんでした: {why}", $"Couldn't install the update: {why}");
 
     internal static string CannotReplace(Updates.ReplaceBlock b) => b switch

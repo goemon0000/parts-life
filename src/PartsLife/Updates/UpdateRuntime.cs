@@ -25,6 +25,12 @@ internal static class AppData
     public static string UpdatesRoot => TestDataDir is { } d ? Path.Combine(d, "updates") : UpdateStore.DefaultRoot;
 
     /// <summary>
+    /// 最後の版の案内の既読（final-notice.json）の置き場。通常は %LOCALAPPDATA%\PartsLife。
+    /// 試験用の置き場（Debug だけ）では、その直下（普段の既読を触らない）。
+    /// </summary>
+    public static string FinalNoticeDir => TestDataDir ?? FinalNoticeStore.DefaultDir;
+
+    /// <summary>
     /// 試験用: この版として起動したら、3 秒後に落ちる（入れ替えた新しい版が起動直後に落ちる場面を、本物のアプリで作るため）。
     /// **Debug ビルドだけ。** 配布物（Release）では中身が空で、環境変数を見もしない。
     /// </summary>
