@@ -64,8 +64,15 @@ public sealed class UpdateEndpoints
 #endif
 
     /// <summary>Debug ビルドで、環境変数に 127.0.0.1 の URL が入っているときだけ試験用の行き先。ほかは null。</summary>
-    public static UpdateEndpoints? FromTestFeedVariable() =>
-        FromTestFeed(Environment.GetEnvironmentVariable(TestFeedVariable));
+    public static UpdateEndpoints? FromTestFeedVariable()
+    {
+        // 環境変数を読むこと自体を Debug だけにする（Release は読みもしない。FromTestFeed の TestFeedAllowed とは別の、二重の歯止め）
+#if DEBUG
+        return FromTestFeed(Environment.GetEnvironmentVariable(TestFeedVariable));
+#else
+        return null;
+#endif
+    }
 
     internal static UpdateEndpoints? FromTestFeed(string? value)
     {
